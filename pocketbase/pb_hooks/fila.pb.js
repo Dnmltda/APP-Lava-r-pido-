@@ -187,6 +187,7 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
       ip.set("empresa", empresa.id);
       ip.set("entrada", entrada.id);
       ip.set("produto", it.produto.id);
+      ip.set("produto_nome", it.produto.getString("nome"));
       ip.set("quantidade", it.quantidade);
       ip.set("preco_unitario", it.produto.getFloat("preco"));
       ip.set("status", "pendente");
@@ -356,6 +357,10 @@ routerAdd("POST", "/api/lr/fila/{id}/{acao}", (e) => {
       motivo: motivo,
     });
   });
+
+  // Aviso no celular do cliente (Etapa 6).
+  const tipoAviso = { confirmar: "confirmada", avisar: "aviso_vez", pronto: "pronto", finalizar: "avaliacao" }[nomeAcao];
+  if (tipoAviso) lib.notificarEntrada(e.app, entrada, tipoAviso, { repetir: nomeAcao === "avisar" });
 
   return e.json(200, { id: entrada.id, status: entrada.getString("status") });
 }, $apis.requireAuth("usuarios"));

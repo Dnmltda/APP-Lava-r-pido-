@@ -53,6 +53,7 @@ export function Painel() {
             {pode(vinculo, "ver_valores") && (
               <Atalho para={`/${empresa.slug}/caixa`} titulo="Caixa" texto="Gastos e entradas do mês" />
             )}
+            <Atalho para={`/${empresa.slug}/avaliacoes`} titulo="Avaliações" texto="O que os clientes acharam" />
             {vinculo.papel !== "patrao" && (
               <Atalho para={`/${empresa.slug}/minha-area`} titulo="Minha área" texto="Carros lavados, bônus, vales e holerites" />
             )}

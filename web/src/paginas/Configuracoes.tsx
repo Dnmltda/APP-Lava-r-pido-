@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
-import { Aviso, Botao, Campo, Cartao } from "../componentes/ui";
+import { Aviso, Botao, Campo } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { DIAS_SEMANA, mascaraCelular, somenteDigitos } from "../lib/formato";
 import { mensagemDeErro, pb, urlArquivo } from "../lib/pb";
@@ -15,6 +15,21 @@ const HORARIO_PADRAO: DiaFuncionamento[] = DIAS_SEMANA.map((_, i) => ({
   fecha: i === 6 ? "14:00" : "18:00",
 }));
 
+// Mesmos padrões do servidor (pb_hooks/lib.js → TEXTOS_PADRAO).
+const TEXTOS_PADRAO = {
+  confirmada: "Sua vez no {empresa} foi confirmada! Previsão de início: {hora}.",
+  aviso_vez: "Faltam {minutos} minutos para a sua vez no {empresa}. Se quiser, já pode vir, temos café esperando!",
+  pronto: "Seu carro está pronto no {empresa}. Pode vir buscar!",
+  avaliacao: "Como foi sua lavagem no {empresa}? Toque para avaliar.",
+};
+type ChaveTexto = keyof typeof TEXTOS_PADRAO;
+const ROTULO_TEXTO: Record<ChaveTexto, string> = {
+  confirmada: "Quando a vez é confirmada",
+  aviso_vez: "“Já pode vir” (aviso antes da vez)",
+  pronto: "Quando o carro fica pronto",
+  avaliacao: "Convite para avaliar (depois da baixa)",
+};
+
 const TEXTO_AVISO_PADRAO =
   "Faltam {minutos} minutos para a sua vez no {empresa}. Se quiser, já pode vir, temos café esperando!";
 
@@ -27,7 +42,15 @@ export function Configuracoes() {
   const [capacidade, setCapacidade] = useState(String(empresa.capacidade_simultanea || 2));
   const [tolerancia, setTolerancia] = useState(String(empresa.tolerancia_min ?? 10));
   const [aviso, setAviso] = useState(String(empresa.aviso_min ?? 15));
-  const [textoAviso, setTextoAviso] = useState(empresa.textos_aviso?.aviso_vez || TEXTO_AVISO_PADRAO);
+  const [textos, setTextos] = useState<Record<ChaveTexto, string>>(() => {
+    const salvos = (empresa.textos_aviso || {}) as Partial<Record<ChaveTexto, string>>;
+    return {
+      confirmada: salvos.confirmada || TEXTOS_PADRAO.confirmada,
+      aviso_vez: salvos.aviso_vez || TEXTO_AVISO_PADRAO,
+      pronto: salvos.pronto || TEXTOS_PADRAO.pronto,
+      avaliacao: salvos.avaliacao || TEXTOS_PADRAO.avaliacao,
+    };
+  });
   const [horario, setHorario] = useState<DiaFuncionamento[]>(
     empresa.horario_funcionamento?.length === 7 ? empresa.horario_funcionamento : HORARIO_PADRAO,
   );
@@ -71,7 +94,8 @@ export function Configuracoes() {
     dados.append("capacidade_simultanea", capacidade);
     dados.append("tolerancia_min", tolerancia);
     dados.append("aviso_min", aviso);
-    dados.append("textos_aviso", JSON.stringify({ ...(empresa.textos_aviso || {}), aviso_vez: textoAviso.trim() }));
+    const limpos = Object.fromEntries(Object.entries(textos).map(([k, v]) => [k, v.trim() || TEXTOS_PADRAO[k as ChaveTexto]]));
+    dados.append("textos_aviso", JSON.stringify({ ...(empresa.textos_aviso || {}), ...limpos }));
     dados.append("horario_funcionamento", JSON.stringify(horario));
     if (logo) dados.append("logo", logo);
     setSalvando(true);
@@ -87,7 +111,7 @@ export function Configuracoes() {
     }
   }
 
-  const exemploAviso = textoAviso.replaceAll("{minutos}", aviso || "15").replaceAll("{empresa}", nome);
+  const exemplo = (t: string) => t.replaceAll("{minutos}", aviso || "15").replaceAll("{empresa}", nome).replaceAll("{hora}", "14:30");
 
   return (
     <Moldura voltarPara={`/${empresa.slug}`} titulo="Configurações">
@@ -179,25 +203,28 @@ export function Configuracoes() {
             value={aviso}
             onChange={(e) => setAviso(e.target.value)}
           />
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="texto-aviso" className="text-base font-semibold text-tinta">
-              Mensagem
-            </label>
-            <textarea
-              id="texto-aviso"
-              rows={3}
-              value={textoAviso}
-              onChange={(e) => setTextoAviso(e.target.value)}
-              className="rounded-xl border-2 border-linha bg-white px-4 py-3 text-base text-tinta focus:border-marca focus:outline-none"
-            />
-            <p className="text-sm text-tinta-suave">
-              Use {"{minutos}"} e {"{empresa}"}: o app troca pelos valores certos.
-            </p>
-          </div>
-          <Cartao className="bg-marca-suave">
-            <p className="text-sm font-bold text-tinta-suave">Como o cliente vai ler:</p>
-            <p className="mt-1 text-base text-tinta">{exemploAviso}</p>
-          </Cartao>
+          <p className="text-sm text-tinta-suave">
+            Os avisos chegam como notificação no celular do cliente (com o app instalado). Use {"{empresa}"}, {"{minutos}"} e {"{hora}"}:
+            o app troca pelos valores certos.
+          </p>
+          {(Object.keys(ROTULO_TEXTO) as ChaveTexto[]).map((k) => (
+            <div key={k} className="flex flex-col gap-1.5">
+              <label htmlFor={`texto-${k}`} className="text-base font-semibold text-tinta">
+                {ROTULO_TEXTO[k]}
+              </label>
+              <textarea
+                id={`texto-${k}`}
+                rows={2}
+                maxLength={300}
+                value={textos[k]}
+                onChange={(e) => setTextos((t) => ({ ...t, [k]: e.target.value }))}
+                className="rounded-xl border-2 border-linha bg-white px-4 py-3 text-base text-tinta focus:border-marca focus:outline-none"
+              />
+              <p className="rounded-lg bg-marca-suave px-3 py-2 text-sm text-tinta">
+                <span className="font-bold">Cliente lê:</span> {exemplo(textos[k])}
+              </p>
+            </div>
+          ))}
         </Secao>
 
         <Secao titulo="Horário de funcionamento">

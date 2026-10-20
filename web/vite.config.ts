@@ -28,6 +28,8 @@ export default defineConfig({
       workbox: {
         // A API do PocketBase nunca vai para o cache: dados sempre frescos.
         navigateFallbackDenylist: [/^\/api\//, /^\/_\//],
+        // Notificações (Web Push): public/push-sw.js
+        importScripts: ["push-sw.js"],
       },
     }),
   ],

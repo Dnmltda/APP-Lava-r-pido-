@@ -7,6 +7,7 @@ import { useEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
 import { mascaraCelular } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
+import { desativarAvisos } from "../lib/push";
 import type { Usuario } from "../lib/tipos";
 
 export function Conta() {
@@ -105,7 +106,8 @@ export function Conta() {
         <Botao
           variante="secundario"
           largo
-          onClick={() => {
+          onClick={async () => {
+            await desativarAvisos();
             sair();
             navegar(`/${empresa.slug}/entrar`, { replace: true });
           }}

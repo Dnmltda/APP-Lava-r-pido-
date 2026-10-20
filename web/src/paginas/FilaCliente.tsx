@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { AtivarAvisos } from "../componentes/Avisos";
 import { ListaFilaPublica, IconeBusca } from "../componentes/fila";
 import { descricaoVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
 import { Quantidade } from "../componentes/Quantidade";
@@ -26,13 +28,21 @@ export function FilaCliente() {
   const [ocupado, setOcupado] = useState(false);
   const [erroAcao, setErroAcao] = useState("");
   const [itens, setItens] = useState<Record<string, ItemPedido[]>>({});
+  const [avaliar, setAvaliar] = useState("");
+
+  // Última lavagem ainda sem avaliação (até 3 dias).
+  useEffect(() => {
+    pb.send<{ entrada: string }>(`/api/lr/avaliacao-pendente/${encodeURIComponent(empresa.slug)}`, { method: "GET" })
+      .then((r) => setAvaliar(r.entrada))
+      .catch(() => {});
+  }, [empresa.slug]);
   const idMinha = publica && [...publica.lavando, ...publica.fila, ...publica.prontos].find((i) => i.minha)?.id;
 
   // Produtos que o cliente pediu (e se a equipe já separou).
   useEffect(() => {
     if (!idMinha) return;
     pb.collection("itens_pedido")
-      .getFullList<ItemPedido>({ filter: pb.filter("entrada = {:e}", { e: idMinha }), expand: "produto" })
+      .getFullList<ItemPedido>({ filter: pb.filter("entrada = {:e}", { e: idMinha }) })
       .then((l) => setItens((x) => ({ ...x, [idMinha]: l })))
       .catch(() => {});
   }, [idMinha, publica]);
@@ -105,7 +115,7 @@ export function FilaCliente() {
               {meusItens.map((i) => (
                 <li key={i.id} className="flex justify-between gap-2">
                   <span>
-                    {i.quantidade}× {i.expand?.produto?.nome || "Produto"}
+                    {i.quantidade}× {i.produto_nome || i.expand?.produto?.nome || "Produto"}
                   </span>
                   <span className="text-sm font-bold opacity-90">
                     {i.status === "separado" ? "separado ✓" : i.status === "em_falta" ? "em falta" : ""}
@@ -138,6 +148,19 @@ export function FilaCliente() {
       )}
       {erroAcao && <Aviso>{erroAcao}</Aviso>}
       {erro && <Aviso>{erro}</Aviso>}
+      {avaliar && !minha && (
+        <Link
+          to={`/${empresa.slug}/avaliar/${avaliar}`}
+          className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-3"
+        >
+          <span>
+            <span className="block text-lg font-extrabold text-tinta">Como foi sua lavagem?</span>
+            <span className="block text-base text-tinta-suave">Avalie em 10 segundos ★★★★★</span>
+          </span>
+          <span className="text-2xl text-tinta" aria-hidden="true">›</span>
+        </Link>
+      )}
+      <AtivarAvisos />
 
       <section>
         <div className="mb-3 flex items-center justify-between">

@@ -24,7 +24,7 @@ export interface Empresa extends Base {
   capacidade_simultanea: number;
   tolerancia_min: number;
   aviso_min: number;
-  textos_aviso: { aviso_vez?: string } | null;
+  textos_aviso: { confirmada?: string; aviso_vez?: string; pronto?: string; avaliacao?: string } | null;
   horario_funcionamento: DiaFuncionamento[] | null;
   comissao_ativa: boolean;
   ativo: boolean;
@@ -122,6 +122,7 @@ export interface ItemPedido extends Base {
   empresa: string;
   entrada: string;
   produto: string;
+  produto_nome: string;
   quantidade: number;
   preco_unitario: number;
   status: "pendente" | "separado" | "em_falta";

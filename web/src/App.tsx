@@ -8,6 +8,7 @@ import { Conta } from "./paginas/Conta";
 import { Equipe } from "./paginas/Equipe";
 import { Inicio } from "./paginas/Inicio";
 import { FilaEquipe } from "./paginas/FilaEquipe";
+import { Avaliacoes, Avaliar } from "./paginas/Avaliacoes";
 import { Caixa } from "./paginas/Caixa";
 import { MinhaArea } from "./paginas/MinhaArea";
 import { Painel } from "./paginas/Painel";
@@ -64,6 +65,8 @@ export default function App() {
             <Route path="painel" element={<PainelDia />} />
             <Route path="caixa" element={<Caixa />} />
             <Route path="minha-area" element={<MinhaArea />} />
+            <Route path="avaliar/:entrada" element={<Avaliar />} />
+            <Route path="avaliacoes" element={<Avaliacoes />} />
             <Route path="configuracoes" element={<Configuracoes />} />
             <Route path="servicos" element={<Servicos />} />
             <Route path="fila" element={<FilaEquipe />} />

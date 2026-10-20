@@ -18,7 +18,18 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 | 3. Regras da fila | ✅ concluída | `testar-regras-fila.mjs`: 49/49 (dia com 15 carros e 5 reservas) |
 | 4. Produtos e vendas | ✅ concluída | `testar-vendas.mjs`: 53/53 |
 | 5. Painéis | ✅ concluída | `testar-paineis.mjs`: 59/59 |
-| 6 a 8 | a fazer | |
+| 6. Avisos e avaliação | ✅ concluída | `testar-avisos.mjs`: 31/31 (Web Push descriptografado + VAPID conferido) |
+| 7 e 8 | a fazer | |
+
+### Etapa 6: Avisos e avaliação
+- **Notificação no celular (Web Push)**: "Vez confirmada", "Já pode vir" e "Carro pronto". Depois da baixa vem o convite "Como foi sua lavagem?", que abre a tela de avaliar.
+  - O "Já pode vir" sai **sozinho** quando faltam X minutos (padrão 15), verificado a cada minuto, sem repetir. O botão "Avisar no WhatsApp" também manda pelo app.
+  - O envio é feito em Go, no PocketBase do Lava Rápido (`deploy/hostinger/pocketbase/push.go`, biblioteca webpush-go). As chaves VAPID são geradas sozinhas e ficam no servidor.
+  - Aparelho que desinstalou (410) é removido sozinho. Ao sair do app, o aparelho deixa de receber.
+  - **iPhone**: só com o app na Tela de Início (iOS 16.4+). O app mostra o passo a passo. **Android**: botão "Instalar o app".
+- **Textos configuráveis** (Configurações), com prévia: confirmação, "já pode vir", pronto e convite para avaliar. Aceitam `{empresa}`, `{minutos}` e `{hora}`.
+- **Avaliação** (1 a 5 estrelas): quem lavou, atendimento e ambiente, mais comentário. Uma por lavagem, só pelo cliente, depois da baixa, em até 30 dias.
+  - A **equipe vê as médias e a lista sem o nome do cliente**. O patrão vê com o nome. Cada funcionário tem a aba "Minhas".
 
 ### Etapa 5: Painéis
 - **Painel do dia** (patrão e gerente), por hoje, ontem, 7 dias ou mês:
@@ -95,7 +106,7 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 Requisitos: Node 20+.
 
 ```sh
-./scripts/baixar-pocketbase.sh          # baixa o PocketBase 0.40.4 para pocketbase/bin/
+./scripts/compilar-pocketbase.sh        # compila o PocketBase do Lava Rápido (precisa de Go) em pocketbase/bin/
 npm run pb                              # backend em http://127.0.0.1:8090 (aplica as migrations)
 ./pocketbase/bin/pocketbase superuser upsert voce@email.com 'SenhaForte123' --dir pocketbase/pb_data
 

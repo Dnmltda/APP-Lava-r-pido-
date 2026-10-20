@@ -620,7 +620,105 @@ function areaDoFuncionario(app, empresa, usuarioId, mesIni, mesFim) {
   };
 }
 
+// ------------------------------------------------------------------ avisos
+const TEXTOS_PADRAO = {
+  confirmada: "Sua vez no {empresa} foi confirmada! Previsão de início: {hora}.",
+  aviso_vez: "Faltam {minutos} minutos para a sua vez no {empresa}. Se quiser, já pode vir, temos café esperando!",
+  pronto: "Seu carro está pronto no {empresa}. Pode vir buscar!",
+  avaliacao: "Como foi sua lavagem no {empresa}? Toque para avaliar.",
+};
+
+const FMT_HORA_SP = (ms) => {
+  const d = new Date(ms - OFFSET_SP);
+  return String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0");
+};
+
+function textoDoAviso(empresa, chave, vars) {
+  let textos = {};
+  try {
+    textos = JSON.parse(empresa.getString("textos_aviso") || "{}") || {};
+  } catch (_) {}
+  let t = String(textos[chave] || TEXTOS_PADRAO[chave] || "");
+  const valores = Object.assign({ empresa: empresa.getString("nome"), minutos: String(empresa.getInt("aviso_min") || 15) }, vars || {});
+  for (const k of Object.keys(valores)) t = t.split("{" + k + "}").join(valores[k]);
+  return t;
+}
+
+// Par de chaves VAPID do servidor (gera na primeira vez).
+function chavesPush(app) {
+  try {
+    const r = app.findFirstRecordByFilter("push_chaves", "id != ''");
+    return { publica: r.getString("publica"), privada: r.getString("privada") };
+  } catch (_) {}
+  const nova = $lr.gerarChavesVapid();
+  if (nova.erro) throw new Error(nova.erro);
+  const r = new Record(app.findCollectionByNameOrId("push_chaves"));
+  r.set("publica", nova.publica);
+  r.set("privada", nova.privada);
+  app.save(r);
+  return { publica: nova.publica, privada: nova.privada };
+}
+
+// Manda a notificação para todos os aparelhos do usuário. Nunca lança erro.
+// Inscrições expiradas (404/410) são apagadas.
+function notificarUsuario(app, usuarioId, msg) {
+  let enviados = 0;
+  try {
+    const inscricoes = app.findRecordsByFilter("push_inscricoes", "usuario = {:u}", "", 20, 0, { u: usuarioId });
+    if (!inscricoes.length) return 0;
+    const ch = chavesPush(app);
+    const payload = JSON.stringify({ title: msg.titulo, body: msg.texto, url: msg.url || "/", tag: msg.tag || "" });
+    for (const i of inscricoes) {
+      const sub = JSON.stringify({ endpoint: i.getString("endpoint"), keys: { p256dh: i.getString("p256dh"), auth: i.getString("auth") } });
+      const r = $lr.enviarPush(sub, payload, ch.publica, ch.privada, "mailto:contato@dnmltda.com.br", 3600);
+      if (r.status >= 200 && r.status < 300) enviados++;
+      else if (r.status === 404 || r.status === 410) app.delete(i);
+      else console.log("[push] falhou", r.status, r.erro);
+    }
+  } catch (err) {
+    console.log("[push] erro", err);
+  }
+  return enviados;
+}
+
+// Aviso de uma entrada da fila para o cliente dela (só uma vez por tipo).
+//   tipo: confirmada | aviso_vez | pronto | avaliacao
+function notificarEntrada(app, entrada, tipo, extra) {
+  const cliente = entrada.getString("cliente");
+  if (!cliente) return 0;
+  const campo = { confirmada: "push_confirmado_em", aviso_vez: "push_aviso_em", pronto: "push_pronto_em", avaliacao: "push_avaliacao_em" }[tipo];
+  if (!campo) return 0;
+  if (entrada.getString(campo) && !(extra && extra.repetir)) return 0;
+  let empresa;
+  try {
+    empresa = app.findRecordById("empresas", entrada.getString("empresa"));
+  } catch (_) {
+    return 0;
+  }
+  const slug = empresa.getString("slug");
+  const prev = dataMs(entrada, "previsao_inicio");
+  const titulos = { confirmada: "Vez confirmada ✅", aviso_vez: "Já pode vir! 🚗", pronto: "Carro pronto ✨", avaliacao: "Como foi sua lavagem?" };
+  const enviados = notificarUsuario(app, cliente, {
+    titulo: titulos[tipo] + " · " + empresa.getString("nome"),
+    texto: textoDoAviso(empresa, tipo, { hora: prev ? FMT_HORA_SP(prev) : "" }),
+    url: tipo === "avaliacao" ? "/" + slug + "/avaliar/" + entrada.id : "/" + slug,
+    tag: tipo + "-" + entrada.id,
+  });
+  try {
+    entrada.set(campo, agoraISO());
+    app.unsafeWithoutHooks().save(entrada);
+  } catch (err) {
+    console.log("[push] não marcou", campo, err);
+  }
+  return enviados;
+}
+
 module.exports = {
+  TEXTOS_PADRAO,
+  textoDoAviso,
+  chavesPush,
+  notificarUsuario,
+  notificarEntrada,
   inicioDiaSP,
   inicioMesSP,
   inicioMesSeguinteSP,

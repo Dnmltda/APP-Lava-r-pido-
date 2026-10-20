@@ -128,7 +128,7 @@ async function main() {
     const entrada = r.data.id;
     checar("carrinho não mexe no estoque (sem pagamento)", (await estoque(cheirinho.id)) === 10);
     r = await api("GET", `/api/collections/itens_pedido/records?filter=${encodeURIComponent(`entrada="${entrada}"`)}`, { token: cliente.token });
-    checar("cliente vê os próprios itens", r.data.items.length === 2, r.data.items.length);
+    checar("cliente vê os próprios itens, com o nome do produto", r.data.items.length === 2 && r.data.items.every((i) => i.produto_nome), r.data.items.map((i) => i.produto_nome));
     const itemCheirinho = r.data.items.find((i) => i.produto === cheirinho.id);
     r = await api("GET", `/api/collections/itens_pedido/records`, { token: cliente2.token });
     checar("outro cliente não vê", r.data.items.length === 0);

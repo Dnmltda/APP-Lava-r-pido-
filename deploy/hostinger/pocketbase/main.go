@@ -1,10 +1,11 @@
 // PocketBase do DNM&LTDA Lava Rápido para a hospedagem Node.js da Hostinger.
 //
-// É o main.go oficial do PocketBase 0.40.4 (examples/base) com UMA mudança:
-// se PB_LISTEN_FD estiver definido, o servidor atende no socket herdado do
-// processo Node (o LiteSpeed da Hostinger redireciona o listen() do Node para
-// um socket de arquivo e só entrega o tráfego ali). Sem a variável, funciona
-// exatamente como o PocketBase oficial (--http).
+// É o main.go oficial do PocketBase 0.40.4 (examples/base) com duas adições:
+//   - se PB_LISTEN_FD estiver definido, o servidor atende no socket herdado do
+//     processo Node (o LiteSpeed da Hostinger redireciona o listen() do Node para
+//     um socket de arquivo e só entrega o tráfego ali). Sem a variável, funciona
+//     exatamente como o PocketBase oficial (--http);
+//   - $lr.enviarPush / $lr.gerarChavesVapid para os hooks JS (push.go).
 package main
 
 import (
@@ -95,6 +96,7 @@ func main() {
 
 	// load jsvm (pb_hooks and pb_migrations)
 	jsvm.MustRegister(app, jsvm.Config{
+		OnInit:        registrarPush,
 		MigrationsDir: migrationsDir,
 		HooksDir:      hooksDir,
 		HooksWatch:    hooksWatch,
