@@ -1,7 +1,7 @@
 import { Camera } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { comprimirImagem } from "../lib/imagem";
-import { mensagemDeErro, pb } from "../lib/pb";
+import { mensagemDeErro, pb, urlProtegida } from "../lib/pb";
 import type { Vistoria } from "../lib/tipos";
 import { Aviso, Botao, Carregando, Folha } from "./ui";
 
@@ -101,7 +101,7 @@ export function FotosEntrada({
     }
   }
 
-  const url = (v: Vistoria, nome: string, thumb?: string) => pb.files.getURL(v, nome, { token, ...(thumb ? { thumb } : {}) });
+  const url = (v: Vistoria, nome: string) => urlProtegida(v, nome, token);
 
   return (
     <Folha titulo={titulo} onFechar={onFechar}>
@@ -122,7 +122,7 @@ export function FotosEntrada({
                     <div className="grid grid-cols-3 gap-2">
                       {v.fotos.map((f) => (
                         <a key={f} href={url(v, f)} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl bg-fundo">
-                          <img src={url(v, f, "400x0")} alt={`Foto ${m === "antes" ? "de antes" : "de depois"}`} className="aspect-square w-full object-cover" loading="lazy" />
+                          <img src={url(v, f)} alt={`Foto ${m === "antes" ? "de antes" : "de depois"}`} className="aspect-square w-full object-cover" loading="lazy" />
                         </a>
                       ))}
                     </div>

@@ -89,3 +89,36 @@ routerAdd("GET", "/api/lr/fechamento-mes/{empresa}", (e) => {
   const dono = lib.ehPatraoAtivo(e.app, e.auth.id, empresaId);
   return e.json(200, lib.fechamentoMes(e.app, empresaId, mes[0], mes[1], dono));
 }, $apis.requireAuth("usuarios"));
+
+// ------------------------------------------------- fotos e notas protegidas
+// GET /api/lr/arquivo/{colecao}/{id}?nome=arquivo.jpg&token=PASSE_DE_ARQUIVO
+// A CDN da Hostinger trata endereço terminado em .png/.jpg como arquivo estático e
+// descarta o "?token=" — o /api/files/... protegido então nunca abre. Este endereço não
+// termina em extensão e confere o passe e a regra de leitura do próprio registro.
+routerAdd("GET", "/api/lr/arquivo/{colecao}/{id}", (e) => {
+  const CAMPOS = { vistorias: "fotos", fechamentos_dia: "anexos" };
+  const colecao = e.request.pathValue("colecao");
+  const campo = CAMPOS[colecao];
+  const q = e.request.url.query();
+  const nome = q.get("nome") || "";
+  const naoAchou = () => new NotFoundError("Arquivo não encontrado.");
+  if (!campo || !nome) throw naoAchou();
+  let record, auth;
+  try {
+    record = e.app.findRecordById(colecao, e.request.pathValue("id"));
+    auth = e.app.findAuthRecordByToken(q.get("token") || "", "file");
+  } catch (_) {
+    throw naoAchou();
+  }
+  if ((record.get(campo) || []).indexOf(nome) < 0) throw naoAchou();
+  const info = e.requestInfo();
+  info.auth = auth;
+  if (!e.app.canAccessRecord(record, info, record.collection().viewRule)) throw naoAchou();
+  const fsys = e.app.newFilesystem();
+  try {
+    e.response.header().set("Cache-Control", "private, no-store");
+    fsys.serve(e.response, e.request, record.baseFilesPath() + "/" + nome, nome);
+  } finally {
+    fsys.close();
+  }
+});

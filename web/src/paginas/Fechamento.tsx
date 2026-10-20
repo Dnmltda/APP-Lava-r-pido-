@@ -7,7 +7,7 @@ import { useEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
 import { comprimirImagem } from "../lib/imagem";
 import { primeiroNome, reais } from "../lib/formato";
-import { mensagemDeErro, pb } from "../lib/pb";
+import { mensagemDeErro, pb, urlProtegida } from "../lib/pb";
 import { pode } from "../lib/permissoes";
 import type { FechamentoDia } from "../lib/tipos";
 
@@ -225,7 +225,7 @@ function DiaDoFechamento({ dia, podeLancar, onSalvo }: { dia: string; podeLancar
         {registro?.anexos?.length ? (
           <div className="grid grid-cols-3 gap-2">
             {registro.anexos.map((a) => {
-              const url = pb.files.getURL(registro, a, { token });
+              const url = urlProtegida(registro, a, token);
               const pdf = a.toLowerCase().endsWith(".pdf");
               return (
                 <a key={a} href={url} target="_blank" rel="noreferrer" className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-linha bg-fundo">
@@ -234,7 +234,7 @@ function DiaDoFechamento({ dia, podeLancar, onSalvo }: { dia: string; podeLancar
                       <FileText className="h-8 w-8" aria-hidden="true" /> PDF
                     </span>
                   ) : (
-                    <img src={pb.files.getURL(registro, a, { token, thumb: "400x0" })} alt="Nota anexada" className="h-full w-full object-cover" loading="lazy" />
+                    <img src={url} alt="Nota anexada" className="h-full w-full object-cover" loading="lazy" />
                   )}
                 </a>
               );

@@ -316,6 +316,7 @@ async function main() {
       await cli.getByRole("radio", { name: "Carro grande" }).waitFor({ timeout: 10000 });
       checar("cliente escolhe o tipo, mas não vê o tipo restrito (Uber)", (await cli.getByRole("radio", { name: "Uber" }).count()) === 0);
       await cli.getByRole("radio", { name: "Carro grande" }).click();
+      await cli.getByText("R$ 60,00").first().waitFor({ timeout: 10000 }).catch(() => {});
       checar("preço muda para o do carro grande", await cli.getByText("R$ 60,00").first().isVisible());
       await cli.getByText("Lavagem simples").first().click();
       await cli.getByRole("button", { name: "Confirmar e entrar na fila" }).click();
@@ -355,7 +356,8 @@ async function main() {
       checar("cliente vê o botão com as fotos do carro dele", await cli.getByRole("button", { name: /Ver fotos do seu carro \(1\)/ }).isVisible());
       await cli.getByRole("button", { name: /Ver fotos do seu carro/ }).click();
       await cli.getByRole("img", { name: /Foto de antes/ }).first().waitFor({ timeout: 10000 }).catch(() => {});
-      checar("e abre as fotos", (await cli.getByRole("img", { name: /Foto de antes/ }).count()) === 1);
+      await cli.waitForFunction(() => [...document.querySelectorAll("img")].some((i) => /Foto de antes/.test(i.alt) && i.complete && i.naturalWidth > 0), null, { timeout: 15000 }).catch(() => {});
+      checar("e a foto carrega de verdade", await cli.evaluate(() => [...document.querySelectorAll("img")].some((i) => /Foto de antes/.test(i.alt) && i.naturalWidth > 0)));
       await foto("cliente", "fotos-do-carro");
 
       await ger.goto(`${APP}/${A.slug}/fechamento`);
@@ -370,6 +372,8 @@ async function main() {
       await pat.goto(`${APP}/${A.slug}/fechamento`);
       await pat.getByText("Notas do dia (1)").waitFor({ timeout: 15000 }).catch(() => {});
       checar("dono acompanha o fechamento e a nota", await pat.getByText("Notas do dia (1)").isVisible());
+      await pat.waitForFunction(() => [...document.querySelectorAll("img")].some((i) => i.alt === "Nota anexada" && i.complete && i.naturalWidth > 0), null, { timeout: 15000 }).catch(() => {});
+      checar("e a foto da nota carrega", await pat.evaluate(() => [...document.querySelectorAll("img")].some((i) => i.alt === "Nota anexada" && i.naturalWidth > 0)));
 
       await pat.goto(`${APP}/${A.slug}/caixa`);
       await pat.getByRole("button", { name: "+ Gasto fixo" }).click();

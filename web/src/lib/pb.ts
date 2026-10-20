@@ -21,6 +21,13 @@ export function mensagemDeErro(err: unknown, padrao = "Algo deu errado. Tente de
   return padrao;
 }
 
+// Fotos e notas protegidas: endereço do app sem extensão no fim (a CDN da Hostinger
+// descarta o "?token=" de endereços terminados em .png/.jpg).
+export function urlProtegida(record: { id: string; collectionName: string }, arquivo: string, token: string) {
+  const q = new URLSearchParams({ nome: arquivo, token });
+  return pb.buildURL(`/api/lr/arquivo/${record.collectionName}/${record.id}?${q}`);
+}
+
 export function urlArquivo(record: { id: string; collectionId: string }, arquivo: string, thumb?: string) {
   if (!arquivo) return "";
   return pb.files.getURL(record, arquivo, thumb ? { thumb } : undefined);

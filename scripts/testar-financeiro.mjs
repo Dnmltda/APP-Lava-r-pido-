@@ -157,7 +157,15 @@ async function main() {
     const urlFoto = `/api/files/vistorias/${vAntes.id}/${vAntes.fotos[0]}`;
     checar("foto não abre sem passe (arquivo protegido)", (await fetch(PB + urlFoto)).status >= 400);
     const tk = (await api("POST", "/api/files/token", { token: c1.token })).data.token;
-    checar("com o passe do cliente a foto abre", (await fetch(`${PB}${urlFoto}?token=${tk}`)).status === 200);
+    // Endereço próprio do app (a CDN da Hostinger descarta o ?token= de endereços .png/.jpg)
+    const urlApp = (v, nome, token) => `${PB}/api/lr/arquivo/vistorias/${v.id}?nome=${encodeURIComponent(nome)}${token ? `&token=${token}` : ""}`;
+    checar("pelo endereço do app, a foto não abre sem passe", (await fetch(urlApp(vAntes, vAntes.fotos[0]))).status === 404);
+    const rFoto = await fetch(urlApp(vAntes, vAntes.fotos[0], tk));
+    checar("com o passe do cliente a foto abre", rFoto.status === 200 && (rFoto.headers.get("content-type") || "").startsWith("image/"), rFoto.status);
+    checar("e não fica guardada em cache", /no-store/.test(rFoto.headers.get("cache-control") || ""));
+    const tk2 = (await api("POST", "/api/files/token", { token: c2.token })).data.token;
+    checar("o passe de outro cliente não abre a foto", (await fetch(urlApp(vAntes, vAntes.fotos[0], tk2))).status === 404);
+    checar("nome de arquivo que não é do registro não abre", (await fetch(urlApp(vAntes, "../../data.db", tk))).status === 404);
     r = await api("PATCH", `/api/collections/vistorias/records/${vAntes.id}`, { token: gerente.token, body: { avarias: "nada" } });
     checar("foto é prova: ninguém edita", negado(r), r.status);
     r = await api("DELETE", `/api/collections/vistorias/records/${vAntes.id}`, { token: patrao.token });
@@ -214,6 +222,12 @@ async function main() {
     checar("nota não abre sem passe", (await fetch(PB + urlNota)).status >= 400);
     const tkG = (await api("POST", "/api/files/token", { token: gerente.token })).data.token;
     checar("com o passe do gerente a nota abre", (await fetch(`${PB}${urlNota}?token=${tkG}`)).status === 200);
+    for (const nome of fech.anexos) {
+      const rn = await fetch(`${PB}/api/lr/arquivo/fechamentos_dia/${fech.id}?nome=${encodeURIComponent(nome)}&token=${tkG}`);
+      checar(`pelo endereço do app a nota ${nome.endsWith(".pdf") ? "PDF" : "em foto"} abre`, rn.status === 200, rn.status);
+    }
+    const tkF = (await api("POST", "/api/files/token", { token: c1.token })).data.token;
+    checar("cliente não abre a nota, nem com passe", (await fetch(`${PB}/api/lr/arquivo/fechamentos_dia/${fech.id}?nome=${encodeURIComponent(fech.anexos[0])}&token=${tkF}`)).status === 404);
     r = await api("DELETE", `/api/collections/fechamentos_dia/records/${fech.id}`, { token: patrao.token });
     checar("fechamento não se apaga", negado(r), r.status);
 
