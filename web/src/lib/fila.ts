@@ -75,7 +75,7 @@ export const NOME_STATUS: Record<StatusFila, string> = {
 };
 
 // Fila ao vivo: carrega a visão pública e recarrega sozinha quando o sinal de
-// tempo real da empresa muda (e a cada minuto, para atualizar as previsões).
+// tempo real da empresa muda (e a cada 10 s, como rede de segurança).
 // Com `completa`, a equipe também recebe as entradas com nome, placa e serviço.
 export function useFilaAoVivo(slug: string, empresaId: string, completa = false) {
   const [publica, setPublica] = useState<FilaPublica | null>(null);
@@ -140,7 +140,9 @@ export function useFilaAoVivo(slug: string, empresaId: string, completa = false)
         else fn();
       })
       .catch(() => {});
-    const relogio = window.setInterval(carregar, 60_000);
+    // Rede de segurança: se algum proxy segurar os eventos do tempo real, a fila
+    // ainda se atualiza sozinha a cada 10 s (e as previsões andam com o relógio).
+    const relogio = window.setInterval(carregar, 10_000);
     const aoVoltar = () => document.visibilityState === "visible" && carregar();
     document.addEventListener("visibilitychange", aoVoltar);
     window.addEventListener("online", carregar);
