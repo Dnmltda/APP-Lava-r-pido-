@@ -79,6 +79,15 @@ export function FilaEquipe() {
           ) : (
             e.tipo_veiculo_nome && <span className={`${chip} border-linha bg-white text-tinta`}>{e.tipo_veiculo_nome}</span>
           ))}
+        {gestao && e.app_conferir && tipos.find((t) => t.id === e.tipo_veiculo)?.vale !== "app" && tipos.some((t) => t.vale === "app") && (
+          <button
+            type="button"
+            onClick={() => setPedido({ tipo: "tipoVeiculo", entrada: e })}
+            className={`${chip} border-amber-400 bg-amber-50 text-tinta`}
+          >
+            Diz ser motorista de app: conferir
+          </button>
+        )}
         {(gestao || n > 0) && (
           <button type="button" onClick={() => setPedido({ tipo: "fotos", entrada: e })} className={`${chip} border-linha bg-white text-tinta`}>
             <Camera className="h-4 w-4" aria-hidden="true" />
@@ -353,7 +362,7 @@ export function FilaEquipe() {
         />
       )}
       {pedido?.tipo === "tipoVeiculo" && (
-        <DefinirTipo entrada={pedido.entrada} tipos={tipos} onFechar={() => setPedido(null)} onSalvo={() => concluir("Tipo do veículo salvo.")} />
+        <DefinirTipo entrada={pedido.entrada} tipos={tipos} dono={vinculo?.papel === "patrao"} onFechar={() => setPedido(null)} onSalvo={() => concluir("Tipo do veículo salvo.")} />
       )}
       {pedido?.tipo === "baixa" && (
         <DarBaixa entrada={pedido.entrada} carregando={!!ocupado} onConfirmar={(lavador) => executar(pedido.entrada, "finalizar", { lavado_por: lavador })} onFechar={() => setPedido(null)} />
@@ -650,16 +659,20 @@ function ClienteBalcao({ onFechar, onSalvo }: { onFechar: () => void; onSalvo: (
 }
 
 // Quem gere a fila define o tipo do veículo (o preço do serviço muda junto).
-function DefinirTipo({ entrada, tipos, onFechar, onSalvo }: { entrada: EntradaFila; tipos: TipoVeiculo[]; onFechar: () => void; onSalvo: () => void }) {
-  const [tipo, setTipo] = useState(entrada.tipo_veiculo || "");
+function DefinirTipo({ entrada, tipos, dono, onFechar, onSalvo }: { entrada: EntradaFila; tipos: TipoVeiculo[]; dono: boolean; onFechar: () => void; onSalvo: () => void }) {
+  const app = tipos.find((t) => t.vale === "app");
+  const [tipo, setTipo] = useState(entrada.app_conferir && app && entrada.tipo_veiculo !== app.id ? app.id : entrada.tipo_veiculo || "");
   const [lembrar, setLembrar] = useState(!!entrada.cliente);
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const ehApp = !!app && tipo === app.id;
+  // Motorista de app: a equipe dá o desconto só nesta lavagem; guardar para as próximas é com o dono.
+  const podeLembrar = !!entrada.cliente && (dono || !ehApp);
   async function salvar() {
     setSalvando(true);
     setErro("");
     try {
-      await pb.send(`/api/lr/fila/${entrada.id}/tipo`, { method: "POST", body: { tipo, lembrar: lembrar && !!entrada.cliente } });
+      await pb.send(`/api/lr/fila/${entrada.id}/tipo`, { method: "POST", body: { tipo, lembrar: lembrar && podeLembrar } });
       onSalvo();
     } catch (err) {
       setErro(mensagemDeErro(err));
@@ -670,12 +683,25 @@ function DefinirTipo({ entrada, tipos, onFechar, onSalvo }: { entrada: EntradaFi
   return (
     <Folha titulo={`Tipo do veículo · ${nomeDaEntrada(entrada)}`} onFechar={onFechar}>
       <div className="flex flex-col gap-4">
+        {entrada.app_conferir && (
+          <p className="rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-base text-tinta">
+            O cliente diz que trabalha com este carro em aplicativo (Uber, 99…). Confira na hora (app aberto, perfil de motorista). Se estiver certo, escolha
+            “{app?.nome || "Motorista de app"}”.
+          </p>
+        )}
         <EscolhaTipo tipos={tipos} valor={tipo} onChange={setTipo} rotulo="Escolha o tipo" semTipo="Padrão" />
-        <p className="text-sm text-tinta-suave">O preço do serviço muda conforme o tipo. O cliente informa o tamanho e se é motorista de app no cadastro do carro; aqui a equipe corrige ou marca convênio.</p>
-        {entrada.cliente && (
+        <p className="text-sm text-tinta-suave">O preço do serviço muda conforme o tipo.</p>
+        {ehApp && !dono && entrada.cliente && (
+          <p className="rounded-xl bg-fundo px-4 py-3 text-sm text-tinta">
+            O desconto vale <strong>só nesta lavagem</strong>. O dono recebe o pedido e, se aprovar o carro, o desconto entra sozinho nas próximas vezes.
+          </p>
+        )}
+        {podeLembrar && (
           <label className="flex min-h-12 items-center gap-3 rounded-xl border-2 border-linha bg-white px-4">
             <input type="checkbox" className="h-5 w-5 accent-[var(--marca)]" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} />
-            <span className="text-base text-tinta">Lembrar para as próximas vezes deste carro</span>
+            <span className="text-base text-tinta">
+              {ehApp ? "Aprovar este carro como motorista de app (desconto automático nas próximas vezes)" : "Lembrar para as próximas vezes deste carro"}
+            </span>
           </label>
         )}
         {erro && <Aviso>{erro}</Aviso>}

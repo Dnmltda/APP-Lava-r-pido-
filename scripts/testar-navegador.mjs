@@ -347,9 +347,16 @@ async function main() {
       await ger.getByRole("button", { name: "Salvar", exact: true }).click();
       await ger.waitForTimeout(1500);
       const trocada = (await api("GET", `/api/collections/fila_entradas/records/${nova.id}`, { token: ADM })).data;
-      checar("gerente marca o carro como Uber e o preço volta ao padrão", trocada.tipo_veiculo_nome === "Uber" && trocada.preco_servico === 40, [trocada.tipo_veiculo_nome, trocada.preco_servico]);
-      const vincCli = (await api("GET", `/api/collections/vinculos/records?filter=${encodeURIComponent(`usuario="${pessoas.cliente.id}"`)}`, { token: ADM })).data.items[0];
-      checar("o app lembra o tipo deste carro para as próximas vezes", Object.values(vincCli.tipos_veiculos || {}).includes(uber?.id), vincCli.tipos_veiculos);
+      checar("gerente confere e dá o preço de Uber só nesta lavagem", trocada.tipo_veiculo_nome === "Uber" && trocada.preco_servico === 40, [trocada.tipo_veiculo_nome, trocada.preco_servico]);
+      let vincCli = (await api("GET", `/api/collections/vinculos/records?filter=${encodeURIComponent(`usuario="${pessoas.cliente.id}"`)}`, { token: ADM })).data.items[0];
+      checar("gerente não aprova o carro para as próximas vezes (só o dono)", !Object.values(vincCli.tipos_veiculos || {}).includes(uber?.id), vincCli.tipos_veiculos);
+      await pat.goto(`${APP}/${A.slug}`);
+      await pat.getByRole("heading", { name: /Motorista de app para aprovar/ }).waitFor({ timeout: 15000 }).catch(() => {});
+      checar("dono vê o carro para aprovar na tela inicial", (await pat.getByRole("heading", { name: /Motorista de app para aprovar \(1\)/ }).count()) === 1);
+      await pat.getByRole("button", { name: "Aprovar" }).click();
+      await pat.getByRole("heading", { name: /Motorista de app para aprovar/ }).waitFor({ state: "detached", timeout: 15000 }).catch(() => {});
+      vincCli = (await api("GET", `/api/collections/vinculos/records?filter=${encodeURIComponent(`usuario="${pessoas.cliente.id}"`)}`, { token: ADM })).data.items[0];
+      checar("dono aprova e o app lembra o Uber deste carro", Object.values(vincCli.tipos_veiculos || {}).includes(uber?.id), vincCli.tipos_veiculos);
 
       await ger.getByRole("button", { name: "Fotos antes/depois" }).first().click();
       await ger.locator('input[type="file"]').setInputFiles(PNG);

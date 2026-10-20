@@ -327,7 +327,7 @@ function EntrarNaFila({
   // O preço sai do cadastro do carro (tamanho / motorista de app) ou do que a equipe definiu.
   const tipos = tiposDaEmpresa(empresa);
   const carro = veiculos?.find((v) => v.id === veiculoEscolhido);
-  const { tipo: tipoCarro, motivo } = tipoDoCarro(tipos, vinculo, carro);
+  const { tipo: tipoCarro, motivo, appPendente } = tipoDoCarro(tipos, vinculo, carro);
   const tipoEfetivo = tipoCarro?.id || "";
   const usaPorte = tipos.some((t) => t.vale && t.vale !== "app");
   const faltaPorte = !!carro && !carro.porte && usaPorte && !tipoCarro;
@@ -404,6 +404,12 @@ function EntrarNaFila({
               <TamanhoVeiculo valor="" onChange={definirPorte} />
               {salvandoPorte && <p className="mt-1 text-sm text-tinta-suave">Salvando…</p>}
             </div>
+          )}
+          {appPendente && (
+            <p className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-base text-tinta">
+              <strong>Motorista de app:</strong> na primeira lavagem deste carro o preço é o normal. A equipe confere na hora e, depois que o lava rápido aprovar, o
+              desconto entra sozinho nas próximas vezes.
+            </p>
           )}
           {tipoCarro && (
             <p className="mt-3 rounded-xl bg-marca-suave px-4 py-3 text-base text-tinta">

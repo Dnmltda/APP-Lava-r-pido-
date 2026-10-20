@@ -131,7 +131,10 @@ export function AppMotorista({ valor, onChange }: { valor: boolean; onChange: (v
       <input type="checkbox" className="h-6 w-6 shrink-0 accent-[var(--marca)]" checked={valor} onChange={(e) => onChange(e.target.checked)} />
       <span>
         <span className="block text-base font-semibold text-tinta">Trabalho com este carro em aplicativo</span>
-        <span className="block text-sm text-tinta-suave">Uber, 99 e outros. Se o lava rápido tiver preço para motorista de app, ele já vale.</span>
+        <span className="block text-sm text-tinta-suave">
+          Uber, 99 e outros. Se o lava rápido tiver preço de app, a 1ª lavagem de cada carro sai pelo preço normal: a equipe confere e, depois de aprovado, o desconto
+          entra sozinho.
+        </span>
       </span>
     </label>
   );

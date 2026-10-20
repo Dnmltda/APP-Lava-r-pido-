@@ -175,6 +175,8 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
     entrada.set("duracao_min", servico.getInt("duracao_media_min"));
     // Tipo do veículo: sai do cadastro do carro (porte / motorista de app) ou do que a equipe definiu.
     const tipoId = lib.tipoDoCarro(empresa, vinculo, veiculo);
+    const temApp = lib.tiposVeiculo(empresa).some((t) => t.vale === "app");
+    entrada.set("app_conferir", veiculo.getBool("app_motorista") && temApp && !lib.mapaTipos(vinculo)[veiculo.id]);
     lib.aplicarTipo(entrada, servico, empresa, tipoId);
     entrada.set("origem", "app");
     entrada.set("status", "pendente");
@@ -640,6 +642,16 @@ routerAdd("POST", "/api/lr/fila/{id}/tipo", (e) => {
   if (tipo && !lib.acharTipo(empresa, tipo)) throw new BadRequestError("Tipo de veículo não encontrado.");
   const servico = e.app.findRecordById("servicos", entrada.getString("servico"));
   const antes = { tipo: entrada.getString("tipo_veiculo_nome"), preco: entrada.getFloat("preco_servico") };
+  // Motorista de app: a equipe pode dar o desconto nesta lavagem, mas guardar para as próximas
+  // vezes (ou tirar uma aprovação) é só com o dono.
+  if (body.lembrar && entrada.getString("cliente") && entrada.getString("veiculo") && !lib.ehPatraoAtivo(e.app, e.auth.id, empresaId)) {
+    const vc = lib.acharVinculo(e.app, entrada.getString("cliente"), empresaId);
+    const atual = vc ? lib.acharTipo(empresa, lib.mapaTipos(vc)[entrada.getString("veiculo")]) : null;
+    const novo = lib.acharTipo(empresa, tipo);
+    if ((novo && novo.vale === "app") || (atual && atual.vale === "app")) {
+      throw new ForbiddenError("Motorista de app: o desconto vale nesta lavagem. Para as próximas vezes, quem aprova o carro é o dono.");
+    }
+  }
   e.app.runInTransaction((tx) => {
     lib.aplicarTipo(entrada, servico, empresa, tipo);
     tx.save(entrada);
@@ -664,4 +676,74 @@ routerAdd("POST", "/api/lr/fila/{id}/tipo", (e) => {
     });
   });
   return e.json(200, { tipo_veiculo: entrada.getString("tipo_veiculo"), tipo_veiculo_nome: entrada.getString("tipo_veiculo_nome"), preco_servico: entrada.getFloat("preco_servico") });
+}, $apis.requireAuth("usuarios"));
+
+// ------------------------------------------- motorista de app: aprovação do dono
+// GET /api/lr/app-pendentes/{empresa}: carros que receberam desconto de app na fila (conferido
+// pela equipe) e ainda não foram aprovados nem recusados pelo dono. Só o dono.
+routerAdd("GET", "/api/lr/app-pendentes/{empresa}", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const empresaId = e.request.pathValue("empresa");
+  if (!lib.ehPatraoAtivo(e.app, e.auth.id, empresaId)) throw new ForbiddenError("Só o dono aprova motorista de app.");
+  const empresa = e.app.findRecordById("empresas", empresaId);
+  const app = lib.tiposVeiculo(empresa).find((t) => t.vale === "app");
+  if (!app) return e.json(200, { pendentes: [] });
+  const desde = new Date(Date.now() - 90 * 86400000).toISOString().replace("T", " ");
+  const entradas = e.app.findRecordsByFilter(
+    "fila_entradas", "empresa = {:e} && tipo_veiculo = {:t} && veiculo != '' && cliente != '' && status != 'cancelado' && created >= {:d}",
+    "-created", 200, 0, { e: empresaId, t: app.id, d: desde },
+  );
+  const porCarro = {};
+  for (const en of entradas) {
+    const vid = en.getString("veiculo");
+    if (porCarro[vid]) {
+      porCarro[vid].vezes++;
+      continue;
+    }
+    const vc = lib.acharVinculo(e.app, en.getString("cliente"), empresaId);
+    if (!vc || lib.mapaTipos(vc)[vid]) continue; // já aprovado ou recusado
+    let v, u;
+    try {
+      v = e.app.findRecordById("veiculos", vid);
+      u = e.app.findRecordById("usuarios", en.getString("cliente"));
+    } catch (_) {
+      continue;
+    }
+    porCarro[vid] = {
+      veiculo: vid, cliente: u.getString("nome"), celular: u.getString("celular"),
+      placa: v.getString("placa") || "…" + v.getString("final_placa"), modelo: v.getString("modelo"), cor: v.getString("cor"),
+      ultima: en.getString("created"), vezes: 1,
+    };
+  }
+  return e.json(200, { tipo: app.nome, pendentes: Object.keys(porCarro).map((k) => porCarro[k]) });
+}, $apis.requireAuth("usuarios"));
+
+// POST /api/lr/app-aprovar { empresa, veiculo, aprovar }: o dono aprova (desconto automático
+// daí em diante, só para este carro e só neste lava rápido) ou recusa (preço pelo tamanho).
+routerAdd("POST", "/api/lr/app-aprovar", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const body = new DynamicModel({ empresa: "", veiculo: "", aprovar: false });
+  e.bindBody(body);
+  const empresaId = String(body.empresa || "");
+  if (!lib.ehPatraoAtivo(e.app, e.auth.id, empresaId)) throw new ForbiddenError("Só o dono aprova motorista de app.");
+  const empresa = e.app.findRecordById("empresas", empresaId);
+  const app = lib.tiposVeiculo(empresa).find((t) => t.vale === "app");
+  if (!app) throw new BadRequestError("Crie antes o tipo 'Motorista de app' em Serviços.");
+  let v;
+  try {
+    v = e.app.findRecordById("veiculos", String(body.veiculo || ""));
+  } catch (_) {
+    throw new NotFoundError("Carro não encontrado.");
+  }
+  const vc = lib.acharVinculo(e.app, v.getString("cliente"), empresaId);
+  if (!vc || vc.getString("papel") !== "cliente") throw new NotFoundError("Carro não encontrado.");
+  const mapa = lib.mapaTipos(vc);
+  mapa[v.id] = body.aprovar ? app.id : "recusado";
+  vc.set("tipos_veiculos", mapa);
+  e.app.unsafeWithoutHooks().save(vc);
+  lib.auditar(e.app, {
+    empresa: empresaId, usuario: e.auth.id, acao: body.aprovar ? "app_aprovado" : "app_recusado", entidade: "veiculos", entidade_id: v.id,
+    depois: { placa: v.getString("placa") || v.getString("final_placa"), modelo: v.getString("modelo") },
+  });
+  return e.json(200, { ok: true });
 }, $apis.requireAuth("usuarios"));

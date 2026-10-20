@@ -61,15 +61,20 @@ export function sugerirPorte(modelo: string): Porte | "" {
   return acharModelo(modelo)?.porte || "";
 }
 
-// Mesma regra do servidor (lib.tipoDoCarro): equipe > motorista de app > porte do cadastro.
-export function tipoDoCarro(tipos: TipoVeiculo[], vinculo: Vinculo | null, veiculo: Veiculo | undefined): { tipo?: TipoVeiculo; motivo: string } {
-  if (!veiculo) return { motivo: "" };
+// Mesma regra do servidor (lib.tipoDoCarro): o que a equipe/dono definiu > tamanho do cadastro.
+// Motorista de app só vale depois que o dono aprova o carro (a 1ª lavagem sai pelo preço normal).
+export function tipoDoCarro(
+  tipos: TipoVeiculo[],
+  vinculo: Vinculo | null,
+  veiculo: Veiculo | undefined,
+): { tipo?: TipoVeiculo; motivo: string; appPendente: boolean } {
+  if (!veiculo) return { motivo: "", appPendente: false };
   const idEquipe = vinculo?.tipos_veiculos?.[veiculo.id];
   const daEquipe = idEquipe ? tipos.find((t) => t.id === idEquipe) : undefined;
-  if (daEquipe) return { tipo: daEquipe, motivo: "definido pelo lava rápido" };
-  const app = tipos.find((t) => t.vale === "app");
-  if (veiculo.app_motorista && app) return { tipo: app, motivo: "motorista de aplicativo" };
+  const temApp = tipos.some((t) => t.vale === "app");
+  const appPendente = !!veiculo.app_motorista && temApp && !idEquipe;
+  if (daEquipe) return { tipo: daEquipe, motivo: daEquipe.vale === "app" ? "motorista de app aprovado" : "definido pelo lava rápido", appPendente: false };
   const porte = veiculo.porte && tipos.find((t) => t.vale === veiculo.porte);
-  if (porte) return { tipo: porte, motivo: "pelo tamanho do carro" };
-  return { motivo: "" };
+  if (porte) return { tipo: porte, motivo: "pelo tamanho do carro", appPendente };
+  return { motivo: "", appPendente };
 }

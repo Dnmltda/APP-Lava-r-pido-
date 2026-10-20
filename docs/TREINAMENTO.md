@@ -44,6 +44,9 @@ Tudo do funcionário, mais:
 - **Busca do carro**: pedido com ícone de busca → **Combinar busca no WhatsApp** (local e taxa são combinados fora do app).
 - **Fotos antes/depois** (opcional): no cartão do carro → **Tirar fotos** → marque *Antes* ou *Depois*, anote avarias que o
   carro já tinha → **Salvar fotos**. As fotos não se apagam (são prova) e o cliente vê as do carro dele.
+- **Motorista de app** (Uber, 99): o cliente marca no carro, mas a 1ª lavagem de cada carro sai pelo preço normal.
+  No cartão aparece **“Diz ser motorista de app: conferir”**: confira na hora (app de motorista aberto) e, se estiver
+  certo, escolha o tipo de app — o desconto vale **só nesta lavagem**. Quem aprova o carro para as próximas vezes é o dono.
 - **Tipo do veículo**: no cartão, **Definir tipo do veículo** (ex.: carro grande, moto, Uber, convênio). O preço muda
   sozinho. Com “Lembrar para as próximas vezes”, o carro já entra com esse tipo da próxima vez.
 - **WhatsApp**: “Mandar confirmação no WhatsApp”, “Falar no WhatsApp” e “Avisar: pronto” abrem a conversa com a mensagem pronta.
@@ -75,6 +78,9 @@ Tudo do gerente, mais:
   Botão **Pausar** em cada serviço: some da tela do cliente sem apagar nada; **Ativar** traz de volta.
 - **Produtos**: sugestões prontas (cheirinho, pretinho, flanela, água…). Toque, coloque o seu preço e o estoque.
 - **Configurações → Buscamos o carro do cliente**: liga a opção de busca (o app avisa que tem taxa adicional).
+- **Motorista de app para aprovar** (tela inicial): carros que a equipe conferiu na fila. **Aprovar** = desconto
+  automático nas próximas vezes, só para aquele carro e só neste lava rápido. **Recusar** = preço pelo tamanho.
+  Um carro cadastrado não troca de placa nem de modelo (para ninguém passar outro carro como o aprovado).
 - **Caixa → + Gasto fixo**: aluguel, luz, internet, contador… com o dia do vencimento. Entra sozinho no caixa todo mês.
 - **Configurações**: logo, cor, quantos carros lava ao mesmo tempo, tolerância de atraso, antecedência do aviso,
   textos das notificações, horário de funcionamento, comissão ligada/desligada. Metas e bônus por carro.

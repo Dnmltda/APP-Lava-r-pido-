@@ -45,6 +45,8 @@ export interface EntradaFila extends Base {
   duracao_min: number;
   preco_servico: number;
   tipo_veiculo?: string;
+  /** Cliente diz ser motorista de app e o carro ainda não foi aprovado: conferir na hora. */
+  app_conferir?: boolean;
   tipo_veiculo_nome?: string;
   horario_reserva: string;
   chegada_prevista: string;

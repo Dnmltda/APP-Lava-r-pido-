@@ -32,7 +32,7 @@ import { useCatalogo } from "../componentes/Vitrine";
 import { tempoDeCliente, useHistorico, vezes } from "./Historico";
 import { DIAS_SEMANA, linkWhatsApp, primeiroNome, reais } from "../lib/formato";
 import { useFilaAoVivo } from "../lib/fila";
-import { pb } from "../lib/pb";
+import { mensagemDeErro, pb } from "../lib/pb";
 import { pode } from "../lib/permissoes";
 import { NOME_PAPEL, type DadosPainel, type Empresa } from "../lib/tipos";
 
@@ -80,6 +80,7 @@ export function Painel() {
             <FilaAgora />
             {valores && <HojeResumo />}
             {pode(vinculo, "catalogo") && <FaltaCadastrar />}
+            {vinculo.papel === "patrao" && <AppParaAprovar />}
 
             <nav aria-label="Atalhos" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Atalho para={`/${s}/vendas`} icone={ShoppingBag} titulo="Vendas" texto={valores ? "Registrar e ver as vendas" : "Registrar e ver as minhas"} />
@@ -356,5 +357,81 @@ function FaltaCadastrar() {
         </Link>
       )}
     </div>
+  );
+}
+
+// Dono: carros que a equipe conferiu como motorista de app na fila. Aprovando, o desconto entra
+// sozinho nas próximas vezes (só este carro, só neste lava rápido). Recusando, vale o tamanho.
+interface PendenteApp {
+  veiculo: string;
+  cliente: string;
+  celular: string;
+  placa: string;
+  modelo: string;
+  cor: string;
+  ultima: string;
+  vezes: number;
+}
+function AppParaAprovar() {
+  const { empresa } = useEmpresa();
+  const [lista, setLista] = useState<PendenteApp[]>([]);
+  const [nomeTipo, setNomeTipo] = useState("");
+  const [ocupado, setOcupado] = useState("");
+  const [erro, setErro] = useState("");
+  const carregar = () =>
+    pb
+      .send<{ tipo?: string; pendentes: PendenteApp[] }>(`/api/lr/app-pendentes/${empresa.id}`, { method: "GET" })
+      .then((r) => {
+        setLista(r.pendentes);
+        setNomeTipo(r.tipo || "");
+      })
+      .catch(() => {});
+  useEffect(() => {
+    carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresa.id]);
+  async function decidir(p: PendenteApp, aprovar: boolean) {
+    setOcupado(p.veiculo);
+    setErro("");
+    try {
+      await pb.send("/api/lr/app-aprovar", { method: "POST", body: { empresa: empresa.id, veiculo: p.veiculo, aprovar } });
+      await carregar();
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setOcupado("");
+    }
+  }
+  if (!lista.length) return null;
+  return (
+    <section aria-labelledby="titulo-app" className="rounded-3xl border-2 border-amber-300 bg-amber-50 p-4">
+      <h2 id="titulo-app" className="text-lg font-extrabold text-tinta">
+        Motorista de app para aprovar ({lista.length})
+      </h2>
+      <p className="mt-1 text-sm text-tinta">
+        A equipe conferiu na fila e deu o desconto de “{nomeTipo}” uma vez. Aprovando, o desconto entra sozinho nas próximas vezes, só para este carro.
+      </p>
+      <ul className="mt-3 flex flex-col gap-2">
+        {lista.map((p) => (
+          <li key={p.veiculo} className="rounded-2xl bg-white p-3">
+            <p className="text-base font-bold text-tinta">
+              {p.cliente} · <span className="font-mono">{p.placa}</span>
+            </p>
+            <p className="text-sm text-tinta-suave">
+              {[p.modelo, p.cor].filter(Boolean).join(" · ")} · {p.vezes} {p.vezes === 1 ? "vez" : "vezes"} com desconto
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Botao carregando={ocupado === p.veiculo} onClick={() => decidir(p, true)}>
+                Aprovar
+              </Botao>
+              <Botao variante="secundario" disabled={ocupado === p.veiculo} onClick={() => decidir(p, false)}>
+                Recusar
+              </Botao>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {erro && <Aviso>{erro}</Aviso>}
+    </section>
   );
 }

@@ -1257,8 +1257,9 @@ function precoDoServico(servico, tipoId) {
 }
 const VALES_TIPO = ["pequeno", "medio", "grande", "moto", "app"];
 // Tipo do carro do cliente nesta empresa, sem o cliente escolher nada:
-//  1. o que a equipe já definiu para este carro;  2. motorista de app (declarado no carro);
-//  3. o porte do cadastro do carro.  Sem nada disso: preço padrão do serviço.
+//  1. o que a equipe/dono já definiu para este carro;  2. o porte do cadastro do carro.
+// Motorista de app NÃO entra sozinho (segurança, pedido do Diego): a 1ª lavagem de cada carro sai
+// pelo preço normal, a equipe confere na hora e o dono aprova o carro; daí vale pelo item 1.
 function tipoDoCarro(empresa, vinculo, veiculo) {
   try {
     const mapa = JSON.parse(vinculo.getString("tipos_veiculos") || "{}");
@@ -1267,7 +1268,6 @@ function tipoDoCarro(empresa, vinculo, veiculo) {
   } catch (_) {}
   const tipos = tiposVeiculo(empresa);
   const porVale = (v) => tipos.find((t) => t.vale === v);
-  if (veiculo.getBool("app_motorista") && porVale("app")) return porVale("app").id;
   const porte = veiculo.getString("porte");
   if (porte && porVale(porte)) return porVale(porte).id;
   return "";
@@ -1278,6 +1278,14 @@ function aplicarTipo(entrada, servico, empresa, tipoId) {
   entrada.set("tipo_veiculo", t ? t.id : "");
   entrada.set("tipo_veiculo_nome", t ? t.nome : "");
   entrada.set("preco_servico", precoDoServico(servico, t ? t.id : ""));
+}
+// Mapa {veiculoId: tipoId} que a equipe/dono definiu para os carros de um cliente nesta empresa.
+function mapaTipos(vinculo) {
+  try {
+    return JSON.parse(vinculo.getString("tipos_veiculos") || "{}") || {};
+  } catch (_) {
+    return {};
+  }
 }
 // E-mail e rede social do cliente (os dois opcionais). Rede: @usuario ou link.
 function contatoLimpo(email, rede) {
@@ -1449,6 +1457,7 @@ module.exports = {
   tipoDoCarro,
   tiposDoCorpo,
   contatoLimpo,
+  mapaTipos,
   normalizarTipos,
   historicoCliente,
   listaClientes,
