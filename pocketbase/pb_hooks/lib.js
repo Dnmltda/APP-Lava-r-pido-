@@ -14,6 +14,22 @@ function normalizarCelular(v) {
   return d;
 }
 
+// Senha: mínimo 8 caracteres e nada óbvio demais (todos iguais, sequência, o próprio celular).
+const SENHAS_FRACAS = ["senha123", "senha1234", "password", "abcdefgh", "qwertyui", "12341234", "asdfghjk", "abc12345", "mudar123"];
+function validarSenha(senha, celular) {
+  senha = String(senha || "");
+  if (senha.length < 8) throw new BadRequestError("A senha precisa ter pelo menos 8 caracteres.");
+  if (senha.length > 72) throw new BadRequestError("Senha longa demais (máximo 72 caracteres).");
+  const s = senha.toLowerCase();
+  const fraca =
+    /^(.)\1+$/.test(s) ||
+    "01234567890123456789".indexOf(s) >= 0 ||
+    "98765432109876543210".indexOf(s) >= 0 ||
+    SENHAS_FRACAS.indexOf(s) >= 0 ||
+    (celular && s.replace(/\D/g, "").length >= 8 && String(celular).indexOf(s.replace(/\D/g, "")) >= 0 && /^\d+$/.test(s));
+  if (fraca) throw new BadRequestError("Essa senha é fácil de adivinhar. Use letras e números (ex.: carro2026azul).");
+}
+
 function celularValido(d) {
   return /^[0-9]{10,11}$/.test(d);
 }
@@ -1090,6 +1106,7 @@ function verificarSensores(app, agora) {
 }
 
 module.exports = {
+  validarSenha,
   relatorioDaEmpresa,
   CAMPOS_SENSOR,
   funcionamentoAgora,

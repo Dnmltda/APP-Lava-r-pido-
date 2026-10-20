@@ -46,12 +46,12 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
   const empresa = lib.acharEmpresaAtivaPorSlug(e.app, body.slug);
   if (!empresa) throw new NotFoundError("Lava rápido não encontrado.");
 
-  const nome = String(body.nome || "").trim();
+  const nome = String(body.nome || "").trim().replace(/\s+/g, " ").slice(0, 60);
   const celular = lib.normalizarCelular(body.celular);
   const senha = String(body.senha || "");
   if (nome.length < 2) throw new BadRequestError("Informe seu nome.");
   if (!lib.celularValido(celular)) throw new BadRequestError("Celular inválido. Use DDD + número.");
-  if (senha.length < 8) throw new BadRequestError("A senha precisa ter pelo menos 8 caracteres.");
+  lib.validarSenha(senha, celular);
   const placa = String(body.placa || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const finalPlaca = placa ? placa.slice(-3) : String(body.final_placa || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (placa && !/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(placa)) throw new BadRequestError("Placa inválida. Ex.: ABC1D23.");
@@ -144,7 +144,7 @@ routerAdd("POST", "/api/lr/equipe", (e) => {
       const nome = String(body.nome || "").trim();
       const senha = String(body.senha || "");
       if (nome.length < 2) throw new BadRequestError("Informe o nome.");
-      if (senha.length < 8) throw new BadRequestError("A senha precisa ter pelo menos 8 caracteres.");
+      lib.validarSenha(senha, celular);
       usuario = new Record(tx.findCollectionByNameOrId("usuarios"));
       usuario.set("nome", nome);
       usuario.set("celular", celular);
@@ -207,7 +207,7 @@ routerAdd("POST", "/api/lr/equipe/senha", (e) => {
     throw new ForbiddenError("Só é possível trocar a senha de gerentes e funcionários.");
   }
   const senha = String(body.senha || "");
-  if (senha.length < 8) throw new BadRequestError("A senha precisa ter pelo menos 8 caracteres.");
+  lib.validarSenha(senha, "");
 
   const outros = e.app.findRecordsByFilter(
     "vinculos", "usuario = {:u} && empresa != {:e}", "", 1, 0,
@@ -286,3 +286,12 @@ onRecordDelete((e) => {
   }
   e.next();
 }, "auditoria");
+
+// Troca de senha pela própria pessoa (Minha conta): mesma regra de senha forte.
+onRecordUpdateRequest((e) => {
+  const body = e.requestInfo().body || {};
+  if (body.password !== undefined && body.password !== "") {
+    require(`${__hooks}/lib.js`).validarSenha(body.password, e.record.getString("celular"));
+  }
+  e.next();
+}, "usuarios");

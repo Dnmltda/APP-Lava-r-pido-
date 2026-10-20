@@ -159,6 +159,35 @@ async function main() {
     r = await api("GET", `/api/lr/relatorio/${A.id}?de=${new Date(Date.now() - 500 * 864e5).toISOString()}`, { token: patrao.token });
     checar("período acima de 400 dias é recusado", r.status === 400, r.status);
 
+    console.log("\nCadastro do cliente");
+    const cel = "114" + sufixo + "77";
+    const cad = (senha, extra = {}) =>
+      api("POST", "/api/lr/cadastro", { body: { slug: A.slug, nome: "  Maria   da  Silva ", celular: cel, senha, final_placa: "M77", ...extra } });
+    for (const fraca of ["12345678", "11111111", "senha123", cel.slice(-8), "87654321"]) {
+      r = await cad(fraca);
+      checar(`recusa senha fácil "${fraca}"`, r.status === 400 && /fácil|8 caracteres/.test(r.data?.message || ""), r.data);
+    }
+    r = await cad("curta1");
+    checar("recusa senha com menos de 8", r.status === 400, r.status);
+    r = await cad("lavagem2026", { placa: "XX" });
+    checar("recusa placa inválida", r.status === 400, r.status);
+    r = await cad("lavagem2026");
+    checar("cadastra com senha boa", r.status === 201, r.data);
+    const novo = (await api("GET", `/api/collections/usuarios/records?filter=${qs(`celular="${cel}"`)}`, { token: ADM })).data.items[0];
+    if (novo) criados.usuarios.push(novo.id);
+    checar("nome fica limpo (sem espaços sobrando)", novo && novo.nome === "Maria da Silva", novo && novo.nome);
+    r = await cad("outrasenha99");
+    checar("mesmo celular não cadastra duas vezes", r.status === 400 && /já tem cadastro/.test(r.data?.message || ""), r.data);
+    r = await api("POST", "/api/collections/usuarios/auth-with-password", { body: { identity: cel, password: "lavagem2026" } });
+    checar("entra com o celular e a senha cadastrados", r.status === 200);
+    const tk = r.data.token;
+    r = await api("PATCH", `/api/collections/usuarios/records/${novo.id}`, { token: tk, body: { oldPassword: "lavagem2026", password: "12345678", passwordConfirm: "12345678" } });
+    checar("em Minha conta também não troca para senha fácil", r.status === 400, r.status);
+    r = await api("PATCH", `/api/collections/usuarios/records/${novo.id}`, { token: tk, body: { oldPassword: "lavagem2026", password: "novaSenha2026", passwordConfirm: "novaSenha2026" } });
+    checar("troca para senha boa em Minha conta", r.status === 200, r.data);
+    r = await api("POST", "/api/lr/equipe", { token: patrao.token, body: { empresa: A.id, nome: "Novo", celular: "114" + sufixo + "78", senha: "00000000", papel: "funcionario" } });
+    checar("patrão também não cadastra funcionário com senha fácil", r.status === 400, r.status);
+
     console.log("\nLogin lembrado e tempo real");
     r = await api("POST", "/api/collections/usuarios/auth-with-password", { body: { identity: c2.celular, password: "senha12345" } });
     const exp = r.data && JSON.parse(Buffer.from(r.data.token.split(".")[1], "base64url")).exp;

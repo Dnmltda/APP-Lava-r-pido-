@@ -40,12 +40,18 @@ function checar(descricao, ok, extra) {
     console.log("  ✘ " + descricao + (extra !== undefined ? "  → " + JSON.stringify(extra).slice(0, 400) : ""));
   }
 }
-async function api(method, p, { token, body } = {}) {
+async function api(method, p, { token, body } = {}, tentativa = 0) {
   const res = await fetch(PB + p, {
     method,
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: token } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
+  // Na produção o limite de pedidos pode mandar esperar: espera e tenta de novo
+  // (senão a limpeza do final deixa sobras).
+  if (res.status === 429 && tentativa < 15) {
+    await new Promise((r) => setTimeout(r, 5000));
+    return api(method, p, { token, body }, tentativa + 1);
+  }
   let data = null;
   try {
     data = await res.json();
@@ -121,6 +127,39 @@ async function main() {
       await page.getByText("Minha conta").waitFor({ timeout: 15000 });
       paginas[p] = page;
       checar(`${p}: entra com celular e senha`, true);
+    }
+
+    console.log("\nCadastro de cliente novo pela tela");
+    {
+      const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR", timezoneId: "America/Sao_Paulo" });
+      const novo = await ctx.newPage();
+      const errosNovo = [];
+      novo.on("pageerror", (e) => errosNovo.push(String(e)));
+      await novo.goto(`${APP}/${A.slug}/entrar`);
+      await novo.getByRole("link", { name: "Criar meu cadastro" }).click();
+      const celNovo = "118" + sufixo + "99";
+      await novo.getByLabel("Seu nome").fill("Nova Testadora");
+      await novo.getByLabel("Celular").fill(celNovo);
+      await novo.getByLabel("Crie uma senha").fill("12345678");
+      await novo.getByLabel("Placa").fill("TST1E23");
+      await novo.getByRole("button", { name: "Criar cadastro" }).click();
+      await novo.getByText(/fácil de adivinhar/).waitFor({ timeout: 10000 }).catch(() => {});
+      checar("cadastro recusa senha fácil com mensagem clara", await novo.getByText(/fácil de adivinhar/).isVisible());
+      await novo.getByLabel("Crie uma senha").fill("Lavagem2026");
+      await novo.getByRole("button", { name: "Mostrar" }).click();
+      checar("botão Mostrar revela a senha digitada", (await novo.getByLabel("Crie uma senha").getAttribute("type")) === "text");
+      await novo.getByRole("button", { name: "Criar cadastro" }).click();
+      await novo.getByText("Minha conta").waitFor({ timeout: 15000 }).catch(() => {});
+      checar("cliente novo se cadastra e já entra no app", await novo.getByRole("button", { name: "Entrar na fila" }).isVisible());
+      const u = await api("GET", `/api/collections/usuarios/records?filter=${encodeURIComponent(`celular="${celNovo}"`)}`, { token: ADM });
+      if (u.data.items[0]) criados.usuarios.push(u.data.items[0].id);
+      checar("conta gravada no banco como cliente deste lava rápido", u.data.items.length === 1);
+      await novo.getByRole("link", { name: "Minha conta" }).click();
+      await novo.getByRole("button", { name: "Sair do app" }).click();
+      await novo.waitForURL(/\/entrar$/, { timeout: 10000 }).catch(() => {});
+      checar("depois de sair, o login já vem com o celular preenchido", (await novo.getByLabel("Celular").inputValue()).replace(/\D/g, "") === celNovo);
+      checar("cadastro sem erro de JavaScript", errosNovo.length === 0, errosNovo);
+      await ctx.close();
     }
 
     console.log("\nMenu de cada perfil (tabela 1.3)");

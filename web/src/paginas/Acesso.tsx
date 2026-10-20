@@ -129,6 +129,7 @@ export function Cadastro() {
   const [nome, setNome] = useState("");
   const [celular, setCelular] = useState("");
   const [senha, setSenha] = useState("");
+  const [verSenha, setVerSenha] = useState(false);
   const [aceite, setAceite] = useState(false);
   const [veiculo, setVeiculo] = useState(VEICULO_VAZIO);
   const [erros, setErros] = useState<Record<string, string>>({});
@@ -177,27 +178,40 @@ export function Cadastro() {
         Com o cadastro você acompanha a fila do {empresa.nome} pelo celular.
       </p>
       <form onSubmit={enviar} className="mt-6 flex flex-col gap-4" noValidate>
-        <Campo rotulo="Seu nome" autoComplete="name" value={nome} onChange={(e) => setNome(e.target.value)} erro={erros.nome} />
+        <Campo rotulo="Seu nome" autoComplete="name" autoCapitalize="words" maxLength={60} value={nome} onChange={(e) => setNome(e.target.value)} erro={erros.nome} />
         <Campo
           rotulo="Celular"
           type="tel"
+          name="username"
           inputMode="numeric"
-          autoComplete="tel-national"
+          autoComplete="username"
           placeholder="(11) 98765-4321"
           value={celular}
           onChange={(e) => setCelular(mascaraCelular(e.target.value))}
           erro={erros.celular}
           ajuda="É com ele que você vai entrar."
         />
-        <Campo
-          rotulo="Crie uma senha"
-          type="password"
-          autoComplete="new-password"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          erro={erros.senha}
-          ajuda="Mínimo de 8 caracteres."
-        />
+        <div className="relative">
+          <Campo
+            rotulo="Crie uma senha"
+            type={verSenha ? "text" : "password"}
+            name="password"
+            autoComplete="new-password"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            erro={erros.senha}
+            ajuda="Mínimo de 8 caracteres, com letras e números."
+            className="pr-24"
+          />
+          <button
+            type="button"
+            onClick={() => setVerSenha((v) => !v)}
+            className="absolute right-1 top-[2.15rem] flex min-h-10 items-center rounded-lg px-3 text-sm font-bold text-marca-forte hover:bg-marca-suave"
+            aria-pressed={verSenha}
+          >
+            {verSenha ? "Esconder" : "Mostrar"}
+          </button>
+        </div>
         <h2 className="mt-2 text-lg font-extrabold text-tinta">Seu veículo</h2>
         <CamposVeiculo valor={veiculo} onChange={setVeiculo} erros={erros} />
         <Interruptor

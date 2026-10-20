@@ -38,6 +38,10 @@ Teste: `scripts/testar-novidades.mjs` (39) + `testar-navegador.mjs` (68).
 - Corrigido: o tempo real estava desligado por um ajuste antigo; agora a fila atualiza na hora
   (a consulta a cada 10 s continua como rede de segurança).
 - `scripts/popular-demo.mjs`: 30 dias de movimento fictício só na empresa **demo** (para ver o dashboard).
+- **Cadastro**: senha fácil é recusada (todos iguais, sequência, o próprio celular, "senha123"…) no cadastro,
+  na equipe e em Minha conta; botão "Mostrar" senha; nome limpo; até 20 cadastros por hora por internet.
+- `scripts/limpar-producao.mjs`: deixa a produção pronta para testes com pessoas (apaga `teste-*`, o movimento
+  da demo e as contas, menos as mantidas). Sem `--executar` só mostra o que faria.
 
 ### Etapa 8: Testes e publicação
 Checklist completo com as evidências: [`docs/CHECKLIST-PRONTO.md`](docs/CHECKLIST-PRONTO.md).

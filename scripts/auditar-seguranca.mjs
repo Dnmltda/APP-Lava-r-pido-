@@ -96,7 +96,7 @@ async function main() {
   const regra = (label) => (rl.rules || []).find((r) => r.label === label);
   checar("limite de pedidos ligado", rl.enabled === true);
   checar("limite de tentativas de login (10 a cada 5 min por IP)", regra("*:auth") && regra("*:auth").maxRequests <= 10);
-  checar("limite de cadastro (5 por hora por IP)", regra("POST /api/lr/cadastro") && regra("POST /api/lr/cadastro").maxRequests <= 5);
+  checar("limite de cadastro (até 20 por hora por IP)", regra("POST /api/lr/cadastro") && regra("POST /api/lr/cadastro").maxRequests <= 20);
   checar("limite geral da API", !!regra("/api/"));
   checar("backup automático diário ligado", !!(s.backups && s.backups.cron), s.backups && s.backups.cron);
   checar("guarda pelo menos 7 backups", s.backups && s.backups.cronMaxKeep >= 7, s.backups && s.backups.cronMaxKeep);
