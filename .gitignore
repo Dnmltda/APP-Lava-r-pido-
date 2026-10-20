@@ -7,3 +7,4 @@ pocketbase/pb_data/
 pocketbase/bin/
 *.log
 .DS_Store
+dist-hostinger/
