@@ -409,6 +409,32 @@ async function main() {
       await ctx.close();
     }
 
+    console.log("\nLava rápido novo começa com a tabela de referência");
+    {
+      const B = await criar("empresas", { nome: "Lava Teste Tabela", slug: "teste-tab-" + sufixo, ativo: true, capacidade_simultanea: 2, horario_funcionamento: HORARIO });
+      const cel = "117" + sufixo + "01";
+      const dono = await criar("usuarios", { nome: "Dono Tabela", celular: cel, password: "senha12345", passwordConfirm: "senha12345" });
+      await criar("vinculos", { usuario: dono.id, empresa: B.id, papel: "patrao", ativo: true });
+      const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR", timezoneId: "America/Sao_Paulo" });
+      const p = await ctx.newPage();
+      await p.goto(`${APP}/${B.slug}/entrar`);
+      await p.fill('input[type="tel"]', cel);
+      await p.fill('input[type="password"]', "senha12345");
+      await p.click('button[type="submit"]');
+      await p.getByText("Minha conta").waitFor({ timeout: 15000 });
+      await p.goto(`${APP}/${B.slug}/servicos`);
+      await p.getByRole("button", { name: "Usar a tabela de referência" }).click();
+      await p.getByRole("button", { name: "Usar a tabela de referência" }).waitFor({ state: "detached", timeout: 30000 }).catch(() => {});
+      const svs = (await api("GET", `/api/collections/servicos/records?filter=${encodeURIComponent(`empresa="${B.id}"`)}`, { token: ADM })).data.items;
+      const emp = (await api("GET", `/api/collections/empresas/records/${B.id}`, { token: ADM })).data;
+      const suv = (emp.tipos_veiculo || []).find((t) => t.nome === "Sedan / SUV");
+      const completa = svs.find((x) => x.nome === "Lavagem completa");
+      checar("dono cria 7 serviços e 3 portes com um toque", svs.length === 7 && (emp.tipos_veiculo || []).length === 3, [svs.length, emp.tipos_veiculo]);
+      checar("cada serviço já vem com preço por porte", completa?.preco === 75 && completa?.precos_tipo?.[suv?.id] === 100, completa && completa.precos_tipo);
+      checar("o botão some quando já há serviços", (await p.getByRole("button", { name: "Usar a tabela de referência" }).count()) === 0);
+      await ctx.close();
+    }
+
     console.log("\nTodas as telas de cada perfil abrem sem erro");
     for (const p of ["patrao", "gerente", "funcionario", "responsavel"]) {
       const page = paginas[p];

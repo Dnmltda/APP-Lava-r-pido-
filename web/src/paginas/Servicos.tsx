@@ -7,6 +7,8 @@ import { duracao, reais } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
 import { pode } from "../lib/permissoes";
 import { tiposDaEmpresa } from "../componentes/TipoVeiculo";
+import { SERVICOS_PADRAO, TIPOS_PADRAO } from "../lib/tabelaPadrao";
+import type { Empresa } from "../lib/tipos";
 import type { Servico, TipoVeiculo } from "../lib/tipos";
 
 const paraNumero = (t: string) => Number(t.replace(/\./g, "").replace(",", "."));
@@ -63,7 +65,10 @@ export function Servicos() {
         ) : lista === null ? (
           <Carregando />
         ) : lista.length === 0 ? (
-          <EstadoVazio titulo="Nenhum serviço ainda" texto="Cadastre os serviços para os clientes poderem entrar na fila." />
+          <>
+            <EstadoVazio titulo="Nenhum serviço ainda" texto="Cadastre os serviços para os clientes poderem entrar na fila." />
+            {pode(vinculo, "configurar_empresa") && <TabelaPadrao onPronto={carregar} />}
+          </>
         ) : (
           lista.map((s) => (
             <button
@@ -98,6 +103,57 @@ export function Servicos() {
       )}
       {editandoTipos && <EditarTipos onFechar={() => setEditandoTipos(false)} />}
     </Moldura>
+  );
+}
+
+// Começa com a tabela de referência: 7 serviços com preço por porte. O dono ajusta depois.
+function TabelaPadrao({ onPronto }: { onPronto: () => void }) {
+  const { empresa, recarregarEmpresa } = useEmpresa();
+  const [erro, setErro] = useState("");
+  const [criando, setCriando] = useState(false);
+
+  async function criar() {
+    setErro("");
+    setCriando(true);
+    try {
+      const atuais = tiposDaEmpresa(empresa);
+      const novos = TIPOS_PADRAO.filter((t) => !atuais.some((a) => a.nome === t.nome)).map((t) => ({ id: "", ...t }));
+      const salva = novos.length ? await pb.collection("empresas").update<Empresa>(empresa.id, { tipos_veiculo: [...atuais, ...novos] }) : empresa;
+      const tipos = tiposDaEmpresa(salva);
+      const ids = TIPOS_PADRAO.map((t) => tipos.find((x) => x.nome === t.nome)?.id || "");
+      for (const [i, sv] of SERVICOS_PADRAO.entries()) {
+        await pb.collection("servicos").create({
+          empresa: empresa.id,
+          nome: sv.nome,
+          descricao: sv.descricao,
+          preco: sv.precos[0],
+          duracao_media_min: sv.minutos,
+          ordem_exibicao: i + 1,
+          ativo: true,
+          precos_tipo: Object.fromEntries(ids.map((id, j) => [id, sv.precos[j]]).filter(([id]) => id)),
+        });
+      }
+      await recarregarEmpresa();
+      onPronto();
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setCriando(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-marca bg-marca-suave p-4">
+      <p className="text-lg font-extrabold text-tinta">Começar com a tabela de referência</p>
+      <p className="mt-1 text-base text-tinta">
+        {SERVICOS_PADRAO.length} serviços comuns em lava rápido ({SERVICOS_PADRAO.map((s) => s.nome).join(", ")}) com preço para carro pequeno, sedan/SUV e caminhonete/van.
+      </p>
+      <p className="mt-1 text-sm text-tinta-suave">Preços médios de 2026 no Brasil. Depois é só tocar em cada serviço e ajustar para a sua cidade.</p>
+      {erro && <Aviso>{erro}</Aviso>}
+      <Botao largo className="mt-3" carregando={criando} onClick={criar}>
+        Usar a tabela de referência
+      </Botao>
+    </div>
   );
 }
 
