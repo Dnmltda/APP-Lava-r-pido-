@@ -76,6 +76,10 @@ jobs:
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
         run: node scripts/testar-cameras.mjs
 
+      - name: Teste do sensor de movimento (DVRs Intelbras e Hikvision falsos + gateway)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-sensor.mjs
+
       - name: Log do PocketBase (se falhar)
         if: failure()
         run: cat pocketbase/pb.log

@@ -9,6 +9,10 @@
 onRecordCreateRequest((e) => {
   const lib = require(`${__hooks}/lib.js`);
   lib.validarCamera(e.record);
+  // Campos do sensor são do servidor: a chave é sempre gerada aqui.
+  for (const c of lib.CAMPOS_SENSOR) e.record.set(c, "");
+  e.record.set("chave_sensor", $security.randomString(40));
+  if (!e.record.getInt("sem_movimento_min")) e.record.set("sem_movimento_min", 10);
   e.next();
   lib.auditar(e.app, {
     empresa: e.record.getString("empresa"), usuario: lib.idUsuario(e.auth), acao: "camera_criar",
@@ -21,10 +25,18 @@ onRecordUpdateRequest((e) => {
   const lib = require(`${__hooks}/lib.js`);
   const antes = e.record.original();
   lib.validarCamera(e.record);
+  if (!e.hasSuperuserAuth()) {
+    for (const c of lib.CAMPOS_SENSOR) e.record.set(c, antes.get(c));
+    // Ligou o sensor agora: começa a contar daqui (não alerta pelo passado).
+    if (e.record.getBool("monitorar_movimento") && !antes.getBool("monitorar_movimento") && e.record.getString("ultimo_sinal_em")) {
+      e.record.set("sensor_desde_em", new Date().toISOString().replace("T", " "));
+    }
+  }
   e.next();
   const resumo = (r) => ({
     nome: r.getString("nome"), tipo: r.getString("tipo_integracao"), ativo: r.getBool("ativo"),
     endereco: r.getString("endereco_stream"), caminho: r.getString("caminho"), link_app: r.getString("link_app"),
+    monitorar_movimento: r.getBool("monitorar_movimento"), sem_movimento_min: r.getInt("sem_movimento_min"),
     token_trocado: r.getString("gateway_token") !== antes.getString("gateway_token"),
   });
   const depois = resumo(e.record);
@@ -144,3 +156,62 @@ routerAdd("GET", "/api/lr/cameras/{id}/ver/{passe}/{arquivo...}", (e) => {
   }
   return e.blob(200, tipoConteudo, res.body);
 });
+
+// ---------------------------------------------------- sensor de movimento
+// POST /api/lr/sensor/{chave}   body {"tipo":"movimento"|"sinal"} ou ?tipo=...
+// Chamado pelo DVR (notificação HTTP) ou pelo gateway da loja (deploy/gateway).
+// A chave é secreta e única por câmera; sem login (o DVR não tem login do app).
+routerAdd("POST", "/api/lr/sensor/{chave}", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const chave = e.request.pathValue("chave");
+  if (!/^[A-Za-z0-9]{40}$/.test(chave)) throw new NotFoundError("Sensor não encontrado.");
+  let cam;
+  try {
+    cam = e.app.findFirstRecordByData("cameras", "chave_sensor", chave);
+  } catch (_) {}
+  if (!cam) throw new NotFoundError("Sensor não encontrado.");
+  let tipo = e.request.url.query().get("tipo");
+  if (!tipo) {
+    try {
+      tipo = String((e.requestInfo().body || {}).tipo || "");
+    } catch (_) {}
+  }
+  if (tipo !== "sinal") tipo = "movimento";
+  if (cam.getBool("ativo")) lib.registrarSensor(e.app, cam, tipo, Date.now());
+  return e.noContent(204);
+});
+
+// Patrão troca a chave (se vazou ou trocou o gateway).
+routerAdd("POST", "/api/lr/cameras/{id}/nova-chave", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  let cam;
+  try {
+    cam = e.app.findRecordById("cameras", e.request.pathValue("id"));
+  } catch (_) {}
+  if (!cam || !lib.ehPatraoAtivo(e.app, e.auth.id, cam.getString("empresa"))) throw new NotFoundError("Câmera não encontrada.");
+  cam.set("chave_sensor", $security.randomString(40));
+  cam.set("ultimo_sinal_em", "");
+  cam.set("ultimo_movimento_em", "");
+  cam.set("sensor_desde_em", "");
+  e.app.unsafeWithoutHooks().save(cam);
+  lib.auditar(e.app, { empresa: cam.getString("empresa"), usuario: e.auth.id, acao: "camera_nova_chave_sensor", entidade: "cameras", entidade_id: cam.id });
+  return e.json(200, { chave_sensor: cam.getString("chave_sensor") });
+}, $apis.requireAuth("usuarios"));
+
+// A cada minuto: área parada no horário de funcionamento ou sensor sem sinal → alerta ao patrão.
+cronAdd("lr_sensor_movimento", "* * * * *", () => {
+  const lib = require(`${__hooks}/lib.js`);
+  lib.verificarSensores($app, Date.now());
+});
+
+// Limpeza: guarda 60 dias de histórico de movimento.
+cronAdd("lr_sensor_limpeza", "17 4 * * *", () => {
+  const limite = new Date(Date.now() - 60 * 86400000).toISOString().replace("T", " ");
+  $app.db().newQuery("DELETE FROM camera_eventos WHERE created < {:l}").bind({ l: limite }).execute();
+});
+
+// Só para testes: roda a verificação agora (superusuário).
+routerAdd("POST", "/api/lr/sensor-verificar", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  return e.json(200, { alertas: lib.verificarSensores(e.app, Date.now()) });
+}, $apis.requireSuperuserAuth());

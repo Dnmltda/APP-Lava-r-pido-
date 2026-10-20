@@ -799,7 +799,146 @@ function quadroDemonstracao(nome, agora) {
   );
 }
 
+// ---------------------------------------------------- sensor de movimento
+const SENSOR_SEM_SINAL_MS = 5 * 60000;
+const CAMPOS_SENSOR = ["chave_sensor", "ultimo_movimento_em", "ultimo_sinal_em", "alerta_parado_em", "alerta_desligado_em", "sensor_desde_em"];
+
+function minutosDoTexto(t) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || ""));
+  return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+}
+
+// Horário de funcionamento de hoje (São Paulo). null = horário não configurado.
+//   { aberto: bool, abriuEm: ms }
+function funcionamentoAgora(empresa, agora) {
+  let h = null;
+  try {
+    h = JSON.parse(empresa.getString("horario_funcionamento") || "null");
+  } catch (_) {}
+  if (!h || h.length !== 7) return null;
+  const d = new Date(agora - OFFSET_SP);
+  const dia = h[d.getUTCDay()];
+  const abre = dia && dia.aberto ? minutosDoTexto(dia.abre) : null;
+  const fecha = dia && dia.aberto ? minutosDoTexto(dia.fecha) : null;
+  if (abre === null || fecha === null) return { aberto: false, abriuEm: 0 };
+  const agoraMin = d.getUTCHours() * 60 + d.getUTCMinutes();
+  return { aberto: agoraMin >= abre && agoraMin < fecha, abriuEm: inicioDiaSP(agora) + abre * 60000 };
+}
+
+function eventoCamera(app, cam, tipo, minutos) {
+  try {
+    const r = new Record(app.findCollectionByNameOrId("camera_eventos"));
+    r.set("empresa", cam.getString("empresa"));
+    r.set("camera", cam.id);
+    r.set("tipo", tipo);
+    if (minutos) r.set("minutos", minutos);
+    app.save(r);
+  } catch (err) {
+    console.log("[sensor] evento não gravado", cam.id, err);
+  }
+}
+
+function avisarPatroes(app, empresa, msg) {
+  const patroes = app.findRecordsByFilter("vinculos", "empresa = {:e} && papel = 'patrao' && ativo = true", "", 10, 0, { e: empresa.id });
+  for (const v of patroes) notificarUsuario(app, v.getString("usuario"), msg);
+}
+
+// Sinal vindo do DVR/gateway. tipo: "movimento" ou "sinal".
+function registrarSensor(app, cam, tipo, agora) {
+  const iso = new Date(agora).toISOString().replace("T", " ");
+  const sinalAntes = dataMs(cam, "ultimo_sinal_em");
+  const estavaDesligado = dataMs(cam, "alerta_desligado_em") > sinalAntes && sinalAntes > 0;
+  if (!sinalAntes || estavaDesligado) cam.set("sensor_desde_em", iso);
+  cam.set("ultimo_sinal_em", iso);
+  if (tipo === "movimento") {
+    // Um registro por "período" de movimento (não um por segundo).
+    if (agora - dataMs(cam, "ultimo_movimento_em") > 60000) eventoCamera(app, cam, "movimento");
+    cam.set("ultimo_movimento_em", iso);
+  }
+  app.unsafeWithoutHooks().save(cam);
+  if (estavaDesligado) {
+    eventoCamera(app, cam, "religado");
+    try {
+      const empresa = app.findRecordById("empresas", cam.getString("empresa"));
+      avisarPatroes(app, empresa, {
+        titulo: "Sensor religado · " + cam.getString("nome"),
+        texto: "O sensor de movimento da câmera voltou a funcionar.",
+        url: "/" + empresa.getString("slug") + "/cameras",
+        tag: "sensor-" + cam.id,
+      });
+    } catch (_) {}
+  }
+}
+
+// Roda a cada minuto. Só alerta no horário de funcionamento e só para câmeras
+// que já mandaram algum sinal (câmera sem detecção de movimento = não monitora).
+function verificarSensores(app, agora) {
+  const alertas = [];
+  // Câmera de demonstração: o "sensor" é simulado e está sempre ligado.
+  const demos = app.findRecordsByFilter("cameras", "ativo = true && monitorar_movimento = true && tipo_integracao = 'demonstracao'", "", 0, 0);
+  for (const d of demos) {
+    if (!dataMs(d, "sensor_desde_em")) d.set("sensor_desde_em", new Date(agora).toISOString().replace("T", " "));
+    d.set("ultimo_sinal_em", new Date(agora).toISOString().replace("T", " "));
+    app.unsafeWithoutHooks().save(d);
+  }
+  const cams = app.findRecordsByFilter("cameras", "ativo = true && monitorar_movimento = true && ultimo_sinal_em != ''", "", 0, 0);
+  const empresas = {};
+  for (const cam of cams) {
+    try {
+      const eid = cam.getString("empresa");
+      if (!empresas[eid]) empresas[eid] = app.findRecordById("empresas", eid);
+      const empresa = empresas[eid];
+      if (!empresa.getBool("ativo")) continue;
+      const func = funcionamentoAgora(empresa, agora);
+      if (!func || !func.aberto) continue;
+      const slug = empresa.getString("slug");
+      const nome = cam.getString("nome");
+      const sinal = dataMs(cam, "ultimo_sinal_em");
+      const iso = new Date(agora).toISOString().replace("T", " ");
+
+      if (agora - sinal > SENSOR_SEM_SINAL_MS) {
+        if (dataMs(cam, "alerta_desligado_em") < sinal) {
+          cam.set("alerta_desligado_em", iso);
+          app.unsafeWithoutHooks().save(cam);
+          eventoCamera(app, cam, "desligado");
+          avisarPatroes(app, empresa, {
+            titulo: "Sensor sem sinal · " + nome,
+            texto: "O sensor de movimento parou de responder. Confira se o gateway e o DVR estão ligados.",
+            url: "/" + slug + "/cameras",
+            tag: "sensor-" + cam.id,
+          });
+          alertas.push({ camera: cam.id, tipo: "desligado" });
+        }
+        continue;
+      }
+
+      const limite = (cam.getInt("sem_movimento_min") || 10) * 60000;
+      const desde = Math.max(dataMs(cam, "ultimo_movimento_em"), dataMs(cam, "sensor_desde_em"), func.abriuEm);
+      if (agora - desde >= limite && dataMs(cam, "alerta_parado_em") < desde) {
+        const minutos = Math.floor((agora - desde) / 60000);
+        cam.set("alerta_parado_em", iso);
+        app.unsafeWithoutHooks().save(cam);
+        eventoCamera(app, cam, "parado", minutos);
+        avisarPatroes(app, empresa, {
+          titulo: "Sem movimento · " + nome,
+          texto: "Ninguém se mexeu na área da câmera " + nome + " nos últimos " + minutos + " minutos.",
+          url: "/" + slug + "/cameras",
+          tag: "parado-" + cam.id,
+        });
+        alertas.push({ camera: cam.id, tipo: "parado", minutos: minutos });
+      }
+    } catch (err) {
+      console.log("[sensor] erro", cam.id, err);
+    }
+  }
+  return alertas;
+}
+
 module.exports = {
+  CAMPOS_SENSOR,
+  funcionamentoAgora,
+  registrarSensor,
+  verificarSensores,
   TIPOS_CAMERA,
   PASSE_CAMERA_S,
   segredoServidor,

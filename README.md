@@ -20,6 +20,7 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 | 5. Painéis | ✅ concluída | `testar-paineis.mjs`: 59/59 |
 | 6. Avisos e avaliação | ✅ concluída | `testar-avisos.mjs`: 31/31 (Web Push descriptografado + VAPID conferido) |
 | 7. Câmeras | ✅ concluída | `testar-cameras.mjs`: 60/60 (gateway falso com token, passes forjados/vencidos) |
+| 7b. Sensor de movimento | ✅ concluída | `testar-sensor.mjs`: 41/41 (DVRs Intelbras e Hikvision falsos com login Digest + gateway) |
 | 8. Testes e publicação final | a fazer | |
 
 ### Etapa 7: Câmeras (só o patrão)
@@ -32,6 +33,13 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 - **O celular nunca recebe o endereço nem o token do gateway**: o patrão pede um passe de 10 minutos, só daquela câmera, e a imagem passa pelo servidor. Câmera desligada ou patrão desligado perde o acesso na hora, mesmo com passe.
 - Em produção o gateway precisa ser `https://` e público (túnel); endereços internos (192.168.x, localhost…) são recusados. **Nunca abrir a porta do DVR.**
 - Cada visualização e cada mudança de câmera fica na auditoria (sem o token).
+- **Sensor de movimento** (pedido do Diego: só funciona se a câmera/DVR tiver detecção de movimento):
+  - O programa `deploy/gateway/sensor-movimento.mjs`, no computadorzinho da loja, escuta os eventos de movimento do DVR (Intelbras/Dahua e Hikvision, login Digest) e avisa o app. A cada minuto manda um "sinal" de que está ligado.
+  - Cada câmera mostra **"Movimento agora"**, **"Parado há X min"** ou **"Sensor sem sinal"**, e o histórico do dia.
+  - **Alerta no celular do patrão** quando a área fica X minutos sem movimento (padrão 10, configurável por câmera), **só no horário de funcionamento**. Também avisa se o sensor parar de responder (5 min) e quando volta.
+  - O alerta não se repete: um por período parado. Ao ligar o sensor, conta a partir dali (não alerta pelo passado).
+  - Sem reconhecimento facial (fora do escopo do planejamento): o alerta diz que a área ficou parada, não quem saiu.
+  - Na câmera de demonstração o sensor é simulado (botão "Simular movimento agora" no histórico).
 
 ### Etapa 6: Avisos e avaliação
 - **Notificação no celular (Web Push)**: "Vez confirmada", "Já pode vir" e "Carro pronto". Depois da baixa vem o convite "Como foi sua lavagem?", que abre a tela de avaliar.

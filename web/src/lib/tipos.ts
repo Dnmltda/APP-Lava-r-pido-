@@ -232,4 +232,19 @@ export interface Camera extends Base {
   ordem: number;
   ativo: boolean;
   tem_token: boolean;
+  // Sensor de movimento (só funciona se a câmera/DVR tiver detecção de movimento)
+  monitorar_movimento: boolean;
+  sem_movimento_min: number;
+  chave_sensor: string;
+  ultimo_movimento_em: string;
+  ultimo_sinal_em: string;
+  sensor_desde_em: string;
+}
+
+export interface CameraEvento {
+  id: string;
+  camera: string;
+  tipo: "movimento" | "parado" | "desligado" | "religado";
+  minutos: number;
+  created: string;
 }

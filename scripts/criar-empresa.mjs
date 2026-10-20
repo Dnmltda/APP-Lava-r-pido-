@@ -115,6 +115,7 @@ async function main() {
     console.log(`  ${produtos.length} produtos de exemplo`);
     await api("POST", "/api/collections/cameras/records", token, {
       empresa: empresa.id, nome: "Box 1 (demonstração)", tipo_integracao: "demonstracao", ordem: 1, ativo: true,
+      monitorar_movimento: true, sem_movimento_min: 10,
     });
     console.log("  1 câmera de demonstração (só o patrão vê)");
   }
