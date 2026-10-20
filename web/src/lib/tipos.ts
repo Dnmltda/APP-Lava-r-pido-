@@ -51,3 +51,34 @@ export const NOME_PAPEL: Record<Papel, string> = {
   funcionario: "Funcionário",
   cliente: "Cliente",
 };
+
+export type StatusFila =
+  | "pendente"
+  | "confirmado"
+  | "avisado"
+  | "no_local"
+  | "lavando"
+  | "pronto"
+  | "finalizado"
+  | "recusado"
+  | "cancelado"
+  | "substituido";
+
+export interface Servico extends Base {
+  empresa: string;
+  nome: string;
+  descricao: string;
+  preco: number;
+  duracao_media_min: number;
+  ordem_exibicao: number;
+  ativo: boolean;
+}
+
+export interface Veiculo extends Base {
+  cliente: string;
+  placa: string;
+  final_placa: string;
+  modelo: string;
+  cor: string;
+  ativo: boolean;
+}

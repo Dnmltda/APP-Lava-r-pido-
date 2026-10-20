@@ -5,7 +5,27 @@ PWA em React + Vite + TypeScript + Tailwind, com backend PocketBase.
 
 O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md).
 
-## Situação: Etapa 1 (Base) concluída
+## Situação
+
+| Etapa | Status | Teste automático |
+|---|---|---|
+| 1. Base | ✅ concluída | `testar-isolamento.mjs`: 75/75 |
+| 2. Fila (fatia principal) | ✅ concluída | `testar-fila.mjs`: 56/56 + teste com 2 celulares no navegador |
+| 3 a 8 | a fazer | |
+
+### Etapa 2: Fila
+- Cadastro do cliente com veículo: placa completa ou só os 3 últimos caracteres. Tela "Meus veículos".
+- Serviços com preço e tempo médio, cadastrados pelo patrão.
+- **Fila ao vivo**: atualiza sozinha em todos os celulares, sem dados pessoais. Um "sinal" público por empresa avisa que a fila mudou e cada celular busca de novo a visão pública.
+- Visão pública: primeiro nome, 3 últimos da placa, posição, status e previsão. Reservas aparecem como "Reservado".
+- Previsão: usa a capacidade da empresa (N carros ao mesmo tempo) e o tempo de cada serviço. A ordem de entrada é mantida.
+- Cliente: entra na fila (serviço, veículo, pedido de busca, observação), vê a própria posição e a previsão e pode cancelar. Só 1 entrada ativa por empresa.
+- Equipe: confirmar e recusar (patrão, gerente ou responsável pela fila), avisar pelo WhatsApp com a mensagem pronta, marcar "chegou", iniciar a lavagem, marcar "pronto" e dar baixa registrando quem lavou.
+- Iniciar a lavagem de um carro que tem outros na frente pede confirmação e fica registrado na auditoria.
+- Cliente de balcão (sem app) entra confirmado, no fim da fila.
+- Todas as mudanças da fila passam pelas rotas `/api/lr/fila/*`: ninguém altera a fila direto pela API. Cada ação fica na auditoria.
+
+### Etapa 1: Base
 
 - Coleções `empresas`, `usuarios` (login por celular + senha), `vinculos` (usuário ↔ empresa + papel) e `auditoria`.
 - Regras de API filtram tudo por empresa e por papel. A empresa A nunca vê a B.

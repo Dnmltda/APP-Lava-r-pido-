@@ -37,7 +37,10 @@ onRecordUpdate((e) => {
 // POST /api/lr/cadastro  { slug, nome, celular, senha, aceite_marketing }
 routerAdd("POST", "/api/lr/cadastro", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const body = new DynamicModel({ slug: "", nome: "", celular: "", senha: "", aceite_marketing: false });
+  const body = new DynamicModel({
+    slug: "", nome: "", celular: "", senha: "", aceite_marketing: false,
+    placa: "", final_placa: "", modelo: "", cor: "",
+  });
   e.bindBody(body);
 
   const empresa = lib.acharEmpresaAtivaPorSlug(e.app, body.slug);
@@ -49,6 +52,10 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
   if (nome.length < 2) throw new BadRequestError("Informe seu nome.");
   if (!lib.celularValido(celular)) throw new BadRequestError("Celular inválido. Use DDD + número.");
   if (senha.length < 8) throw new BadRequestError("A senha precisa ter pelo menos 8 caracteres.");
+  const placa = String(body.placa || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const finalPlaca = placa ? placa.slice(-3) : String(body.final_placa || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (placa && !/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(placa)) throw new BadRequestError("Placa inválida. Ex.: ABC1D23.");
+  if (finalPlaca.length !== 3) throw new BadRequestError("Informe a placa ou os 3 últimos caracteres dela.");
 
   try {
     e.app.findFirstRecordByData("usuarios", "celular", celular);
@@ -71,6 +78,14 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
     vinculo.set("papel", "cliente");
     vinculo.set("ativo", true);
     tx.save(vinculo);
+
+    const veiculo = new Record(tx.findCollectionByNameOrId("veiculos"));
+    veiculo.set("cliente", usuario.id);
+    veiculo.set("placa", placa);
+    veiculo.set("final_placa", finalPlaca);
+    veiculo.set("modelo", String(body.modelo || "").trim().slice(0, 60));
+    veiculo.set("cor", String(body.cor || "").trim().slice(0, 30));
+    tx.save(veiculo);
   });
 
   return e.json(201, { ok: true, celular });

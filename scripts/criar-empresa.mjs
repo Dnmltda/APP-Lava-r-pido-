@@ -85,6 +85,24 @@ async function main() {
       usuario: usuario.id, empresa: empresa.id, papel: p.papel, responsavel_fila: !!p.responsavel_fila, ativo: true,
     });
     console.log(`  ${p.papel.padEnd(11)} ${p.nome} — celular ${p.celular}`);
+    if (a.demo && p.papel === "cliente") {
+      await api("POST", "/api/collections/veiculos/records", token, {
+        cliente: usuario.id, placa: "DEM0A05", final_placa: "A05", modelo: "Onix", cor: "Prata", ativo: true,
+      });
+    }
+  }
+
+  if (a.demo) {
+    const servicos = [
+      { nome: "Lavagem simples", descricao: "Por fora, com secagem", preco: 40, duracao_media_min: 30, ordem_exibicao: 1 },
+      { nome: "Lavagem completa", descricao: "Por dentro e por fora, com aspiração", preco: 70, duracao_media_min: 50, ordem_exibicao: 2 },
+      { nome: "Completa + cera", descricao: "Completa com enceramento", preco: 110, duracao_media_min: 80, ordem_exibicao: 3 },
+      { nome: "Higienização interna", descricao: "Bancos, carpetes e teto", preco: 250, duracao_media_min: 180, ordem_exibicao: 4 },
+    ];
+    for (const s of servicos) {
+      await api("POST", "/api/collections/servicos/records", token, { ...s, empresa: empresa.id, ativo: true });
+    }
+    console.log(`  ${servicos.length} serviços de exemplo`);
   }
 }
 

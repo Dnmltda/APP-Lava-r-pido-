@@ -42,7 +42,7 @@ export function Moldura({
       </header>
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5">{children}</main>
       <footer className="px-4 pb-6 pt-2 text-center text-sm text-tinta-suave">
-        DNM&amp;LTDA Lava Rápido
+        DNM<span className="font-[system-ui]">&amp;</span>LTDA Lava Rápido
       </footer>
     </div>
   );

@@ -3,6 +3,7 @@ import { Moldura } from "../componentes/Moldura";
 import { Aviso, Botao, Cartao } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
+import { FilaCliente } from "./FilaCliente";
 import { DIAS_SEMANA, linkWhatsApp, primeiroNome } from "../lib/formato";
 import { pode } from "../lib/permissoes";
 import { NOME_PAPEL, type Empresa } from "../lib/tipos";
@@ -40,7 +41,7 @@ export function Painel() {
       <div className="mt-6 flex flex-col gap-3">
         {ehEquipe ? (
           <>
-            <Atalho titulo="Fila e ordens de serviço" texto="Disponível na próxima etapa." desativado />
+            <Atalho para={`/${empresa.slug}/fila`} titulo="Fila" texto="Confirmar, avisar, lavar e dar baixa" destaque />
             {pode(vinculo, "ver_valores") && (
               <Atalho titulo="Painel do dia" texto="Vendas, metas e caixa. Disponível em breve." desativado />
             )}
@@ -48,17 +49,15 @@ export function Painel() {
               <Atalho para={`/${empresa.slug}/equipe`} titulo="Equipe" texto="Cadastrar, permissões, senhas" />
             )}
             {pode(vinculo, "configurar_empresa") && (
+              <Atalho para={`/${empresa.slug}/servicos`} titulo="Serviços" texto="Preços e tempo médio de cada serviço" />
+            )}
+            {pode(vinculo, "configurar_empresa") && (
               <Atalho para={`/${empresa.slug}/configuracoes`} titulo="Configurações" texto="Logo, cor, fila, avisos e horários" />
             )}
           </>
         ) : (
           <>
-            <Cartao className="border-2 border-dashed">
-              <p className="text-lg font-bold text-tinta">Fila ao vivo</p>
-              <p className="mt-1 text-base text-tinta-suave">
-                Em breve você vai ver a fila e entrar nela por aqui.
-              </p>
-            </Cartao>
+            <FilaCliente />
             <InfoEmpresa empresa={empresa} />
           </>
         )}
@@ -76,7 +75,19 @@ function Chip({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Atalho({ para, titulo, texto, desativado }: { para?: string; titulo: string; texto: string; desativado?: boolean }) {
+function Atalho({
+  para,
+  titulo,
+  texto,
+  desativado,
+  destaque,
+}: {
+  para?: string;
+  titulo: string;
+  texto: string;
+  desativado?: boolean;
+  destaque?: boolean;
+}) {
   const conteudo = (
     <>
       <span className="min-w-0">
@@ -86,7 +97,7 @@ function Atalho({ para, titulo, texto, desativado }: { para?: string; titulo: st
       {!desativado && <span className="text-2xl text-marca" aria-hidden="true">›</span>}
     </>
   );
-  const classe = "flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-linha bg-white px-4 py-3 shadow-sm";
+  const classe = `flex min-h-16 items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-sm ${destaque ? "border-2 border-marca bg-marca-suave" : "border-linha bg-white"}`;
   if (desativado || !para) return <div className={`${classe} opacity-60`}>{conteudo}</div>;
   return (
     <Link to={para} className={`${classe} hover:border-marca`}>

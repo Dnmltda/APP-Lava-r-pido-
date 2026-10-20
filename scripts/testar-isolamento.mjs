@@ -110,15 +110,15 @@ async function main() {
     console.log("\nCadastro do cliente pelo link da empresa A");
     const celCliente = novoCelular();
     r = await api("POST", "/api/lr/cadastro", {
-      body: { slug: A.slug, nome: "Cliente A", celular: celCliente, senha: "senha12345", aceite_marketing: true },
+      body: { slug: A.slug, nome: "Cliente A", celular: celCliente, senha: "senha12345", aceite_marketing: true, placa: "ABC1D23" },
     });
     checar("cadastro aceito", r.status === 201, r.data);
     r = await api("POST", "/api/lr/cadastro", {
-      body: { slug: C.slug, nome: "Cliente C", celular: novoCelular(), senha: "senha12345" },
+      body: { slug: C.slug, nome: "Cliente C", celular: novoCelular(), senha: "senha12345", final_placa: "123" },
     });
     checar("cadastro em empresa inativa é recusado", r.status === 404, r.status);
     r = await api("POST", "/api/lr/cadastro", {
-      body: { slug: A.slug, nome: "Repetido", celular: celCliente, senha: "senha12345" },
+      body: { slug: A.slug, nome: "Repetido", celular: celCliente, senha: "senha12345", final_placa: "123" },
     });
     checar("celular repetido é recusado", r.status === 400, r.status);
     r = await api("POST", "/api/collections/usuarios/auth-with-password", {

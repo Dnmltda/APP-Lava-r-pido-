@@ -32,7 +32,7 @@ export function Inicio() {
     <div className="flex min-h-dvh flex-col bg-fundo">
       <header className="bg-marca px-4 py-8 text-sobre-marca">
         <div className="mx-auto max-w-2xl">
-          <p className="text-sm font-bold uppercase tracking-widest opacity-85">DNM&amp;LTDA</p>
+          <p className="text-sm font-bold uppercase tracking-widest opacity-85">DNM<span className="font-[system-ui]">&amp;</span>LTDA</p>
           <h1 className="text-3xl font-black">Lava Rápido</h1>
           <p className="mt-2 text-base opacity-90">Fila, reservas e equipe do seu lava rápido no celular.</p>
         </div>

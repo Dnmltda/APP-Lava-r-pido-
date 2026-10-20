@@ -26,3 +26,23 @@ export function primeiroNome(nome: string) {
 }
 
 export const DIAS_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+const FMT_REAL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+export function reais(v: number) {
+  return FMT_REAL.format(v || 0);
+}
+
+export function duracao(min: number) {
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}h${String(m).padStart(2, "0")}` : `${h}h`;
+}
+
+// Placa: maiúsculas, sem traço. Aceita antiga (ABC1234) e Mercosul (ABC1D23).
+export function normalizarPlaca(v: string) {
+  return v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
+}
+export function placaValida(v: string) {
+  return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(normalizarPlaca(v));
+}

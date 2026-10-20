@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
+import { MeusVeiculos } from "../componentes/MeusVeiculos";
 import { Aviso, Botao, Campo, Interruptor } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
@@ -9,7 +10,7 @@ import { mensagemDeErro, pb } from "../lib/pb";
 import type { Usuario } from "../lib/tipos";
 
 export function Conta() {
-  const { empresa } = useEmpresa();
+  const { empresa, vinculo } = useEmpresa();
   const { usuario, sair, atualizarUsuario, entrar } = useSessao();
   const navegar = useNavigate();
   const [nome, setNome] = useState(usuario?.nome || "");
@@ -83,6 +84,12 @@ export function Conta() {
           Salvar
         </Botao>
       </form>
+
+      {vinculo?.papel === "cliente" && (
+        <div className="mt-8 border-t border-linha pt-6">
+          <MeusVeiculos />
+        </div>
+      )}
 
       <form onSubmit={trocarSenha} className="mt-8 flex flex-col gap-4 border-t border-linha pt-6" noValidate>
         <h2 className="text-lg font-extrabold text-tinta">Trocar senha</h2>

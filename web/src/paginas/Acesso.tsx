@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { CamposVeiculo, corpoVeiculo, validarVeiculo, VEICULO_VAZIO } from "../componentes/CamposVeiculo";
 import { Moldura } from "../componentes/Moldura";
 import { Aviso, Botao, Campo, Interruptor } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
@@ -85,6 +86,7 @@ export function Cadastro() {
   const [celular, setCelular] = useState("");
   const [senha, setSenha] = useState("");
   const [aceite, setAceite] = useState(false);
+  const [veiculo, setVeiculo] = useState(VEICULO_VAZIO);
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -98,13 +100,21 @@ export function Cadastro() {
     if (nome.trim().length < 2) novos.nome = "Digite seu nome.";
     if (!celularValido(celular)) novos.celular = "Digite o celular com DDD.";
     if (senha.length < 8) novos.senha = "A senha precisa ter pelo menos 8 caracteres.";
+    Object.assign(novos, validarVeiculo(veiculo));
     setErros(novos);
     if (Object.keys(novos).length) return;
     setEnviando(true);
     try {
       await pb.send("/api/lr/cadastro", {
         method: "POST",
-        body: { slug: empresa.slug, nome: nome.trim(), celular: somenteDigitos(celular), senha, aceite_marketing: aceite },
+        body: {
+          slug: empresa.slug,
+          nome: nome.trim(),
+          celular: somenteDigitos(celular),
+          senha,
+          aceite_marketing: aceite,
+          ...corpoVeiculo(veiculo),
+        },
       });
       await entrar(celular, senha);
       navegar(`/${empresa.slug}`, { replace: true });
@@ -142,6 +152,8 @@ export function Cadastro() {
           erro={erros.senha}
           ajuda="Mínimo de 8 caracteres."
         />
+        <h2 className="mt-2 text-lg font-extrabold text-tinta">Seu veículo</h2>
+        <CamposVeiculo valor={veiculo} onChange={setVeiculo} erros={erros} />
         <Interruptor
           rotulo="Quero receber promoções"
           descricao="Por WhatsApp ou Instagram. Você pode desligar quando quiser."
