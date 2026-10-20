@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pb, mensagemDeErro } from "./pb";
-import type { Base, Servico, StatusFila, Usuario, Veiculo } from "./tipos";
+import type { Base, ItemPedido, Servico, StatusFila, Usuario, Veiculo } from "./tipos";
 
 export interface ItemPublico {
   id: string;
@@ -80,6 +80,8 @@ export const NOME_STATUS: Record<StatusFila, string> = {
 export function useFilaAoVivo(slug: string, empresaId: string, completa = false) {
   const [publica, setPublica] = useState<FilaPublica | null>(null);
   const [entradas, setEntradas] = useState<EntradaFila[] | null>(null);
+  // Ordem de serviço: produtos a separar, por entrada da fila.
+  const [itens, setItens] = useState<Record<string, ItemPedido[]>>({});
   const [erro, setErro] = useState("");
   const emAndamento = useRef(false);
   const pendente = useRef(false);
@@ -91,21 +93,30 @@ export function useFilaAoVivo(slug: string, empresaId: string, completa = false)
     }
     emAndamento.current = true;
     try {
-      const [p, e] = await Promise.all([
+      const ativos = (prefixo: string) => "(" + STATUS_ATIVOS.map((s) => `${prefixo}status = "${s}"`).join(" || ") + ")";
+      const [p, e, it] = await Promise.all([
         pb.send<FilaPublica>(`/api/lr/fila-publica/${encodeURIComponent(slug)}`, { method: "GET" }),
         completa
           ? pb.collection("fila_entradas").getFullList<EntradaFila>({
-              filter: pb.filter(
-                "empresa = {:e} && (" + STATUS_ATIVOS.map((s) => `status = "${s}"`).join(" || ") + ")",
-                { e: empresaId },
-              ),
+              filter: pb.filter("empresa = {:e} && " + ativos(""), { e: empresaId }),
               sort: "ordem",
               expand: "cliente,veiculo,servico",
             })
           : Promise.resolve(null),
+        completa
+          ? pb.collection("itens_pedido").getFullList<ItemPedido>({
+              filter: pb.filter("empresa = {:e} && " + ativos("entrada."), { e: empresaId }),
+              expand: "produto",
+            })
+          : Promise.resolve(null),
       ]);
       setPublica(p);
-      if (completa) setEntradas(e);
+      if (completa) {
+        setEntradas(e);
+        const porEntrada: Record<string, ItemPedido[]> = {};
+        for (const i of it || []) (porEntrada[i.entrada] ||= []).push(i);
+        setItens(porEntrada);
+      }
       setErro("");
     } catch (err) {
       setErro(mensagemDeErro(err, "Não foi possível carregar a fila."));
@@ -142,7 +153,7 @@ export function useFilaAoVivo(slug: string, empresaId: string, completa = false)
     };
   }, [carregar, empresaId]);
 
-  return { publica, entradas, erro, recarregar: carregar };
+  return { publica, entradas, itens, erro, recarregar: carregar };
 }
 
 export async function acaoFila(entradaId: string, acao: string, body?: Record<string, unknown>) {

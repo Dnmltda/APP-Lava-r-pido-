@@ -12,7 +12,17 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 | 1. Base | ✅ concluída | `testar-isolamento.mjs`: 75/75 |
 | 2. Fila (fatia principal) | ✅ concluída | `testar-fila.mjs`: 56/56 + teste com 2 celulares no navegador |
 | 3. Regras da fila | ✅ concluída | `testar-regras-fila.mjs`: 49/49 (dia com 15 carros e 5 reservas) |
-| 4 a 8 | a fazer | |
+| 4. Produtos e vendas | ✅ concluída | `testar-vendas.mjs`: 53/53 |
+| 5 a 8 | a fazer | |
+
+### Etapa 4: Produtos e vendas
+- **Produtos** (o patrão cadastra): foto, preço, estoque, mínimo para alerta, comissão por produto (nenhuma, R$ por unidade ou % do valor). A comissão só vale com a chave "Comissão por produto" ligada. Mudanças de preço, estoque e comissão vão para a auditoria.
+- **Carrinho do cliente** ao entrar na fila (sem pagamento). O cliente vê só nome, preço e disponibilidade, pela rota `/api/lr/catalogo`. Estoque e comissão nunca chegam ao app do cliente.
+- **Ordem de serviço**: o cartão do carro mostra "Produtos a separar" com os botões **Separar** e **Em falta**. O cliente vê "separado ✓" ao vivo.
+- **Venda por funcionário** (na OS do carro ou avulsa): a venda fica presa ao login de quem vendeu, com data e hora, e registra cartão, dinheiro ou Pix na maquininha. Na OS ela já vem preenchida com o que o cliente pediu, menos o que está em falta.
+- **Bloqueio**: enquanto aberta, só quem registrou edita ou descarta. Depois de **fechada**, ninguém altera. Só o **patrão corrige**, com motivo obrigatório, e o estoque é refeito pela diferença. A auditoria guarda antes e depois.
+- **Estoque baixa sozinho** ao fechar. O alerta de estoque baixo aparece na tela de Produtos e irá para o painel do patrão (Etapa 5).
+- Funcionário vê só as próprias vendas. Patrão e gerente veem todas. Cliente não vê nenhuma.
 
 ### Etapa 3: Regras da fila (seção 3.3 do planejamento)
 - **Horários reservados**: patrão, gerente ou responsável pela fila criam a reserva (com dia e horário). O app encaixa a reserva antes do primeiro carro cuja previsão já passa do horário, e ela nunca começa antes do horário. O público vê só "Reservado". Os dados do cliente podem ser preenchidos depois. Se o celular for de um cliente cadastrado, a reserva aparece no app dele.

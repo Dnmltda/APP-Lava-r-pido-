@@ -9,7 +9,9 @@ import { Equipe } from "./paginas/Equipe";
 import { Inicio } from "./paginas/Inicio";
 import { FilaEquipe } from "./paginas/FilaEquipe";
 import { Painel } from "./paginas/Painel";
+import { Produtos } from "./paginas/Produtos";
 import { Servicos } from "./paginas/Servicos";
+import { VendaForm, Vendas } from "./paginas/Vendas";
 
 function RotasDaEmpresa() {
   const { slug = "" } = useParams();
@@ -58,6 +60,10 @@ export default function App() {
             <Route path="configuracoes" element={<Configuracoes />} />
             <Route path="servicos" element={<Servicos />} />
             <Route path="fila" element={<FilaEquipe />} />
+            <Route path="produtos" element={<Produtos />} />
+            <Route path="vendas" element={<Vendas />} />
+            <Route path="vendas/nova" element={<VendaForm />} />
+            <Route path="vendas/:id" element={<VendaForm />} />
             <Route path="*" element={<Painel />} />
           </Route>
         </Routes>

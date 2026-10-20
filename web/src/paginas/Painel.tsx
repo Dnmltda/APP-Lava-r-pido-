@@ -42,14 +42,22 @@ export function Painel() {
         {ehEquipe ? (
           <>
             <Atalho para={`/${empresa.slug}/fila`} titulo="Fila" texto="Confirmar, avisar, lavar e dar baixa" destaque />
+            <Atalho
+              para={`/${empresa.slug}/vendas`}
+              titulo="Vendas"
+              texto={pode(vinculo, "ver_valores") ? "Registrar e ver as vendas do dia" : "Registrar e ver as minhas vendas"}
+            />
             {pode(vinculo, "ver_valores") && (
-              <Atalho titulo="Painel do dia" texto="Vendas, metas e caixa. Disponível em breve." desativado />
+              <Atalho titulo="Painel do dia" texto="Metas, caixa e ranking. Na próxima etapa." desativado />
             )}
             {pode(vinculo, "gerenciar_equipe") && (
               <Atalho para={`/${empresa.slug}/equipe`} titulo="Equipe" texto="Cadastrar, permissões, senhas" />
             )}
             {pode(vinculo, "configurar_empresa") && (
               <Atalho para={`/${empresa.slug}/servicos`} titulo="Serviços" texto="Preços e tempo médio de cada serviço" />
+            )}
+            {pode(vinculo, "configurar_empresa") && (
+              <Atalho para={`/${empresa.slug}/produtos`} titulo="Produtos" texto="Preço, estoque e comissão" />
             )}
             {pode(vinculo, "configurar_empresa") && (
               <Atalho para={`/${empresa.slug}/configuracoes`} titulo="Configurações" texto="Logo, cor, fila, avisos e horários" />

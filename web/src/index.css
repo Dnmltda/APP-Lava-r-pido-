@@ -44,3 +44,8 @@ body {
   outline: 3px solid var(--marca);
   outline-offset: 2px;
 }
+
+/* fieldset cresce até o tamanho do conteúdo por padrão; aqui segue a tela. */
+fieldset {
+  min-width: 0;
+}

@@ -103,6 +103,16 @@ async function main() {
       await api("POST", "/api/collections/servicos/records", token, { ...s, empresa: empresa.id, ativo: true });
     }
     console.log(`  ${servicos.length} serviços de exemplo`);
+    const produtos = [
+      { nome: "Cheirinho de carro", preco: 15, estoque: 20, estoque_minimo: 5, comissao_tipo: "fixo", comissao_valor: 2 },
+      { nome: "Pretinho para pneu", preco: 30, estoque: 10, estoque_minimo: 3, comissao_tipo: "percentual", comissao_valor: 10 },
+      { nome: "Aromatizante spray", preco: 25, estoque: 8, estoque_minimo: 3, comissao_tipo: "nenhuma", comissao_valor: 0 },
+      { nome: "Flanela de microfibra", preco: 12, estoque: 2, estoque_minimo: 3, comissao_tipo: "nenhuma", comissao_valor: 0 },
+    ];
+    for (const p of produtos) {
+      await api("POST", "/api/collections/produtos/records", token, { ...p, empresa: empresa.id, ativo: true });
+    }
+    console.log(`  ${produtos.length} produtos de exemplo`);
   }
 }
 

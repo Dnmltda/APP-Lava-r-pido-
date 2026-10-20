@@ -252,7 +252,7 @@ onRecordUpdateRequest((e) => {
 onRecordUpdateRequest((e) => {
   const lib = require(`${__hooks}/lib.js`);
   const campos = ["nome", "cor_principal", "whatsapp", "endereco", "capacidade_simultanea",
-    "tolerancia_min", "aviso_min", "textos_aviso", "horario_funcionamento", "logo"];
+    "tolerancia_min", "aviso_min", "textos_aviso", "horario_funcionamento", "logo", "comissao_ativa"];
   const original = e.record.original();
   const antes = {};
   for (const c of campos) antes[c] = original.get(c);

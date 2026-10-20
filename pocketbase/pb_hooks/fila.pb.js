@@ -131,7 +131,7 @@ routerAdd("GET", "/api/lr/fila-publica/{slug}", (e) => {
 // POST /api/lr/fila/entrar { slug, servico, veiculo, quer_busca, observacao }
 routerAdd("POST", "/api/lr/fila/entrar", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const body = new DynamicModel({ slug: "", servico: "", veiculo: "", quer_busca: false, observacao: "" });
+  const body = new DynamicModel({ slug: "", servico: "", veiculo: "", quer_busca: false, observacao: "", itens: [] });
   e.bindBody(body);
 
   const empresa = lib.acharEmpresaAtivaPorSlug(e.app, body.slug);
@@ -153,6 +153,8 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
   if (!veiculo || veiculo.getString("cliente") !== e.auth.id || !veiculo.getBool("ativo")) {
     throw new BadRequestError("Escolha o veículo.");
   }
+  // Carrinho (opcional, sem pagamento): vira a lista de produtos a separar na OS.
+  const carrinho = lib.validarItens(e.app, empresa.id, body.itens, 20);
 
   let entrada = null;
   e.app.runInTransaction((tx) => {
@@ -178,6 +180,18 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
     entrada.set("quer_busca", !!body.quer_busca);
     entrada.set("observacao", String(body.observacao || "").trim().slice(0, 300));
     tx.save(entrada);
+
+    const colItens = tx.findCollectionByNameOrId("itens_pedido");
+    for (const it of carrinho) {
+      const ip = new Record(colItens);
+      ip.set("empresa", empresa.id);
+      ip.set("entrada", entrada.id);
+      ip.set("produto", it.produto.id);
+      ip.set("quantidade", it.quantidade);
+      ip.set("preco_unitario", it.produto.getFloat("preco"));
+      ip.set("status", "pendente");
+      tx.save(ip);
+    }
   });
 
   return e.json(201, { id: entrada.id });

@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { ListaFilaPublica, IconeBusca } from "../componentes/fila";
 import { descricaoVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
+import { Quantidade } from "../componentes/Quantidade";
 import { Aviso, Botao, Carregando, Cartao, Confirmar, EstadoErro, Folha, Interruptor } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { acaoFila, emQuanto, hora, useFilaAoVivo, type ItemPublico } from "../lib/fila";
 import { duracao, linkWhatsApp, reais } from "../lib/formato";
-import { mensagemDeErro, pb } from "../lib/pb";
-import type { Servico, StatusFila } from "../lib/tipos";
+import { mensagemDeErro, pb, urlArquivo } from "../lib/pb";
+import type { ItemPedido, ProdutoCatalogo, Servico, StatusFila } from "../lib/tipos";
 
 const MENSAGEM_STATUS: Partial<Record<StatusFila, { titulo: string; texto: string }>> = {
   pendente: { titulo: "Aguardando confirmação", texto: "O lava rápido vai confirmar sua vez. Você não perde o lugar enquanto isso." },
@@ -24,12 +25,24 @@ export function FilaCliente() {
   const [cancelando, setCancelando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
   const [erroAcao, setErroAcao] = useState("");
+  const [itens, setItens] = useState<Record<string, ItemPedido[]>>({});
+  const idMinha = publica && [...publica.lavando, ...publica.fila, ...publica.prontos].find((i) => i.minha)?.id;
+
+  // Produtos que o cliente pediu (e se a equipe já separou).
+  useEffect(() => {
+    if (!idMinha) return;
+    pb.collection("itens_pedido")
+      .getFullList<ItemPedido>({ filter: pb.filter("entrada = {:e}", { e: idMinha }), expand: "produto" })
+      .then((l) => setItens((x) => ({ ...x, [idMinha]: l })))
+      .catch(() => {});
+  }, [idMinha, publica]);
 
   if (erro && !publica) return <EstadoErro texto={erro} tentar={recarregar} />;
   if (!publica) return <Carregando texto="Carregando a fila…" />;
 
   const minha: ItemPublico | undefined = [...publica.lavando, ...publica.fila, ...publica.prontos].find((i) => i.minha);
   const info = minha && MENSAGEM_STATUS[minha.status];
+  const meusItens = minha ? (itens[minha.id] ?? null) : null;
 
   async function cancelar() {
     if (!minha) return;
@@ -87,6 +100,20 @@ export function FilaCliente() {
             <span className="rounded-full bg-black/15 px-3 py-1 text-sm font-bold">{minha.servico}</span>
             {minha.quer_busca && <IconeBusca />}
           </div>
+          {meusItens && meusItens.length > 0 && (
+            <ul className="mt-3 rounded-xl bg-black/10 px-3 py-2 text-base">
+              {meusItens.map((i) => (
+                <li key={i.id} className="flex justify-between gap-2">
+                  <span>
+                    {i.quantidade}× {i.expand?.produto?.nome || "Produto"}
+                  </span>
+                  <span className="text-sm font-bold opacity-90">
+                    {i.status === "separado" ? "separado ✓" : i.status === "em_falta" ? "em falta" : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           {minha.posicao !== undefined && (
             <button
               onClick={() => setCancelando(true)}
@@ -155,6 +182,8 @@ function EntrarNaFila({ onFechar, onEntrou }: { onFechar: () => void; onEntrou: 
   const [busca, setBusca] = useState(false);
   const [obs, setObs] = useState("");
   const [novoVeiculo, setNovoVeiculo] = useState(false);
+  const [catalogo, setCatalogo] = useState<ProdutoCatalogo[]>([]);
+  const [carrinho, setCarrinho] = useState<Record<string, number>>({});
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -163,7 +192,15 @@ function EntrarNaFila({ onFechar, onEntrou }: { onFechar: () => void; onEntrou: 
       .getFullList<Servico>({ filter: pb.filter("empresa = {:e} && ativo = true", { e: empresa.id }), sort: "ordem_exibicao,nome" })
       .then(setServicos)
       .catch((err) => setErro(mensagemDeErro(err)));
-  }, [empresa.id]);
+    pb.send<ProdutoCatalogo[]>(`/api/lr/catalogo/${encodeURIComponent(empresa.slug)}`, { method: "GET" })
+      .then(setCatalogo)
+      .catch(() => setCatalogo([]));
+  }, [empresa.id, empresa.slug]);
+
+  const itensCarrinho = Object.entries(carrinho)
+    .filter(([, q]) => q > 0)
+    .map(([produto, quantidade]) => ({ produto, quantidade }));
+  const totalCarrinho = itensCarrinho.reduce((s, it) => s + (catalogo.find((p) => p.id === it.produto)?.preco || 0) * it.quantidade, 0);
 
   const veiculoEscolhido = veiculo || (veiculos?.length === 1 ? veiculos[0].id : "");
 
@@ -175,7 +212,7 @@ function EntrarNaFila({ onFechar, onEntrou }: { onFechar: () => void; onEntrou: 
     try {
       await pb.send("/api/lr/fila/entrar", {
         method: "POST",
-        body: { slug: empresa.slug, servico, veiculo: veiculoEscolhido, quer_busca: busca, observacao: obs.trim() },
+        body: { slug: empresa.slug, servico, veiculo: veiculoEscolhido, quer_busca: busca, observacao: obs.trim(), itens: itensCarrinho },
       });
       onEntrou();
     } catch (err) {
@@ -238,6 +275,32 @@ function EntrarNaFila({ onFechar, onEntrou }: { onFechar: () => void; onEntrou: 
             </button>
           </div>
         </fieldset>
+
+        {catalogo.length > 0 && (
+          <fieldset>
+            <legend className="mb-1 text-base font-bold text-tinta">Produtos (opcional)</legend>
+            <p className="mb-2 text-sm text-tinta-suave">A equipe já separa para você. Paga no lava rápido.</p>
+            <div className="flex flex-col gap-2">
+              {catalogo.map((p) => (
+                <div key={p.id} className={`flex min-h-16 items-center gap-3 rounded-2xl border border-linha bg-white px-3 py-2 ${p.disponivel ? "" : "opacity-60"}`}>
+                  {p.foto ? (
+                    <img src={urlArquivo(p, p.foto, "200x200")} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                  ) : (
+                    <span className="h-12 w-12 shrink-0 rounded-xl bg-fundo" />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-base font-bold text-tinta">{p.nome}</span>
+                    <span className="block text-sm text-tinta-suave">{p.disponivel ? reais(p.preco) : "Em falta no momento"}</span>
+                  </span>
+                  {p.disponivel && (
+                    <Quantidade rotulo={p.nome} max={20} valor={carrinho[p.id] || 0} onChange={(v) => setCarrinho((c) => ({ ...c, [p.id]: v }))} />
+                  )}
+                </div>
+              ))}
+            </div>
+            {totalCarrinho > 0 && <p className="mt-2 text-right text-base font-bold text-tinta">Produtos: {reais(totalCarrinho)}</p>}
+          </fieldset>
+        )}
 
         <Interruptor
           rotulo="Quero que busquem meu carro"

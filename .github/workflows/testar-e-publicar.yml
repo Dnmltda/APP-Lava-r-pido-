@@ -55,6 +55,10 @@ jobs:
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
         run: node scripts/testar-regras-fila.mjs
 
+      - name: Teste de produtos e vendas (Etapa 4)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-vendas.mjs
+
       - name: Log do PocketBase (se falhar)
         if: failure()
         run: cat pocketbase/pb.log

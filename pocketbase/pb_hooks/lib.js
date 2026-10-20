@@ -321,7 +321,116 @@ function resumoEntrada(r) {
   return { status: r.getString("status"), ordem: r.getFloat("ordem") };
 }
 
+// ---------------------------------------------------------------- vendas
+const FORMAS_PAGAMENTO = ["cartao", "dinheiro", "pix"];
+
+// Valida a lista [{produto, quantidade}] contra os produtos ativos da empresa.
+// Junta linhas repetidas do mesmo produto.
+function validarItens(app, empresaId, itens, maxQtd) {
+  const lista = Array.isArray(itens) ? itens : [];
+  if (lista.length > 30) throw new BadRequestError("Itens demais.");
+  const porProduto = {};
+  for (const it of lista) {
+    const id = String((it && it.produto) || "");
+    const qtd = parseInt(it && it.quantidade, 10);
+    if (!id || !qtd || qtd < 1 || qtd > maxQtd) throw new BadRequestError("Quantidade inválida.");
+    porProduto[id] = (porProduto[id] || 0) + qtd;
+  }
+  const saida = [];
+  for (const id of Object.keys(porProduto)) {
+    let p;
+    try {
+      p = app.findRecordById("produtos", id);
+    } catch (_) {}
+    if (!p || p.getString("empresa") !== empresaId) throw new BadRequestError("Produto não encontrado.");
+    if (!p.getBool("ativo")) throw new BadRequestError("O produto " + p.getString("nome") + " não está disponível.");
+    if (porProduto[id] > maxQtd) throw new BadRequestError("Quantidade inválida.");
+    saida.push({ produto: p, quantidade: porProduto[id] });
+  }
+  return saida;
+}
+
+function arred(v) {
+  return Math.round(v * 100) / 100;
+}
+
+function comissaoDoItem(produto, quantidade, preco, comissaoAtiva) {
+  if (!comissaoAtiva) return 0;
+  const tipo = produto.getString("comissao_tipo");
+  const valor = produto.getFloat("comissao_valor");
+  if (tipo === "fixo") return arred(valor * quantidade);
+  if (tipo === "percentual") return arred((preco * quantidade * valor) / 100);
+  return 0;
+}
+
+// Troca os itens da venda pelos novos e devolve { total, comissao }.
+function gravarItensVenda(app, venda, itens, comissaoAtiva) {
+  const antigos = app.findRecordsByFilter("vendas_itens", "venda = {:v}", "", 0, 0, { v: venda.id });
+  for (const a of antigos) app.delete(a);
+  const col = app.findCollectionByNameOrId("vendas_itens");
+  let total = 0;
+  let comissao = 0;
+  for (const it of itens) {
+    const preco = it.produto.getFloat("preco");
+    const c = comissaoDoItem(it.produto, it.quantidade, preco, comissaoAtiva);
+    const r = new Record(col);
+    r.set("empresa", venda.getString("empresa"));
+    r.set("venda", venda.id);
+    r.set("produto", it.produto.id);
+    r.set("produto_nome", it.produto.getString("nome"));
+    r.set("quantidade", it.quantidade);
+    r.set("preco_unitario", preco);
+    r.set("comissao_calculada", c);
+    app.save(r);
+    total += preco * it.quantidade;
+    comissao += c;
+  }
+  return { total: arred(total), comissao: arred(comissao) };
+}
+
+// Baixa (sinal -1) ou devolve (sinal +1) o estoque dos itens já gravados da venda.
+function moverEstoqueDaVenda(app, vendaId, sinal) {
+  const itens = app.findRecordsByFilter("vendas_itens", "venda = {:v}", "", 0, 0, { v: vendaId });
+  for (const it of itens) {
+    const p = app.findRecordById("produtos", it.getString("produto"));
+    p.set("estoque", p.getInt("estoque") + sinal * it.getInt("quantidade"));
+    app.saveNoValidate(p);
+  }
+}
+
+// Fecha a venda: bloqueia, baixa o estoque e registra na auditoria.
+function fecharVenda(tx, venda, empresa, authId) {
+  if (!venda.getString("forma_pagamento")) throw new BadRequestError("Escolha a forma de pagamento.");
+  const itens = tx.findRecordsByFilter("vendas_itens", "venda = {:v}", "", 0, 0, { v: venda.id });
+  if (!itens.length) throw new BadRequestError("Adicione pelo menos um produto.");
+  moverEstoqueDaVenda(tx, venda.id, -1);
+  venda.set("status", "fechada");
+  venda.set("fechada_em", agoraISO());
+  tx.save(venda);
+  auditar(tx, {
+    empresa: empresa.id, usuario: authId, acao: "venda_fechar",
+    entidade: "vendas", entidade_id: venda.id, depois: resumoVenda(tx, venda),
+  });
+}
+
+function resumoVenda(app, venda) {
+  const itens = app.findRecordsByFilter("vendas_itens", "venda = {:v}", "", 0, 0, { v: venda.id });
+  return {
+    status: venda.getString("status"),
+    forma_pagamento: venda.getString("forma_pagamento"),
+    total: venda.getFloat("total"),
+    comissao_total: venda.getFloat("comissao_total"),
+    itens: Array.from(itens).map((i) => ({ produto: i.getString("produto_nome"), quantidade: i.getInt("quantidade"), preco: i.getFloat("preco_unitario") })),
+  };
+}
+
 module.exports = {
+  FORMAS_PAGAMENTO,
+  validarItens,
+  gravarItensVenda,
+  moverEstoqueDaVenda,
+  resumoVenda,
+  fecharVenda,
   STATUS_ESPERA,
   STATUS_ATIVOS,
   vinculoEquipe,

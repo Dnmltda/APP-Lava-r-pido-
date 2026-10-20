@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { ChipStatus, IconeBusca } from "../componentes/fila";
 import { Moldura } from "../componentes/Moldura";
 import { Aviso, Botao, Campo, Carregando, Confirmar, EstadoErro, EstadoVazio, Folha } from "../componentes/ui";
@@ -21,7 +21,7 @@ import { duracao, linkWhatsApp, mascaraCelular, normalizarPlaca, primeiroNome, s
 import { mensagemDeErro, pb } from "../lib/pb";
 import { CancelarEntrada, DadosEntrada, NovaReserva, Reposicionar } from "./FilaEquipeAcoes";
 import { pode } from "../lib/permissoes";
-import type { Empresa, Servico, Vinculo } from "../lib/tipos";
+import type { Empresa, ItemPedido, Servico, Vinculo } from "../lib/tipos";
 
 type Pedido =
   | { tipo: "recusar" | "cancelar" | "reposicionar" | "dados"; entrada: EntradaFila }
@@ -44,7 +44,7 @@ function mensagemBusca(empresa: Empresa, nome: string) {
 
 export function FilaEquipe() {
   const { empresa, vinculo } = useEmpresa();
-  const { publica, entradas, erro, recarregar } = useFilaAoVivo(empresa.slug, empresa.id, true);
+  const { publica, entradas, itens: itensOS, erro, recarregar } = useFilaAoVivo(empresa.slug, empresa.id, true);
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [balcao, setBalcao] = useState(false);
   const [reserva, setReserva] = useState(false);
@@ -78,6 +78,16 @@ export function FilaEquipe() {
       recarregar();
     } finally {
       setOcupado("");
+    }
+  }
+
+  async function marcarItem(item: ItemPedido, status: ItemPedido["status"]) {
+    setErroAcao("");
+    try {
+      await pb.send(`/api/lr/itens/${item.id}/status`, { method: "POST", body: { status } });
+      recarregar();
+    } catch (err) {
+      setErroAcao(mensagemDeErro(err));
     }
   }
 
@@ -151,7 +161,7 @@ export function FilaEquipe() {
           {pendentes.length > 0 && (
             <Secao titulo={`Aguardando confirmação (${pendentes.length})`}>
               {pendentes.map((e) => (
-                <CartaoEntrada key={e.id} entrada={e} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
+                <CartaoEntrada key={e.id} entrada={e} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
                   {e.quer_busca && celularDaEntrada(e) && (
                     <a
                       href={linkWhatsApp(celularDaEntrada(e), mensagemBusca(empresa, nomeDaEntrada(e)))}
@@ -178,7 +188,7 @@ export function FilaEquipe() {
           <Secao titulo={`Na fila (${naFila.length})`}>
             {naFila.length === 0 && <p className="text-base text-tinta-suave">Ninguém confirmado esperando.</p>}
             {naFila.map((e) => (
-              <CartaoEntrada key={e.id} entrada={e} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
+              <CartaoEntrada key={e.id} entrada={e} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
                 {gestao && e.origem !== "app" && (!e.nome_avulso || !e.final_placa_avulsa) && !e.cliente && (
                   <button
                     onClick={() => setPedido({ tipo: "dados", entrada: e })}
@@ -215,7 +225,7 @@ export function FilaEquipe() {
           <Secao titulo={`Lavando (${lavando.length})`}>
             {lavando.length === 0 && <p className="text-base text-tinta-suave">Nenhum carro lavando.</p>}
             {lavando.map((e) => (
-              <CartaoEntrada key={e.id} entrada={e} agora={publica?.agora}>
+              <CartaoEntrada key={e.id} entrada={e} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} agora={publica?.agora}>
                 {btn(e, "pronto", "Pronto")}
                 {btn(e, "finalizar", "Dar baixa", "primario", () => setPedido({ tipo: "baixa", entrada: e }))}
               </CartaoEntrada>
@@ -225,7 +235,7 @@ export function FilaEquipe() {
           {prontos.length > 0 && (
             <Secao titulo={`Prontos para retirar (${prontos.length})`}>
               {prontos.map((e) => (
-                <CartaoEntrada key={e.id} entrada={e} agora={publica?.agora}>
+                <CartaoEntrada key={e.id} entrada={e} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} agora={publica?.agora}>
                   {celularDaEntrada(e) ? (
                     <a
                       href={linkWhatsApp(celularDaEntrada(e), `Olá, ${primeiroNome(nomeDaEntrada(e))}! Seu carro está pronto no ${empresa.nome}.`)}
@@ -306,9 +316,15 @@ function CartaoEntrada({
   previsaoIso,
   agora,
   atrasoMin = 0,
+  itens,
+  onItem,
+  slug,
   children,
 }: {
   entrada: EntradaFila;
+  itens?: ItemPedido[];
+  onItem?: (item: ItemPedido, status: ItemPedido["status"]) => void;
+  slug?: string;
   posicao?: number;
   previsaoIso?: string;
   agora?: string;
@@ -354,9 +370,51 @@ function CartaoEntrada({
             )}
           </div>
           {e.observacao && <p className="mt-2 rounded-xl bg-fundo px-3 py-2 text-base text-tinta">“{e.observacao}”</p>}
+          {itens && itens.length > 0 && (
+            <div className="mt-3 rounded-xl border border-linha p-2">
+              <p className="px-1 text-sm font-extrabold uppercase tracking-wide text-tinta-suave">Produtos a separar</p>
+              <ul className="mt-1 flex flex-col gap-1.5">
+                {itens.map((i) => (
+                  <li key={i.id} className="flex flex-col gap-1.5 rounded-lg bg-fundo p-2">
+                    <span className={`text-base ${i.status === "em_falta" ? "text-red-700 line-through" : "text-tinta"}`}>
+                      <strong>{i.quantidade}×</strong> {i.expand?.produto?.nome}
+                    </span>
+                    <span className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        aria-pressed={i.status === "separado"}
+                        onClick={() => onItem?.(i, i.status === "separado" ? "pendente" : "separado")}
+                        className={`min-h-11 rounded-lg border-2 px-2.5 text-sm font-bold ${i.status === "separado" ? "border-green-700 bg-green-700 text-white" : "border-linha bg-white text-tinta"}`}
+                      >
+                        {i.status === "separado" ? "Separado ✓" : "Separar"}
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={i.status === "em_falta"}
+                        onClick={() => onItem?.(i, i.status === "em_falta" ? "pendente" : "em_falta")}
+                        className={`min-h-11 rounded-lg border-2 px-2.5 text-sm font-bold ${i.status === "em_falta" ? "border-red-700 bg-red-700 text-white" : "border-linha bg-white text-tinta"}`}
+                      >
+                        Em falta
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2">{children}</div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {children}
+        {slug && e.status !== "pendente" && (
+          <Link
+            to={`/${slug}/vendas/nova?entrada=${e.id}`}
+            className="col-span-2 flex min-h-12 items-center justify-center rounded-xl border-2 border-linha bg-white px-4 text-base font-bold text-tinta hover:border-tinta-suave"
+          >
+            Registrar venda de produtos
+          </Link>
+        )}
+      </div>
     </article>
   );
 }
