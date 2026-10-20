@@ -33,7 +33,8 @@ Depois: **Actions → Backup diário → Run workflow** para testar. Deve aparec
 A senha atual foi usada durante o desenvolvimento. Para trocar:
 1. hPanel → Sites → `seagreen-cattle-355822.hostingersite.com` → **Node.js** → *Variáveis de ambiente* →
    mudar `PB_ADMIN_PASSWORD` (16+ caracteres) e salvar/reiniciar. O servidor aplica a senha nova sozinho ao subir.
-   (Ou peça ao Claude: ele troca pela API da Hostinger.)
+   **Não mexa** em `PB_ADMIN_EMAIL` nem em `PB_DATA_DIR` (é onde ficam os dados; mudar faz o app abrir vazio).
+   Pela API a Hostinger não mostra os valores atuais, por isso esta troca é feita no hPanel.
 2. Atualizar o secret `PB_ADMIN_PASSWORD` no GitHub (Passo 1) e o cofre de senhas da DNM&LTDA.
 
 ## Passo 3: Domínio próprio (opcional, ex.: `lavarapido.dnmltda.com.br`)

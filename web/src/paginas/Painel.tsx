@@ -22,7 +22,6 @@ import {
   Gift,
   FileText,
   HeartHandshake,
-  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -86,40 +85,42 @@ export function Painel() {
             {pode(vinculo, "catalogo") && <FaltaCadastrar />}
             {vinculo.papel === "patrao" && <AppParaAprovar />}
 
-            <nav aria-label="Atalhos" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {/* Atalhos em blocos: o dono acha rápido o que precisa */}
+            <Grupo titulo="Dia a dia">
               <Atalho para={`/${s}/vendas`} icone={ShoppingBag} titulo="Vendas" texto={valores ? "Registrar e ver as vendas" : "Registrar e ver as minhas"} />
-              {valores && <Atalho para={`/${s}/dashboard`} icone={ChartColumn} titulo="Dashboard" texto="Gráficos e relatórios" />}
               {valores && <Atalho para={`/${s}/painel`} icone={Gauge} titulo="Painel do dia" texto="Metas, estoque e atrasos" />}
-              {valores && <Atalho para={`/${s}/caixa`} icone={Wallet} titulo="Caixa" texto="Gastos fixos e fechamento do mês" />}
               {valores && <Atalho para={`/${s}/fechamento`} icone={Receipt} titulo="Fechamento do dia" texto="Maquininhas, dinheiro e notas" />}
               {pode(vinculo, "gerenciar_fila") && <Atalho para={`/${s}/tv`} icone={Tv} titulo="Modo TV" texto="Fila em tela grande na recepção" />}
               <Atalho para={`/${s}/avaliacoes`} icone={Star} titulo="Avaliações" texto="O que os clientes acharam" />
               {vinculo.papel !== "patrao" && <Atalho para={`/${s}/minha-area`} icone={UserRound} titulo="Minha área" texto="Carros, bônus e vales" />}
-              {patrao && <Atalho para={`/${s}/planos`} icone={Gift} titulo="Planos e fidelidade" texto="Pacotes, pedidos e cartão fidelidade" />}
-              {(vinculo.papel === "patrao" || vinculo.papel === "gerente") && (
-                <Atalho para={`/${s}/orcamentos`} icone={FileText} titulo="Orçamentos" texto="Polimento e serviços sob orçamento" />
-              )}
-              {(vinculo.papel === "patrao" || vinculo.papel === "gerente") && (
-                <Atalho para={`/${s}/reativar`} icone={HeartHandshake} titulo="Reativar clientes" texto="Quem não volta há 30 dias" />
-              )}
-              {pode(vinculo, "clientes") && <Atalho para={`/${s}/clientes`} icone={Contact} titulo="Clientes" texto="Quem veio, quantas vezes e quanto gastou" />}
+            </Grupo>
+            {valores && (
+              <Grupo titulo="Dinheiro">
+                <Atalho para={`/${s}/dashboard`} icone={ChartColumn} titulo="Dashboard" texto="Gráficos e relatórios" />
+                <Atalho para={`/${s}/caixa`} icone={Wallet} titulo="Caixa" texto="Gastos fixos e fechamento do mês" />
+              </Grupo>
+            )}
+            {((vinculo.papel === "patrao" || vinculo.papel === "gerente") || pode(vinculo, "clientes")) && (
+              <Grupo titulo="Clientes">
+                {pode(vinculo, "clientes") && <Atalho para={`/${s}/clientes`} icone={Contact} titulo="Clientes" texto="Quem veio, quantas vezes e quanto gastou" />}
+                {patrao && <Atalho para={`/${s}/planos`} icone={Gift} titulo="Planos e fidelidade" texto="Pacotes, pedidos e cartão fidelidade" />}
+                {(vinculo.papel === "patrao" || vinculo.papel === "gerente") && <Atalho para={`/${s}/orcamentos`} icone={FileText} titulo="Orçamentos" texto="Polimento e serviços sob orçamento" />}
+                {(vinculo.papel === "patrao" || vinculo.papel === "gerente") && <Atalho para={`/${s}/reativar`} icone={HeartHandshake} titulo="Reativar clientes" texto="Quem não volta há 30 dias" />}
+              </Grupo>
+            )}
+            <Grupo titulo="Cadastros e conta">
               {pode(vinculo, "gerenciar_equipe") && <Atalho para={`/${s}/equipe`} icone={Users} titulo="Equipe" texto="Pessoas, permissões, senhas" />}
-              {pode(vinculo, "cameras") && <Atalho para={`/${s}/cameras`} icone={Cctv} titulo="Câmeras" texto="Boxes ao vivo e sensor" />}
               {pode(vinculo, "catalogo") && <Atalho para={`/${s}/servicos`} icone={Sparkles} titulo="Serviços" texto="Preço e tempo médio" />}
               {pode(vinculo, "catalogo") && <Atalho para={`/${s}/produtos`} icone={Package} titulo="Produtos" texto="Preço, estoque, comissão" />}
+              {pode(vinculo, "cameras") && <Atalho para={`/${s}/cameras`} icone={Cctv} titulo="Câmeras" texto="Boxes ao vivo e sensor" />}
               {patrao && <Atalho para={`/${s}/cartaz`} icone={QrCode} titulo="Cartaz do balcão" texto="QR Code para os clientes" />}
               {patrao && <Atalho para={`/${s}/configuracoes`} icone={Settings} titulo="Configurações" texto="Logo, cor, fila, horários" />}
               <Atalho para={`/${s}/conta`} icone={CircleUserRound} titulo="Minha conta" texto="Nome, senha, sair" />
-            </nav>
+            </Grupo>
           </>
         ) : (
           <>
             <FilaCliente />
-            <nav aria-label="Mais para você" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Atalho para={`/${s}/agendar`} icone={CalendarClock} titulo="Agendar horário" texto="Escolha o dia e a hora" />
-              <Atalho para={`/${s}/planos`} icone={Gift} titulo="Planos e fidelidade" texto="Pacotes e prêmios" />
-              <Atalho para={`/${s}/orcamentos`} icone={FileText} titulo="Orçamento" texto="Polimento e outros serviços" />
-            </nav>
             <ResumoCliente />
             <InfoEmpresa empresa={empresa} />
             <Link
@@ -294,7 +295,16 @@ function Chip({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Atalho({ para, titulo, texto, icone: Icone }: { para: string; titulo: string; texto: string; icone: LucideIcon }) {
+function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <section aria-label={titulo}>
+      <h2 className="mb-2 text-sm font-extrabold uppercase tracking-wide text-tinta-suave">{titulo}</h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{children}</div>
+    </section>
+  );
+}
+
+export function Atalho({ para, titulo, texto, icone: Icone }: { para: string; titulo: string; texto: string; icone: LucideIcon }) {
   return (
     <Link
       to={para}

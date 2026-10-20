@@ -8,17 +8,21 @@ export function Moldura({
   children,
   voltarPara,
   titulo,
+  largo,
 }: {
   children: ReactNode;
   voltarPara?: string;
   titulo?: string;
+  /** Telas de painel (dashboard): usam a largura do computador. */
+  largo?: boolean;
 }) {
+  const largura = largo ? "max-w-6xl" : "max-w-2xl";
   const { empresa } = useEmpresa();
   const logo = urlArquivo(empresa, empresa.logo, "128x128");
   return (
     <div className="flex min-h-dvh flex-col bg-fundo">
       <header className="bg-marca text-sobre-marca">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
+        <div className={`mx-auto flex ${largura} items-center gap-3 px-4 py-3`}>
           {voltarPara ? (
             <Link
               to={voltarPara}
@@ -40,7 +44,7 @@ export function Moldura({
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-5">{children}</main>
+      <main className={`mx-auto w-full ${largura} flex-1 px-4 py-5`}>{children}</main>
       <footer className="px-4 pb-6 pt-2 text-center text-sm text-tinta-suave">
         DNM<span className="font-[system-ui]">&amp;</span>LTDA Lava Rápido
       </footer>

@@ -1,3 +1,4 @@
+import { CalendarClock, FileText, Gift } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AtivarAvisos } from "../componentes/Avisos";
@@ -265,6 +266,23 @@ export function FilaCliente() {
           </Botao>
         </Cartao>
       )}
+      {/* Mais para o cliente: logo abaixo da vez dele */}
+      <nav aria-label="Mais para você" className="grid grid-cols-3 gap-2">
+        {[
+          { para: "agendar", icone: CalendarClock, titulo: "Agendar" },
+          { para: "planos", icone: Gift, titulo: "Planos" },
+          { para: "orcamentos", icone: FileText, titulo: "Orçamento" },
+        ].map(({ para, icone: Icone, titulo }) => (
+          <Link
+            key={para}
+            to={`/${empresa.slug}/${para}`}
+            className="flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-2xl border border-linha bg-white px-2 py-3 text-center shadow-sm hover:border-marca"
+          >
+            <Icone className="h-6 w-6 text-marca-forte" aria-hidden="true" />
+            <span className="text-sm font-extrabold leading-tight text-tinta">{titulo}</span>
+          </Link>
+        ))}
+      </nav>
       {erroAcao && <Aviso>{erroAcao}</Aviso>}
       {erro && <Aviso>{erro}</Aviso>}
       {catalogo && (!minha || podeReservar) && (

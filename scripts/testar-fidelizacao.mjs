@@ -284,6 +284,12 @@ async function main() {
     const ePol = r.data.entradas && (await ler("fila_entradas", r.data.entradas[0]));
     checar("na fila entra com o valor e o tempo do orçamento", ePol && ePol.preco_servico === 350 && ePol.duracao_min === 240, ePol && [ePol.preco_servico, ePol.duracao_min]);
     await api("POST", `/api/lr/fila/${ePol.id}/cancelar`, { token: gerente.token, body: { motivo: "teste" } });
+
+    console.log("\nDashboard mostra a fidelização");
+    r = await api("GET", `/api/lr/relatorio/${A.id}`, { token: patrao.token });
+    const fz = r.data && r.data.fidelizacao;
+    checar("dashboard traz planos vendidos, lavagens por plano, prêmios e orçamentos", fz && fz.planos_vendidos === 1 && fz.planos_valor === 120 && fz.lavagens_plano === 2 && fz.orcamentos_aceitos === 1, fz);
+    checar("dashboard traz carros por tipo", Array.isArray(r.data.por_tipo) && r.data.por_tipo.length >= 1, r.data.por_tipo);
   } finally {
     for (const id of criados.empresas) await api("DELETE", `/api/collections/empresas/records/${id}`, { token: ADM });
     for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });

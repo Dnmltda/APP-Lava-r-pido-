@@ -36,11 +36,12 @@ Conferido em 20/10/2026, no servidor de desenvolvimento **e na produção**
 - [ ] Cópia fora do servidor (GitHub, 90 dias): workflow pronto; falta cadastrar secrets/variável — **COWORK.md, Passo 1**.
 
 ## Publicação
-- [x] No ar na Hostinger com HTTPS; demo em `/demo`.
+- [x] No ar na Hostinger com HTTPS; empresa de teste em `/lava-teste` (um login por função).
 - [x] Cartaz do balcão com QR Code (patrão → *Cartaz do balcão*), pronto para imprimir/PDF.
 - [x] Política de privacidade (LGPD) por lava rápido, com link no cadastro e em *Minha conta*.
       Versão inicial: **revisar com advogado** antes de vender em escala.
-- [ ] Trocar a senha do administrador antes de clientes reais — **COWORK.md, Passo 2**.
+- [ ] Trocar a senha do administrador antes de clientes reais — **COWORK.md, Passo 2** (fazer pelo hPanel:
+      a troca pela API substitui todas as variáveis e a `PB_DATA_DIR` não pode ser lida de volta).
 - [ ] Domínio próprio (opcional) — **COWORK.md, Passo 3**.
 
 ## Treinamento

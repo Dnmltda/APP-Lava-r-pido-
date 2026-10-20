@@ -770,6 +770,60 @@ function relatorioDaEmpresa(app, empresa, de, ate) {
     clientes: { novos: novos, atendidos: atendidos, recorrentes: recorrentes },
     avaliacoes: { total: avs.length, notas: notas, geral: avs.length ? Math.round(((notas.funcionario + notas.atendimento + notas.ambiente) / 3) * 10) / 10 : 0 },
     caixa: { entradas: entradasCaixa, saidas: saidasCaixa, saldo: arred(f.total + entradasCaixa - saidasCaixa) },
+    por_tipo: porTipoNoPeriodo(f.carros),
+    fidelizacao: fidelizacaoNoPeriodo(app, eid, de, ate, f.carros),
+  };
+}
+
+// Carros e faturamento de serviço por tipo/tamanho do carro ("Padrão" = sem tipo).
+function porTipoNoPeriodo(carros) {
+  const m = {};
+  for (const c of carros) {
+    const nome = c.getString("tipo_veiculo_nome") || "Padrão";
+    const x = (m[nome] = m[nome] || { nome: nome, carros: 0, total: 0 });
+    x.carros++;
+    x.total = arred(x.total + c.getFloat("preco_servico"));
+  }
+  return Object.keys(m).map((k) => m[k]).sort((a, b) => b.carros - a.carros);
+}
+
+// Planos, fidelidade, orçamentos, pedidos de horário e clientes sumidos no período.
+function fidelizacaoNoPeriodo(app, eid, de, ate, carros) {
+  const p = { e: eid, de: dataPB(de), ate: dataPB(ate) };
+  const ativadas = buscar(app, "assinaturas", "empresa = {:e} && inicio >= {:de} && inicio < {:ate} && (status = 'ativa' || status = 'cancelada')", p);
+  const ativasAgora = buscar(app, "assinaturas", "empresa = {:e} && status = 'ativa' && fim > {:a}", { e: eid, a: dataPB(Date.now()) });
+  let lavagensPlano = 0, premios = 0, valorPlanoNaFila = 0;
+  for (const c of carros) {
+    if (c.getString("assinatura")) {
+      lavagensPlano++;
+      valorPlanoNaFila += c.getFloat("preco_tabela");
+    }
+    if (c.getBool("premio_fidelidade")) premios++;
+  }
+  const orcs = buscar(app, "orcamentos", "empresa = {:e} && created >= {:de} && created < {:ate}", p);
+  const ags = buscar(app, "agendamentos", "empresa = {:e} && created >= {:de} && created < {:ate}", p);
+  // Clientes que não voltam há 30+ dias (com pelo menos 1 lavagem).
+  const corte = Date.now() - 30 * DIA;
+  const ultima = {};
+  for (const c of buscar(app, "fila_entradas", "empresa = {:e} && status = 'finalizado' && cliente != ''", { e: eid })) {
+    const ms = dataMs(c, "finalizado_em");
+    const k = c.getString("cliente");
+    if (!ultima[k] || ms > ultima[k]) ultima[k] = ms;
+  }
+  const sumidos = Object.keys(ultima).filter((k) => ultima[k] < corte).length;
+  return {
+    planos_vendidos: ativadas.length,
+    planos_valor: arred(somar(ativadas, (a) => a.getFloat("valor_pago"))),
+    planos_ativos: ativasAgora.length,
+    lavagens_plano: lavagensPlano,
+    lavagens_plano_valor: arred(valorPlanoNaFila),
+    premios_usados: premios,
+    orcamentos_pedidos: orcs.length,
+    orcamentos_aceitos: orcs.filter((o) => o.getString("status") === "aceito").length,
+    orcamentos_valor_aceito: arred(somar(orcs.filter((o) => o.getString("status") === "aceito"), (o) => o.getFloat("valor"))),
+    agendamentos_pedidos: ags.length,
+    agendamentos_confirmados: ags.filter((a) => a.getString("status") === "confirmado").length,
+    clientes_sumidos: sumidos,
   };
 }
 

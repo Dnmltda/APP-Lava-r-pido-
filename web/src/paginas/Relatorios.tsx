@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { CarFront, Clock, Hourglass, Receipt, type LucideIcon } from "lucide-react";
+import { Link, Navigate } from "react-router-dom";
 import { Barras, CartaoGrafico, Colunas, compacto, Tabela, Variacao, type PontoColuna } from "../componentes/graficos";
 import { Moldura } from "../componentes/Moldura";
 import { Botao, Campo, Carregando, EstadoErro } from "../componentes/ui";
@@ -28,6 +29,21 @@ interface DadosRelatorio {
   clientes: { novos: number; atendidos: number; recorrentes: number };
   avaliacoes: { total: number; notas: { funcionario: number; atendimento: number; ambiente: number }; geral: number };
   caixa: { entradas: number; saidas: number; saldo: number };
+  por_tipo?: { nome: string; carros: number; total: number }[];
+  fidelizacao?: {
+    planos_vendidos: number;
+    planos_valor: number;
+    planos_ativos: number;
+    lavagens_plano: number;
+    lavagens_plano_valor: number;
+    premios_usados: number;
+    orcamentos_pedidos: number;
+    orcamentos_aceitos: number;
+    orcamentos_valor_aceito: number;
+    agendamentos_pedidos: number;
+    agendamentos_confirmados: number;
+    clientes_sumidos: number;
+  };
 }
 
 type Periodo = "hoje" | "7dias" | "30dias" | "mes" | "mes_passado" | "outro";
@@ -132,7 +148,7 @@ export function Relatorios() {
   const umDia = dados ? dados.dias.length <= 1 : periodo === "hoje";
 
   return (
-    <Moldura voltarPara={`/${empresa.slug}`} titulo="Dashboard">
+    <Moldura voltarPara={`/${empresa.slug}`} titulo="Dashboard" largo>
       {/* Filtro de período: uma linha, acima de tudo que ele afeta */}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 print:hidden" role="tablist" aria-label="Período">
         {(Object.keys(ROTULO) as Periodo[]).map((p) => (
@@ -166,9 +182,11 @@ export function Relatorios() {
           </p>
 
           {/* Número principal */}
-          <section className="rounded-3xl bg-marca p-5 text-sobre-marca shadow-lg print:border print:border-linha print:bg-white print:text-tinta">
+          <section className="relative overflow-hidden rounded-3xl bg-marca p-5 text-sobre-marca shadow-lg sm:p-7 print:border print:border-linha print:bg-white print:text-tinta">
+            <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 print:hidden" />
+            <span aria-hidden="true" className="pointer-events-none absolute -bottom-20 right-24 h-40 w-40 rounded-full bg-black/10 print:hidden" />
             <p className="text-base font-semibold opacity-90">Faturamento</p>
-            <p className="mt-1 text-5xl font-black leading-none tracking-tight">{reais(dados.resumo.total)}</p>
+            <p className="relative mt-1 text-5xl font-black leading-none tracking-tight sm:text-6xl">{reais(dados.resumo.total)}</p>
             <p className="mt-3 text-base opacity-95">
               Serviços {reais(dados.resumo.servicos)} · Produtos {reais(dados.resumo.produtos)}
             </p>
@@ -180,12 +198,13 @@ export function Relatorios() {
           </section>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Bloco rotulo="Carros lavados" valor={String(dados.resumo.carros)} rodape={<Variacao atual={dados.resumo.carros} anterior={dados.anterior.carros} />} />
-            <Bloco rotulo="Ticket médio" valor={reais(dados.resumo.ticket_medio)} rodape={<Variacao atual={dados.resumo.ticket_medio} anterior={dados.anterior.ticket_medio} />} />
-            <Bloco rotulo="Espera média" valor={dados.resumo.espera_media_min ? duracao(dados.resumo.espera_media_min) : "—"} rodape={<span className="text-sm text-tinta-suave">do pedido até começar</span>} />
-            <Bloco rotulo="Tempo de lavagem" valor={dados.resumo.lavagem_media_min ? duracao(dados.resumo.lavagem_media_min) : "—"} rodape={<span className="text-sm text-tinta-suave">média por carro</span>} />
+            <Bloco icone={CarFront} rotulo="Carros lavados" valor={String(dados.resumo.carros)} rodape={<Variacao atual={dados.resumo.carros} anterior={dados.anterior.carros} />} />
+            <Bloco icone={Receipt} rotulo="Ticket médio" valor={reais(dados.resumo.ticket_medio)} rodape={<Variacao atual={dados.resumo.ticket_medio} anterior={dados.anterior.ticket_medio} />} />
+            <Bloco icone={Hourglass} rotulo="Espera média" valor={dados.resumo.espera_media_min ? duracao(dados.resumo.espera_media_min) : "—"} rodape={<span className="text-sm text-tinta-suave">do pedido até começar</span>} />
+            <Bloco icone={Clock} rotulo="Tempo de lavagem" valor={dados.resumo.lavagem_media_min ? duracao(dados.resumo.lavagem_media_min) : "—"} rodape={<span className="text-sm text-tinta-suave">média por carro</span>} />
           </div>
 
+          <div className="grid gap-4 lg:grid-cols-2">
           {!umDia && (
             <CartaoGrafico
               titulo="Faturamento por dia"
@@ -253,6 +272,7 @@ export function Relatorios() {
               />
             </CartaoGrafico>
           )}
+          </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <CartaoGrafico titulo="Serviços mais pedidos">
@@ -288,6 +308,39 @@ export function Relatorios() {
               />
             </CartaoGrafico>
           </div>
+
+          {dados.por_tipo && dados.por_tipo.length > 0 && (
+            <CartaoGrafico
+              titulo="Por tamanho / tipo de carro"
+              subtitulo="Carros lavados e faturamento de serviço"
+              tabela={<Tabela colunas={["Tipo", "Carros", "Serviços"]} linhas={dados.por_tipo.map((t) => [t.nome, t.carros, reais(t.total)])} />}
+            >
+              <Barras
+                vazio="Nenhum carro lavado no período."
+                formatar={(v) => `${v} ${v === 1 ? "carro" : "carros"}`}
+                itens={dados.por_tipo.map((t) => ({ chave: t.nome, rotulo: t.nome, valor: t.carros, detalhe: reais(t.total) }))}
+              />
+            </CartaoGrafico>
+          )}
+
+          {dados.fidelizacao && (
+            <section className="rounded-3xl border border-linha bg-white p-4 shadow-sm sm:p-5 print:break-inside-avoid">
+              <h2 className="mb-3 text-lg font-extrabold text-tinta">Fidelização</h2>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <Mini rotulo="Planos vendidos" valor={dados.fidelizacao.planos_vendidos} detalhe={`${reais(dados.fidelizacao.planos_valor)} · ${dados.fidelizacao.planos_ativos} ativos hoje`} />
+                <Mini rotulo="Lavagens por plano" valor={dados.fidelizacao.lavagens_plano} detalhe={`${reais(dados.fidelizacao.lavagens_plano_valor)} em tabela`} />
+                <Mini rotulo="Prêmios fidelidade" valor={dados.fidelizacao.premios_usados} detalhe="usados no período" />
+                <Mini rotulo="Orçamentos" valor={dados.fidelizacao.orcamentos_pedidos} detalhe={`${dados.fidelizacao.orcamentos_aceitos} aceitos · ${reais(dados.fidelizacao.orcamentos_valor_aceito)}`} />
+                <Mini rotulo="Pedidos de horário" valor={dados.fidelizacao.agendamentos_pedidos} detalhe={`${dados.fidelizacao.agendamentos_confirmados} confirmados`} />
+                <Mini rotulo="Clientes sumidos" valor={dados.fidelizacao.clientes_sumidos} detalhe="sem voltar há 30+ dias" />
+              </div>
+              {dados.fidelizacao.clientes_sumidos > 0 && (
+                <Link to={`/${empresa.slug}/reativar`} className="mt-3 inline-flex min-h-11 items-center rounded-xl px-1 text-base font-bold text-marca-forte underline print:hidden">
+                  Mandar mensagem para quem sumiu →
+                </Link>
+              )}
+            </section>
+          )}
 
           <section className="rounded-3xl border border-linha bg-white p-4 shadow-sm sm:p-5 print:break-inside-avoid">
             <h2 className="mb-3 text-lg font-extrabold text-tinta">Fila e clientes</h2>
@@ -349,10 +402,17 @@ function faixaHoras(horas: { hora: number; carros: number }[]) {
   return horas.filter((h) => h.hora >= ini && h.hora <= fim);
 }
 
-function Bloco({ rotulo, valor, rodape }: { rotulo: string; valor: string; rodape?: React.ReactNode }) {
+function Bloco({ rotulo, valor, rodape, icone: Icone }: { rotulo: string; valor: string; rodape?: React.ReactNode; icone?: LucideIcon }) {
   return (
     <div className="rounded-2xl border border-linha bg-white p-4 shadow-sm print:break-inside-avoid">
-      <p className="text-sm font-semibold text-tinta-suave">{rotulo}</p>
+      <p className="flex items-center gap-2 text-sm font-semibold text-tinta-suave">
+        {Icone && (
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-marca-suave text-marca-forte">
+            <Icone className="h-4 w-4" aria-hidden="true" />
+          </span>
+        )}
+        {rotulo}
+      </p>
       <p className="mt-1 text-2xl font-extrabold leading-tight text-tinta">{valor}</p>
       {rodape && <div className="mt-1">{rodape}</div>}
     </div>
