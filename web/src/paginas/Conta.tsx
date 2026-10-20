@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
 import { MeusVeiculos } from "../componentes/MeusVeiculos";
@@ -92,6 +92,8 @@ export function Conta() {
         </div>
       )}
 
+      <MeusContatos />
+
       <form onSubmit={trocarSenha} className="mt-8 flex flex-col gap-4 border-t border-linha pt-6" noValidate>
         <h2 className="text-lg font-extrabold text-tinta">Trocar senha</h2>
         <Campo rotulo="Senha atual" type="password" autoComplete="current-password" value={senhaAtual} onChange={(e) => setSenhaAtual(e.target.value)} />
@@ -119,5 +121,51 @@ export function Conta() {
         </Link>
       </div>
     </Moldura>
+  );
+}
+
+// E-mail e rede social: opcionais, só para o lava rápido mandar novidades.
+function MeusContatos() {
+  const [email, setEmail] = useState("");
+  const [rede, setRede] = useState("");
+  const [carregado, setCarregado] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [erro, setErro] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  useEffect(() => {
+    pb.send<{ email: string; rede_social: string }>("/api/lr/meu-contato", { method: "GET" })
+      .then((c) => {
+        setEmail(c.email);
+        setRede(c.rede_social);
+      })
+      .catch(() => {})
+      .finally(() => setCarregado(true));
+  }, []);
+  async function salvar(e: FormEvent) {
+    e.preventDefault();
+    setErro("");
+    setMsg("");
+    setSalvando(true);
+    try {
+      await pb.send("/api/lr/meu-contato", { method: "POST", body: { email: email.trim(), rede_social: rede.trim() } });
+      setMsg("Contatos salvos.");
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setSalvando(false);
+    }
+  }
+  if (!carregado) return null;
+  return (
+    <form onSubmit={salvar} className="mt-8 flex flex-col gap-4 border-t border-linha pt-6" noValidate>
+      <h2 className="text-lg font-extrabold text-tinta">Outros contatos (opcional)</h2>
+      <Campo rotulo="E-mail (opcional)" type="email" inputMode="email" autoComplete="email" maxLength={120} value={email} onChange={(e) => setEmail(e.target.value)} />
+      <Campo rotulo="Instagram ou outra rede social (opcional)" placeholder="@seuperfil" maxLength={80} value={rede} onChange={(e) => setRede(e.target.value)} />
+      {msg && <Aviso tipo="sucesso">{msg}</Aviso>}
+      {erro && <Aviso>{erro}</Aviso>}
+      <Botao type="submit" variante="secundario" largo carregando={salvando}>
+        Salvar contatos
+      </Botao>
+    </form>
   );
 }

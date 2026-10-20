@@ -9,46 +9,63 @@ export const PORTES: { id: Porte; nome: string; exemplos: string }[] = [
 ];
 export const nomePorte = (p?: string) => PORTES.find((x) => x.id === p)?.nome || "";
 
-// Modelos mais comuns no Brasil → porte. É só uma sugestão: o cliente pode trocar.
+// Modelos mais vendidos no Brasil → tamanho. O cliente escolhe o modelo e o tamanho vem junto.
+// Picapes pequenas (Strada, Saveiro, Montana, Oroch) ficam de fora: cada lava rápido cobra de um
+// jeito, então nelas o próprio cliente escolhe o tamanho.
 const MODELOS: Record<Porte, string[]> = {
   pequeno: [
-    "hb20", "onix", "gol", "argo", "mobi", "kwid", "polo", "up", "sandero", "fox", "palio", "uno", "celta", "corsa", "prisma",
-    "fiesta", "ka", "ford ka", "etios", "march", "208", "c3", "yaris", "fit", "picanto", "clio", "agile", "punto", "spin",
-    "logan", "voyage", "versa", "cronos", "virtus", "city", "hb20s", "onix plus", "joy", "uno way", "kwid outsider",
+    "HB20", "HB20S", "Onix", "Onix Plus", "Gol", "Voyage", "Polo", "Virtus", "Up", "Fox", "Argo", "Cronos", "Mobi", "Uno", "Palio", "Siena",
+    "Grand Siena", "Punto", "Kwid", "Sandero", "Logan", "Clio", "Ka", "Ka Sedan", "Fiesta", "Etios", "Yaris", "Yaris Sedan", "March", "Versa",
+    "208", "207", "C3", "Fit", "City", "Celta", "Prisma", "Corsa", "Classic", "Agile", "Picanto", "Spin", "Dolphin", "Dolphin Mini",
   ],
   medio: [
-    "corolla", "civic", "cruze", "jetta", "sentra", "compass", "renegade", "creta", "t-cross", "tcross", "nivus", "kicks", "hr-v", "hrv", "tracker",
-    "duster", "ecosport", "pulse", "fastback", "taos", "tiguan", "captur", "2008", "3008", "c4", "rav4", "corolla cross", "commander", "territory",
-    "sportage", "tucson", "ix35", "outlander", "asx", "wr-v", "wrv", "fusion", "golf", "a3", "a4", "320i", "classe c", "kardian", "basalt",
+    "Corolla", "Corolla Cross", "Civic", "Cruze", "Jetta", "Sentra", "Compass", "Renegade", "Commander", "Creta", "T-Cross", "Nivus", "Taos",
+    "Tiguan", "Kicks", "HR-V", "WR-V", "ZR-V", "CR-V", "Tracker", "Equinox", "Duster", "Captur", "Ecosport", "Territory", "Pulse", "Fastback",
+    "2008", "3008", "C4 Cactus", "Basalt", "Aircross", "RAV4", "Sportage", "Tucson", "ix35", "Outlander", "ASX", "Eclipse Cross", "Fusion",
+    "Golf", "A3", "A4", "Q3", "320i", "X1", "Classe A", "Classe C", "GLA", "Song Plus", "Yuan Plus", "Seal", "Haval H6", "Tiggo 5x", "Tiggo 7", "Kardian",
   ],
   grande: [
-    "hilux", "s10", "ranger", "amarok", "l200", "triton", "frontier", "toro", "maverick", "ram", "rampage", "sw4", "trailblazer", "pajero",
-    "master", "sprinter", "ducato", "daily", "jumper", "boxer", "transit", "expert", "partner", "kombi", "doblo", "kangoo", "tiggo 8", "f-250", "f250", "titano",
+    "Hilux", "SW4", "S10", "Trailblazer", "Ranger", "Amarok", "L200", "Triton", "Frontier", "Toro", "Maverick", "Rampage", "Ram 1500", "Ram 2500",
+    "Pajero", "Tiggo 8", "Master", "Sprinter", "Ducato", "Daily", "Jumper", "Boxer", "Transit", "Expert", "Partner", "Doblò", "Kangoo", "Kombi",
+    "F-250", "Titano", "Hoggar",
   ],
   moto: [
-    "cg", "fan", "titan", "biz", "pop", "bros", "xre", "cb", "fazer", "factor", "lander", "nmax", "pcx", "elite", "start", "crosser", "xtz",
-    "mt-03", "mt03", "ninja", "z400", "twister", "hornet", "africa", "neo", "fluo", "lead", "burgman", "dk", "yes",
+    "CG 160", "CG 150", "CG 125", "Fan", "Titan", "Start", "Biz", "Pop 110", "Bros", "XRE 300", "XRE 190", "CB 300", "CB 500", "Twister",
+    "Hornet", "Fazer 250", "Fazer 150", "Factor", "Lander", "Crosser", "XTZ", "NMax", "PCX", "Elite", "Lead", "Neo", "Fluo", "Burgman",
+    "MT-03", "MT-07", "Ninja", "Z400", "Africa Twin", "Sahara",
   ],
 };
-// Picapes pequenas (Strada, Saveiro, Montana, Oroch) ficam de fora: cada lava rápido cobra de um
-// jeito, então o próprio cliente escolhe o tamanho.
+// Lista para o campo Modelo (sugestões enquanto digita).
+export const MODELOS_CONHECIDOS = (Object.keys(MODELOS) as Porte[]).flatMap((porte) => MODELOS[porte].map((nome) => ({ nome, porte })));
+
+const normal = (t: string) => ` ${t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim()} `;
+const junto = (t: string) => normal(t).replace(/ /g, "");
+
+// Acha o modelo digitado ("hb20 1.0", "Hb 20", "corolla xei") na lista; o nome mais longo ganha
+// ("Corolla Cross" antes de "Corolla").
+export function acharModelo(modelo: string): { nome: string; porte: Porte } | null {
+  const m = normal(modelo);
+  const mj = junto(modelo);
+  if (mj.length < 2) return null;
+  let melhor: { nome: string; porte: Porte } | null = null;
+  for (const x of MODELOS_CONHECIDOS) {
+    const n = normal(x.nome);
+    const nj = junto(x.nome);
+    const casa = m.includes(n) || (nj.length >= 3 && mj.startsWith(nj));
+    if (casa && (!melhor || nj.length > junto(melhor.nome).length)) melhor = x;
+  }
+  return melhor;
+}
 
 export function sugerirPorte(modelo: string): Porte | "" {
-  const m = ` ${modelo.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9-]+/g, " ").trim()} `;
-  if (m.trim().length < 2) return "";
-  let melhor: { porte: Porte; tam: number } | null = null;
-  for (const porte of Object.keys(MODELOS) as Porte[]) {
-    for (const nome of MODELOS[porte]) {
-      if (m.includes(` ${nome} `) && (!melhor || nome.length > melhor.tam)) melhor = { porte, tam: nome.length };
-    }
-  }
-  return melhor ? melhor.porte : "";
+  return acharModelo(modelo)?.porte || "";
 }
 
 // Mesma regra do servidor (lib.tipoDoCarro): equipe > motorista de app > porte do cadastro.
 export function tipoDoCarro(tipos: TipoVeiculo[], vinculo: Vinculo | null, veiculo: Veiculo | undefined): { tipo?: TipoVeiculo; motivo: string } {
   if (!veiculo) return { motivo: "" };
-  const daEquipe = tipos.find((t) => t.id === vinculo?.tipos_veiculos?.[veiculo.id]);
+  const idEquipe = vinculo?.tipos_veiculos?.[veiculo.id];
+  const daEquipe = idEquipe ? tipos.find((t) => t.id === idEquipe) : undefined;
   if (daEquipe) return { tipo: daEquipe, motivo: "definido pelo lava rápido" };
   const app = tipos.find((t) => t.vale === "app");
   if (veiculo.app_motorista && app) return { tipo: app, motivo: "motorista de aplicativo" };

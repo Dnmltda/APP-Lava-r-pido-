@@ -103,7 +103,7 @@ async function main() {
     await criar("vinculos", { usuario: u.id, empresa: A.id, papel, ativo: true, ...extra });
     pessoas[chave] = { ...u, celular };
   }
-  await criar("veiculos", { cliente: pessoas.cliente.id, placa: "NAV1A23", final_placa: "A23", modelo: "Onix", cor: "Prata", ativo: true });
+  await criar("veiculos", { cliente: pessoas.cliente.id, placa: "NAV1A23", final_placa: "A23", modelo: "Fusca Rebaixado", cor: "Prata", ativo: true });
 
   const navegador = await chromium.launch(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {});
   const erros = {};
@@ -142,8 +142,10 @@ async function main() {
       await novo.getByLabel("Celular").fill(celNovo);
       await novo.getByLabel("Crie uma senha").fill("12345678");
       await novo.getByLabel("Placa").fill("TST1E23");
-      await novo.getByLabel("Modelo").fill("HB20 1.0");
-      checar("cadastro já sugere o tamanho pelo modelo (HB20 = Pequeno)", (await novo.getByRole("radio", { name: /^Pequeno/ }).getAttribute("aria-checked")) === "true");
+      await novo.getByLabel("Modelo do carro").fill("HB20 1.0");
+      await novo.getByLabel("Cor do carro").fill("Branco");
+      await novo.getByLabel("Instagram ou outra rede social (opcional)").fill("@nova.testadora");
+      checar("cadastro já sabe o tamanho pelo modelo (HB20 = carro pequeno), sem perguntar", (await novo.getByText("HB20 · Carro pequeno ✓").count()) === 1 && (await novo.getByRole("radio", { name: /^Pequeno/ }).count()) === 0);
       await novo.getByRole("button", { name: "Criar cadastro" }).click();
       await novo.getByText(/fácil de adivinhar/).waitFor({ timeout: 10000 }).catch(() => {});
       checar("cadastro recusa senha fácil com mensagem clara", await novo.getByText(/fácil de adivinhar/).isVisible());
@@ -156,6 +158,8 @@ async function main() {
       const u = await api("GET", `/api/collections/usuarios/records?filter=${encodeURIComponent(`celular="${celNovo}"`)}`, { token: ADM });
       if (u.data.items[0]) criados.usuarios.push(u.data.items[0].id);
       checar("conta gravada no banco como cliente deste lava rápido", u.data.items.length === 1);
+      const vNovo = u.data.items[0] && (await api("GET", `/api/collections/veiculos/records?filter=${encodeURIComponent(`cliente="${u.data.items[0].id}"`)}`, { token: ADM })).data.items[0];
+      checar("carro gravado já com o tamanho certo", vNovo?.porte === "pequeno" && vNovo?.modelo === "HB20 1.0", vNovo);
       await novo.getByRole("link", { name: "Minha conta" }).click();
       await novo.getByRole("button", { name: "Sair do app" }).click();
       await novo.waitForURL(/\/entrar$/, { timeout: 10000 }).catch(() => {});

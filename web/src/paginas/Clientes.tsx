@@ -27,6 +27,8 @@ interface DetalheCliente extends DadosHistorico {
   nome: string;
   celular: string;
   aceita_promocoes: boolean;
+  email?: string;
+  rede_social?: string;
   veiculos: { placa: string; final_placa: string; modelo: string; cor: string }[];
   gasto: { servicos: number; produtos: number; total: number };
   visitas: (DadosHistorico["visitas"][number] & { valor?: number })[];
@@ -179,6 +181,16 @@ function Detalhe({ empresaId, cliente, onFechar }: { empresaId: string; cliente:
               WhatsApp
             </a>
           </div>
+          {(d.email || d.rede_social) && (
+            <div className="rounded-2xl border border-linha bg-white p-3 text-base text-tinta">
+              {d.email && (
+                <a href={`mailto:${d.email}`} className="block break-all font-semibold text-marca-forte underline">
+                  {d.email}
+                </a>
+              )}
+              {d.rede_social && <span className="block break-all">Rede social: {d.rede_social}</span>}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <Mini rotulo="Visitas" valor={vezes(d.total_visitas)} />
             <Mini rotulo="Gasto total" valor={reais(d.gasto.total)} />

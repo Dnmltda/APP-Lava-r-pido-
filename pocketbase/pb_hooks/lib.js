@@ -1218,6 +1218,8 @@ function listaClientes(app, empresaId) {
       nome: u.getString("nome"),
       celular: u.getString("celular"),
       aceita_promocoes: u.getBool("aceite_marketing"),
+      email: u.getString("contato_email"),
+      rede_social: u.getString("rede_social"),
       ativo: vin.getBool("ativo"),
       cliente_desde: vin.getString("created"),
       visitas: a.visitas,
@@ -1276,6 +1278,29 @@ function aplicarTipo(entrada, servico, empresa, tipoId) {
   entrada.set("tipo_veiculo", t ? t.id : "");
   entrada.set("tipo_veiculo_nome", t ? t.nome : "");
   entrada.set("preco_servico", precoDoServico(servico, t ? t.id : ""));
+}
+// E-mail e rede social do cliente (os dois opcionais). Rede: @usuario ou link.
+function contatoLimpo(email, rede) {
+  const em = String(email || "").trim().toLowerCase().slice(0, 120);
+  if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) throw new BadRequestError("E-mail inválido. Ex.: nome@gmail.com");
+  const rs = String(rede || "").trim().replace(/\s+/g, " ").slice(0, 80);
+  return { email: em, rede_social: rs };
+}
+// Lê "tipos_veiculo" do corpo do pedido e grava a lista normalizada no registro.
+function tiposDoCorpo(e) {
+  const body = e.requestInfo().body || {};
+  if (body.tipos_veiculo === undefined) return;
+  let lista = body.tipos_veiculo;
+  // campo JSON chega como bytes brutos no hook: converte para texto antes
+  if (Array.isArray(lista) && lista.length && typeof lista[0] === "number") lista = toString(lista);
+  if (typeof lista === "string") {
+    try {
+      lista = JSON.parse(lista || "[]");
+    } catch (_) {
+      throw new BadRequestError("Lista de tipos inválida.");
+    }
+  }
+  e.record.set("tipos_veiculo", normalizarTipos(lista || []));
 }
 // Normaliza a lista de tipos digitada pelo dono.
 function normalizarTipos(lista) {
@@ -1422,6 +1447,8 @@ module.exports = {
   precoDoServico,
   aplicarTipo,
   tipoDoCarro,
+  tiposDoCorpo,
+  contatoLimpo,
   normalizarTipos,
   historicoCliente,
   listaClientes,

@@ -37,7 +37,8 @@ export function descricaoVeiculo(v: Veiculo) {
 
 export function detalheVeiculo(v: Veiculo) {
   if (!v.porte) return "Falta informar o tamanho";
-  return `Tamanho: ${nomePorte(v.porte)}${v.app_motorista ? " · motorista de app" : ""}`;
+  const tamanho = v.porte === "moto" ? "Moto" : `Carro ${nomePorte(v.porte).toLowerCase()}`;
+  return `${tamanho}${v.app_motorista ? " · motorista de app" : ""}`;
 }
 
 // Tamanho e uso em aplicativo de um carro já cadastrado.

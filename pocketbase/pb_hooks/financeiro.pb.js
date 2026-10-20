@@ -2,22 +2,13 @@
 // Fotos antes/depois, tipos de veículo e preços, gastos fixos, fechamento do dia e do mês.
 
 // ---------------------------------------------------- tipos de veículo / preços
+// Tipos de veículo gravados sempre normalizados (id, nome, "vale para"), ao criar e ao editar.
+onRecordCreateRequest((e) => {
+  require(`${__hooks}/lib.js`).tiposDoCorpo(e);
+  e.next();
+}, "empresas");
 onRecordUpdateRequest((e) => {
-  const lib = require(`${__hooks}/lib.js`);
-  const body = e.requestInfo().body || {};
-  if (body.tipos_veiculo !== undefined) {
-    let lista = body.tipos_veiculo;
-    // campo JSON chega como bytes brutos no hook: converte para texto antes
-    if (Array.isArray(lista) && lista.length && typeof lista[0] === "number") lista = toString(lista);
-    if (typeof lista === "string") {
-      try {
-        lista = JSON.parse(lista || "[]");
-      } catch (_) {
-        throw new BadRequestError("Lista de tipos inválida.");
-      }
-    }
-    e.record.set("tipos_veiculo", lib.normalizarTipos(lista || []));
-  }
+  require(`${__hooks}/lib.js`).tiposDoCorpo(e);
   e.next();
 }, "empresas");
 

@@ -4,7 +4,7 @@ import { AtivarAvisos } from "../componentes/Avisos";
 import { Quantidade } from "../componentes/Quantidade";
 import { precoPara, tiposDaEmpresa } from "../componentes/TipoVeiculo";
 import { TamanhoVeiculo } from "../componentes/CamposVeiculo";
-import { tipoDoCarro } from "../lib/porteVeiculo";
+import { sugerirPorte, tipoDoCarro } from "../lib/porteVeiculo";
 import { FotosEntrada, useFotosDasEntradas } from "../componentes/Vistoria";
 import { ListaFilaPublica, IconeBusca } from "../componentes/fila";
 import { descricaoVeiculo, detalheVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
@@ -332,6 +332,12 @@ function EntrarNaFila({
   const usaPorte = tipos.some((t) => t.vale && t.vale !== "app");
   const faltaPorte = !!carro && !carro.porte && usaPorte && !tipoCarro;
   const [salvandoPorte, setSalvandoPorte] = useState(false);
+  // Carro antigo sem tamanho, mas com modelo conhecido: o app preenche sozinho.
+  const porteDoModelo = faltaPorte && carro ? sugerirPorte(carro.modelo) : "";
+  useEffect(() => {
+    if (porteDoModelo) definirPorte(porteDoModelo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [porteDoModelo, carro?.id]);
   async function definirPorte(porte: string) {
     if (!carro) return;
     setSalvandoPorte(true);
@@ -393,7 +399,7 @@ function EntrarNaFila({
               + Outro veículo
             </button>
           </div>
-          {faltaPorte && (
+          {faltaPorte && !porteDoModelo && (
             <div className="mt-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
               <TamanhoVeiculo valor="" onChange={definirPorte} />
               {salvandoPorte && <p className="mt-1 text-sm text-tinta-suave">Salvando…</p>}
@@ -431,6 +437,11 @@ function EntrarNaFila({
         </fieldset>
 
 
+        {catalogo.length === 0 && (
+          <p className="rounded-xl border-2 border-dashed border-linha px-4 py-3 text-base text-tinta-suave">
+            <strong className="text-tinta">Produtos:</strong> este lava rápido ainda não colocou produtos à venda pelo app.
+          </p>
+        )}
         {catalogo.length > 0 && (
           <fieldset>
             <legend className="mb-1 text-base font-bold text-tinta">Produtos (opcional)</legend>

@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Campo } from "./ui";
 import { normalizarPlaca } from "../lib/formato";
-import { PORTES, sugerirPorte } from "../lib/porteVeiculo";
+import { acharModelo, MODELOS_CONHECIDOS, nomePorte, PORTES } from "../lib/porteVeiculo";
 import type { Porte } from "../lib/tipos";
 
 export interface DadosVeiculo {
@@ -23,7 +24,9 @@ export function validarVeiculo(v: DadosVeiculo): Record<string, string> {
   } else if (!/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(v.placa)) {
     erros.placa = "Placa inválida. Ex.: ABC1D23 ou ABC1234.";
   }
-  if (!v.porte) erros.porte = "Escolha o tamanho do veículo.";
+  if (v.modelo.trim().length < 2) erros.modelo = "Digite o modelo do carro (ex.: HB20).";
+  else if (!v.porte) erros.porte = "Escolha o tamanho do veículo.";
+  if (v.cor.trim().length < 2) erros.cor = "Digite a cor do carro (ex.: Prata).";
   return erros;
 }
 
@@ -73,17 +76,26 @@ export function CamposVeiculo({
       >
         {valor.semPlaca ? "Prefiro informar a placa completa" : "Prefiro informar só os 3 últimos"}
       </button>
-      <div className="grid grid-cols-2 gap-3">
-        <Campo
-          rotulo="Modelo"
-          placeholder="Onix"
-          value={valor.modelo}
-          onChange={(e) => mudar({ modelo: e.target.value, ...(valor.porteManual ? {} : { porte: sugerirPorte(e.target.value) }) })}
-        />
-        <Campo rotulo="Cor" placeholder="Prata" value={valor.cor} onChange={(e) => mudar({ cor: e.target.value })} />
-      </div>
-      <TamanhoVeiculo valor={valor.porte} onChange={(porte) => mudar({ porte, porteManual: true })} erro={erros.porte} />
-      {valor.porte !== "moto" && <AppMotorista valor={valor.app_motorista} onChange={(app_motorista) => mudar({ app_motorista })} />}
+      <Campo
+        rotulo="Modelo do carro"
+        placeholder="Ex.: HB20, Onix, Corolla, Hilux"
+        list="lr-modelos"
+        autoComplete="off"
+        value={valor.modelo}
+        erro={erros.modelo}
+        onChange={(e) => {
+          const achado = acharModelo(e.target.value);
+          mudar({ modelo: e.target.value, porte: achado ? achado.porte : "", porteManual: false });
+        }}
+      />
+      <datalist id="lr-modelos">
+        {MODELOS_CONHECIDOS.map((m) => (
+          <option key={m.nome} value={m.nome} />
+        ))}
+      </datalist>
+      <TamanhoPeloModelo valor={valor} onChange={(porte) => mudar({ porte, porteManual: true })} erro={erros.porte} />
+      <Campo rotulo="Cor do carro" placeholder="Ex.: Prata" maxLength={30} value={valor.cor} erro={erros.cor} onChange={(e) => mudar({ cor: e.target.value })} ajuda="A equipe usa para achar o seu carro." />
+      {valor.porte && valor.porte !== "moto" && <AppMotorista valor={valor.app_motorista} onChange={(app_motorista) => mudar({ app_motorista })} />}
     </div>
   );
 }
@@ -122,5 +134,30 @@ export function AppMotorista({ valor, onChange }: { valor: boolean; onChange: (v
         <span className="block text-sm text-tinta-suave">Uber, 99 e outros. Se o lava rápido tiver preço para motorista de app, ele já vale.</span>
       </span>
     </label>
+  );
+}
+
+// Modelo conhecido: o tamanho vem sozinho e só aparece para conferir. Modelo fora da lista: o cliente escolhe.
+function TamanhoPeloModelo({ valor, onChange, erro }: { valor: DadosVeiculo; onChange: (p: Porte) => void; erro?: string }) {
+  const [trocar, setTrocar] = useState(false);
+  const achado = acharModelo(valor.modelo);
+  if (valor.modelo.trim().length < 2) return null;
+  if (achado && !trocar && !valor.porteManual) {
+    return (
+      <div className="-mt-2 flex items-center justify-between gap-3 rounded-xl bg-green-50 px-4 py-3 ring-1 ring-green-200">
+        <span className="text-base text-tinta">
+          <strong>{achado.nome}</strong> · {achado.porte === "moto" ? "Moto" : `Carro ${nomePorte(achado.porte).toLowerCase()}`} ✓
+        </span>
+        <button type="button" onClick={() => setTrocar(true)} className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-semibold text-marca-forte underline">
+          Não é esse tamanho
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="-mt-2 flex flex-col gap-2">
+      {!achado && <p className="text-sm text-tinta-suave">Não achamos esse modelo na nossa lista. Escolha o tamanho:</p>}
+      <TamanhoVeiculo valor={valor.porte} onChange={onChange} erro={erro} />
+    </div>
   );
 }

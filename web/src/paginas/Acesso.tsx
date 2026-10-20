@@ -131,6 +131,8 @@ export function Cadastro() {
   const [senha, setSenha] = useState("");
   const [verSenha, setVerSenha] = useState(false);
   const [aceite, setAceite] = useState(false);
+  const [email, setEmail] = useState("");
+  const [rede, setRede] = useState("");
   const [veiculo, setVeiculo] = useState(VEICULO_VAZIO);
   const [erros, setErros] = useState<Record<string, string>>({});
   const [erro, setErro] = useState("");
@@ -146,6 +148,7 @@ export function Cadastro() {
     if (!celularValido(celular)) novos.celular = "Digite o celular com DDD.";
     if (senha.length < 8) novos.senha = "A senha precisa ter pelo menos 8 caracteres.";
     Object.assign(novos, validarVeiculo(veiculo));
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) novos.email = "E-mail inválido. Ex.: nome@gmail.com";
     setErros(novos);
     if (Object.keys(novos).length) return;
     setEnviando(true);
@@ -158,6 +161,8 @@ export function Cadastro() {
           celular: somenteDigitos(celular),
           senha,
           aceite_marketing: aceite,
+          email: email.trim(),
+          rede_social: rede.trim(),
           ...corpoVeiculo(veiculo),
         },
       });
@@ -214,9 +219,13 @@ export function Cadastro() {
         </div>
         <h2 className="mt-2 text-lg font-extrabold text-tinta">Seu veículo</h2>
         <CamposVeiculo valor={veiculo} onChange={setVeiculo} erros={erros} />
+        <h2 className="mt-2 text-lg font-extrabold text-tinta">Outros contatos (opcional)</h2>
+        <p className="-mt-2 text-sm text-tinta-suave">Se quiser, para o {empresa.nome} mandar novidades. Pode deixar em branco.</p>
+        <Campo rotulo="E-mail (opcional)" type="email" inputMode="email" autoComplete="email" maxLength={120} value={email} onChange={(e) => setEmail(e.target.value)} erro={erros.email} />
+        <Campo rotulo="Instagram ou outra rede social (opcional)" placeholder="@seuperfil" maxLength={80} value={rede} onChange={(e) => setRede(e.target.value)} />
         <Interruptor
           rotulo="Quero receber promoções"
-          descricao="Por WhatsApp ou Instagram. Você pode desligar quando quiser."
+          descricao="Por WhatsApp, e-mail ou rede social. Você pode desligar quando quiser."
           ligado={aceite}
           onChange={setAceite}
         />

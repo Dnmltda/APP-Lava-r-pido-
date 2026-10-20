@@ -22,5 +22,5 @@ routerAdd("GET", "/api/lr/clientes/{empresa}/{usuario}", (e) => {
   const veiculos = Array.from(e.app.findRecordsByFilter("veiculos", "cliente = {:c} && ativo = true", "", 20, 0, { c: clienteId }))
     .map((v) => ({ placa: v.getString("placa"), final_placa: v.getString("final_placa"), modelo: v.getString("modelo"), cor: v.getString("cor") }));
   const h = lib.historicoCliente(e.app, empresaId, clienteId, vinculo, true);
-  return e.json(200, Object.assign({ nome: u.getString("nome"), celular: u.getString("celular"), aceita_promocoes: u.getBool("aceite_marketing"), veiculos: veiculos }, h));
+  return e.json(200, Object.assign({ nome: u.getString("nome"), celular: u.getString("celular"), aceita_promocoes: u.getBool("aceite_marketing"), email: u.getString("contato_email"), rede_social: u.getString("rede_social"), veiculos: veiculos }, h));
 }, $apis.requireAuth("usuarios"));

@@ -28,6 +28,7 @@ import { Aviso, Botao, Cartao } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
 import { FilaCliente } from "./FilaCliente";
+import { useCatalogo } from "../componentes/Vitrine";
 import { tempoDeCliente, useHistorico, vezes } from "./Historico";
 import { DIAS_SEMANA, linkWhatsApp, primeiroNome, reais } from "../lib/formato";
 import { useFilaAoVivo } from "../lib/fila";
@@ -78,6 +79,7 @@ export function Painel() {
             {/* A fila sempre em destaque */}
             <FilaAgora />
             {valores && <HojeResumo />}
+            {pode(vinculo, "catalogo") && <FaltaCadastrar />}
 
             <nav aria-label="Atalhos" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Atalho para={`/${s}/vendas`} icone={ShoppingBag} titulo="Vendas" texto={valores ? "Registrar e ver as vendas" : "Registrar e ver as minhas"} />
@@ -323,5 +325,36 @@ function InfoEmpresa({ empresa }: { empresa: Empresa }) {
         </a>
       )}
     </Cartao>
+  );
+}
+
+// Lembrete para quem cuida do catálogo: sem serviço o cliente não entra na fila; sem produto não há vitrine.
+function FaltaCadastrar() {
+  const { empresa } = useEmpresa();
+  const catalogo = useCatalogo(empresa.slug);
+  const [semServico, setSemServico] = useState(false);
+  useEffect(() => {
+    pb.collection("servicos")
+      .getList(1, 1, { filter: pb.filter("empresa = {:e} && ativo = true", { e: empresa.id }), fields: "id" })
+      .then((r) => setSemServico(r.totalItems === 0))
+      .catch(() => {});
+  }, [empresa.id]);
+  const semProduto = catalogo !== null && catalogo.length === 0;
+  if (!semServico && !semProduto) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {semServico && (
+        <Link to={`/${empresa.slug}/servicos`} className="block rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-3">
+          <span className="block text-base font-extrabold text-tinta">Nenhum serviço disponível</span>
+          <span className="block text-sm text-tinta">Os clientes não conseguem entrar na fila. Toque para cadastrar (tem tabela pronta).</span>
+        </Link>
+      )}
+      {semProduto && (
+        <Link to={`/${empresa.slug}/produtos`} className="block rounded-2xl border-2 border-amber-300 bg-amber-50 px-4 py-3">
+          <span className="block text-base font-extrabold text-tinta">Nenhum produto à venda</span>
+          <span className="block text-sm text-tinta">Os clientes não veem a vitrine (cheirinho, pretinho…). Toque para cadastrar.</span>
+        </Link>
+      )}
+    </div>
   );
 }

@@ -61,7 +61,18 @@ export function Vitrine({
   onReservado?: () => void;
 }) {
   const [escolhido, setEscolhido] = useState<ProdutoCatalogo | null>(null);
-  if (catalogo.length === 0) return null;
+  if (catalogo.length === 0)
+    return (
+      <section aria-labelledby="titulo-produtos" className="rounded-2xl border-2 border-dashed border-linha px-4 py-4">
+        <h2 id="titulo-produtos" className="text-xl font-extrabold text-tinta">
+          Produtos
+        </h2>
+        <p className="mt-1 text-base text-tinta-suave">
+          Este lava rápido ainda não colocou produtos à venda pelo app (cheirinho, pretinho…). Quando colocar, eles aparecem aqui e dá para reservar até com o carro na
+          fila.
+        </p>
+      </section>
+    );
   const total = itensDoCarrinho(carrinho).reduce((s, it) => s + (catalogo.find((p) => p.id === it.produto)?.preco || 0) * it.quantidade, 0);
   const qtdCarrinho = itensDoCarrinho(carrinho).reduce((s, it) => s + it.quantidade, 0);
 

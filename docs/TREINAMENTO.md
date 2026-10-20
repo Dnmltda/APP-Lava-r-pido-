@@ -87,8 +87,9 @@ Tudo do gerente, mais:
 - **Avaliações** com o nome do cliente.
 
 ## Cliente (o que explicar no balcão)
-1. Ler o QR Code → **Criar cadastro** (nome, celular, senha, carro). O app sugere o **tamanho do carro** pelo modelo
-   (ex.: HB20 = pequeno) e pergunta se trabalha com **aplicativo** (Uber, 99). Com isso o preço sai sozinho na fila.
+1. Ler o QR Code → **Criar cadastro**: nome, celular, senha e o carro (placa, **modelo** e **cor** são obrigatórios).
+   Pelo modelo o app já sabe o **tamanho** (HB20 = pequeno, Corolla = médio, Hilux = grande) e pergunta se trabalha
+   com **aplicativo** (Uber, 99). E-mail e rede social são **opcionais** (para divulgação; só o dono vê).
 2. **Entrar na fila** → veículo → serviço (o preço já é o do tamanho do carro) → produtos (opcional) → “quero que busquem meu carro” (opcional) → **Confirmar e entrar na fila**.
 3. Acompanhar a posição e a previsão. Se a equipe tirar fotos, aparece **Ver fotos do seu carro**. Botão **Falar no WhatsApp** direto com o lava rápido. Ligar os **avisos** para receber “vez confirmada”, “já pode vir” e “carro pronto”.
 4. Depois da lavagem: avaliar com estrelas.

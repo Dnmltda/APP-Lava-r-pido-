@@ -177,7 +177,7 @@ async function main() {
     console.log("\nCadastro do cliente");
     const cel = "114" + sufixo + "77";
     const cad = (senha, extra = {}) =>
-      api("POST", "/api/lr/cadastro", { body: { slug: A.slug, nome: "  Maria   da  Silva ", celular: cel, senha, final_placa: "M77", ...extra } });
+      api("POST", "/api/lr/cadastro", { body: { slug: A.slug, nome: "  Maria   da  Silva ", celular: cel, senha, final_placa: "M77", modelo: "HB20", cor: "Branco", ...extra } });
     for (const fraca of ["12345678", "11111111", "senha123", cel.slice(-8), "87654321"]) {
       r = await cad(fraca);
       checar(`recusa senha fácil "${fraca}"`, r.status === 400 && /fácil|8 caracteres/.test(r.data?.message || ""), r.data);
@@ -186,16 +186,28 @@ async function main() {
     checar("recusa senha com menos de 8", r.status === 400, r.status);
     r = await cad("lavagem2026", { placa: "XX" });
     checar("recusa placa inválida", r.status === 400, r.status);
-    r = await cad("lavagem2026");
-    checar("cadastra com senha boa", r.status === 201, r.data);
+    r = await cad("lavagem2026", { cor: "" });
+    checar("cor do carro é obrigatória", r.status === 400 && /cor/i.test(r.data?.message || ""), r.data);
+    r = await cad("lavagem2026", { modelo: "" });
+    checar("modelo do carro é obrigatório", r.status === 400 && /modelo/i.test(r.data?.message || ""), r.data);
+    r = await cad("lavagem2026", { email: "maria@" });
+    checar("e-mail errado é recusado (quando informado)", r.status === 400 && /e-mail/i.test(r.data?.message || ""), r.data);
+    r = await cad("lavagem2026", { email: " Maria@Gmail.com ", rede_social: "@maria.lava" });
+    checar("cadastra com senha boa (e-mail e rede social opcionais)", r.status === 201, r.data);
     const novo = (await api("GET", `/api/collections/usuarios/records?filter=${qs(`celular="${cel}"`)}`, { token: ADM })).data.items[0];
     if (novo) criados.usuarios.push(novo.id);
     checar("nome fica limpo (sem espaços sobrando)", novo && novo.nome === "Maria da Silva", novo && novo.nome);
+    checar("e-mail e rede social gravados", novo && novo.contato_email === "maria@gmail.com" && novo.rede_social === "@maria.lava", novo && [novo.contato_email, novo.rede_social]);
     r = await cad("outrasenha99");
     checar("mesmo celular não cadastra duas vezes", r.status === 400 && /já tem cadastro/.test(r.data?.message || ""), r.data);
     r = await api("POST", "/api/collections/usuarios/auth-with-password", { body: { identity: cel, password: "lavagem2026" } });
     checar("entra com o celular e a senha cadastrados", r.status === 200);
     const tk = r.data.token;
+    checar("o próprio cliente vê os contatos dele", (await api("GET", "/api/lr/meu-contato", { token: tk })).data?.email === "maria@gmail.com");
+    r = await api("POST", "/api/lr/meu-contato", { token: tk, body: { email: "", rede_social: "@maria2" } });
+    checar("e muda ou apaga quando quiser", r.status === 200 && r.data.email === "" && r.data.rede_social === "@maria2", r.data);
+    r = await api("GET", `/api/collections/usuarios/records/${novo.id}`, { token: tk });
+    checar("contatos não aparecem pela API comum (ficam ocultos)", r.status === 200 && r.data.rede_social === undefined, r.data);
     r = await api("PATCH", `/api/collections/usuarios/records/${novo.id}`, { token: tk, body: { oldPassword: "lavagem2026", password: "12345678", passwordConfirm: "12345678" } });
     checar("em Minha conta também não troca para senha fácil", r.status === 400, r.status);
     r = await api("PATCH", `/api/collections/usuarios/records/${novo.id}`, { token: tk, body: { oldPassword: "lavagem2026", password: "novaSenha2026", passwordConfirm: "novaSenha2026" } });

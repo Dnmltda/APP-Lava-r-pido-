@@ -39,7 +39,7 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const body = new DynamicModel({
     slug: "", nome: "", celular: "", senha: "", aceite_marketing: false,
-    placa: "", final_placa: "", modelo: "", cor: "", porte: "", app_motorista: false,
+    placa: "", final_placa: "", modelo: "", cor: "", porte: "", app_motorista: false, email: "", rede_social: "",
   });
   e.bindBody(body);
 
@@ -56,6 +56,11 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
   const finalPlaca = placa ? placa.slice(-3) : String(body.final_placa || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (placa && !/^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(placa)) throw new BadRequestError("Placa inválida. Ex.: ABC1D23.");
   if (finalPlaca.length !== 3) throw new BadRequestError("Informe a placa ou os 3 últimos caracteres dela.");
+  const modelo = String(body.modelo || "").trim().slice(0, 60);
+  const cor = String(body.cor || "").trim().slice(0, 30);
+  if (modelo.length < 2) throw new BadRequestError("Informe o modelo do carro.");
+  if (cor.length < 2) throw new BadRequestError("Informe a cor do carro.");
+  const contato = lib.contatoLimpo(body.email, body.rede_social);
 
   try {
     e.app.findFirstRecordByData("usuarios", "celular", celular);
@@ -69,6 +74,8 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
     usuario.set("nome", nome);
     usuario.set("celular", celular);
     usuario.set("aceite_marketing", !!body.aceite_marketing);
+    usuario.set("contato_email", contato.email);
+    usuario.set("rede_social", contato.rede_social);
     usuario.setPassword(senha);
     tx.save(usuario);
 
@@ -83,8 +90,8 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
     veiculo.set("cliente", usuario.id);
     veiculo.set("placa", placa);
     veiculo.set("final_placa", finalPlaca);
-    veiculo.set("modelo", String(body.modelo || "").trim().slice(0, 60));
-    veiculo.set("cor", String(body.cor || "").trim().slice(0, 30));
+    veiculo.set("modelo", modelo);
+    veiculo.set("cor", cor);
     if (["pequeno", "medio", "grande", "moto"].indexOf(String(body.porte || "")) >= 0) veiculo.set("porte", body.porte);
     veiculo.set("app_motorista", !!body.app_motorista);
     tx.save(veiculo);
@@ -92,6 +99,24 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
 
   return e.json(201, { ok: true, celular });
 });
+
+// ------------------------------------------- e-mail e rede social (opcional)
+// GET/POST /api/lr/meu-contato  { email, rede_social }: o próprio cliente vê e muda.
+routerAdd("GET", "/api/lr/meu-contato", (e) => {
+  const u = e.app.findRecordById("usuarios", e.auth.id);
+  return e.json(200, { email: u.getString("contato_email"), rede_social: u.getString("rede_social") });
+}, $apis.requireAuth("usuarios"));
+routerAdd("POST", "/api/lr/meu-contato", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const body = new DynamicModel({ email: "", rede_social: "" });
+  e.bindBody(body);
+  const c = lib.contatoLimpo(body.email, body.rede_social);
+  const u = e.app.findRecordById("usuarios", e.auth.id);
+  u.set("contato_email", c.email);
+  u.set("rede_social", c.rede_social);
+  e.app.save(u);
+  return e.json(200, c);
+}, $apis.requireAuth("usuarios"));
 
 // ------------------------------------- entrar num lava rápido pelo link/QR
 // POST /api/lr/entrar/{slug}  → devolve o vínculo (cria como cliente se não houver)

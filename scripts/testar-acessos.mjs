@@ -96,7 +96,9 @@ async function main() {
     checar("dono vê a lista de clientes", r.status === 200 && r.data.total === 2, r.data && r.data.total);
     checar("lista traz visitas, última visita e gasto (serviço + produtos)", fiel && fiel.visitas === 1 && !!fiel.ultima_visita && fiel.gasto_total === 100, fiel);
     checar("lista traz o celular para chamar no WhatsApp", fiel && fiel.celular === c1.usuario.celular);
+    await api("POST", "/api/lr/meu-contato", { token: c1.token, body: { email: "fiel@email.com", rede_social: "@fiel" } });
     r = await api("GET", `/api/lr/clientes/${A.id}/${c1.id}`, { token: patrao.token });
+    checar("dono vê o e-mail e a rede social que o cliente informou", r.data?.email === "fiel@email.com" && r.data?.rede_social === "@fiel", r.data && [r.data.email, r.data.rede_social]);
     checar("dono abre o histórico do cliente com valores", r.status === 200 && r.data.gasto.total === 100 && r.data.visitas[0].valor === 100 && r.data.veiculos[0].placa === "FIE1L23", r.data);
     r = await api("GET", `/api/lr/clientes/${A.id}/${func.id}`, { token: patrao.token });
     checar("pessoa da equipe não aparece como cliente", r.status === 404, r.status);
