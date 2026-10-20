@@ -1,14 +1,17 @@
 /*
  * Módulo nativo mínimo (N-API) que expõe execve() para o Node.
  *
- * Na Hostinger o tráfego fica preso ao processo que a plataforma iniciou e a
- * conexão interna entre processos é bloqueada. Então o server.js abre a porta,
- * fecha e chama execve(): o MESMO processo (mesmo PID) vira o PocketBase.
+ * Na Hostinger (LiteSpeed/lsnode) o listen() do Node é redirecionado para um
+ * socket de arquivo e só ali chega o tráfego. O server.js abre esse socket,
+ * marca para ser herdado (herdar) e chama execve(): o MESMO processo vira o
+ * PocketBase, que atende no socket herdado (PB_LISTEN_FD).
  *
- * Uso: require('./execve.node').execve('/caminho/pocketbase', ['pocketbase', 'serve', ...])
+ * Uso: require('./execve.node').execve('/caminho/pocketbase', ['pocketbase', 'serve', ...], '/caminho/log?')
+ * O terceiro argumento (opcional) manda a saída do programa para esse arquivo.
  * Em caso de sucesso não retorna; em caso de erro lança exceção com o errno.
  */
 #include <errno.h>
+#include <fcntl.h>
 #include <node_api.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,8 +29,8 @@ static char *texto(napi_env env, napi_value v) {
 }
 
 static napi_value Execve(napi_env env, napi_callback_info info) {
-  size_t argc = 2;
-  napi_value argv[2];
+  size_t argc = 3;
+  napi_value argv[3];
   napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
   if (argc < 2) {
     napi_throw_type_error(env, NULL, "execve(caminho, argumentos[])");
@@ -48,6 +51,22 @@ static napi_value Execve(napi_env env, napi_callback_info info) {
   }
   args[total] = NULL;
 
+  /* Saída opcional para arquivo (a Hostinger só mostra o que o Node escreve). */
+  if (argc >= 3) {
+    napi_valuetype tipo;
+    napi_typeof(env, argv[2], &tipo);
+    if (tipo == napi_string) {
+      char *log = texto(env, argv[2]);
+      int fd = log ? open(log, O_WRONLY | O_CREAT | O_APPEND, 0640) : -1;
+      if (fd >= 0) {
+        dup2(fd, 1);
+        dup2(fd, 2);
+        close(fd);
+      }
+      free(log);
+    }
+  }
+
   execve(caminho, args, environ);
 
   /* Só chega aqui se o execve falhou. */
@@ -61,10 +80,30 @@ static napi_value Execve(napi_env env, napi_callback_info info) {
   return NULL;
 }
 
+/* herdar(fd): tira o FD_CLOEXEC para o socket continuar aberto depois do execve. */
+static napi_value Herdar(napi_env env, napi_callback_info info) {
+  size_t argc = 1;
+  napi_value argv[1];
+  int32_t fd = -1;
+  napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+  if (argc < 1 || napi_get_value_int32(env, argv[0], &fd) != napi_ok || fd < 0) {
+    napi_throw_type_error(env, NULL, "herdar(fd)");
+    return NULL;
+  }
+  int flags = fcntl(fd, F_GETFD);
+  if (flags < 0 || fcntl(fd, F_SETFD, flags & ~FD_CLOEXEC) < 0) {
+    napi_throw_error(env, NULL, strerror(errno));
+    return NULL;
+  }
+  return NULL;
+}
+
 static napi_value Iniciar(napi_env env, napi_value exports) {
   napi_value fn;
   napi_create_function(env, "execve", NAPI_AUTO_LENGTH, Execve, NULL, &fn);
   napi_set_named_property(env, exports, "execve", fn);
+  napi_create_function(env, "herdar", NAPI_AUTO_LENGTH, Herdar, NULL, &fn);
+  napi_set_named_property(env, exports, "herdar", fn);
   return exports;
 }
 

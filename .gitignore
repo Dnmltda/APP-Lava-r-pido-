@@ -9,3 +9,4 @@ pocketbase/bin/
 .DS_Store
 dist-hostinger/
 deploy/hostinger/execve/execve.node
+deploy/hostinger/pocketbase/pocketbase
