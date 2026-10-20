@@ -51,10 +51,14 @@ export function Cameras() {
   }, [carregar]);
 
   if (!pode(vinculo, "cameras")) return <Navigate to={`/${empresa.slug}`} replace />;
+  const configura = pode(vinculo, "configurar_cameras");
 
   return (
     <Moldura voltarPara={`/${empresa.slug}`} titulo="Câmeras">
-      <p className="text-base text-tinta-suave">Só você (patrão) vê esta tela. Cada vez que abre, fica registrado no histórico.</p>
+      <p className="text-base text-tinta-suave">
+        {configura ? "Só você (dono) e quem você liberar veem esta tela." : "O dono liberou para você ver as câmeras."} Cada vez que abre, fica
+        registrado no histórico.
+      </p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {erro ? (
           <div className="sm:col-span-2">
@@ -70,14 +74,16 @@ export function Cameras() {
           </div>
         ) : (
           lista.map((c) => (
-            <CartaoCamera key={c.id} camera={c} onEditar={() => setEditando(c)} onAmpliar={() => setAmpliada(c)} onHistorico={() => setHistorico(c)} />
+            <CartaoCamera key={c.id} camera={c} onEditar={configura ? () => setEditando(c) : undefined} onAmpliar={() => setAmpliada(c)} onHistorico={() => setHistorico(c)} />
           ))
         )}
       </div>
-      <Botao largo variante="secundario" className="mt-5" onClick={() => setEditando("nova")}>
-        + Nova câmera
-      </Botao>
-      <details className="mt-5 rounded-2xl border border-linha bg-white p-4 text-base text-tinta">
+      {configura && (
+        <Botao largo variante="secundario" className="mt-5" onClick={() => setEditando("nova")}>
+          + Nova câmera
+        </Botao>
+      )}
+      {configura && <details className="mt-5 rounded-2xl border border-linha bg-white p-4 text-base text-tinta">
         <summary className="cursor-pointer font-bold">Como ligar as câmeras do DVR</summary>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-tinta-suave">
           <li>O jeito mais fácil: use o botão do app do fabricante (Intelbras, Hikvision…).</li>
@@ -87,7 +93,7 @@ export function Cameras() {
           </li>
           <li>Nunca abra a porta do DVR na internet. Peça ajuda ao técnico — o passo a passo está no guia do sistema.</li>
         </ol>
-      </details>
+      </details>}
       {editando && (
         <EditarCamera
           camera={editando === "nova" ? null : editando}
@@ -124,7 +130,7 @@ function CartaoCamera({
   onHistorico,
 }: {
   camera: Camera;
-  onEditar: () => void;
+  onEditar?: () => void;
   onAmpliar: () => void;
   onHistorico: () => void;
 }) {
@@ -146,9 +152,11 @@ function CartaoCamera({
           <span className="block truncate text-lg font-bold text-tinta">{camera.nome}</span>
           <span className="block text-sm text-tinta-suave">{NOME_TIPO[camera.tipo_integracao].titulo}</span>
         </span>
-        <Botao variante="fantasma" onClick={onEditar}>
-          Editar
-        </Botao>
+        {onEditar && (
+          <Botao variante="fantasma" onClick={onEditar}>
+            Editar
+          </Botao>
+        )}
       </div>
       {camera.ativo && camera.monitorar_movimento && (
         <button onClick={onHistorico} className="flex min-h-12 w-full items-center justify-between gap-3 border-t border-linha px-4 py-2 text-left hover:bg-marca-suave">
@@ -234,7 +242,7 @@ function HistoricoSensor({ camera, onFechar, onMudou }: { camera: Camera; onFech
       <p className="text-base text-tinta-suave">
         Alerta no seu celular se ficar {camera.sem_movimento_min || 10} min sem movimento no horário de funcionamento.
       </p>
-      {camera.tipo_integracao === "demonstracao" && (
+      {camera.tipo_integracao === "demonstracao" && camera.chave_sensor && (
         <Botao largo variante="secundario" className="mt-3" carregando={simulando} onClick={simular}>
           Simular movimento agora
         </Botao>

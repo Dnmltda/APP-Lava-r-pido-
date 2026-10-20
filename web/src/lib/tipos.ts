@@ -43,6 +43,11 @@ export interface Vinculo extends Base {
   papel: Papel;
   responsavel_fila: boolean;
   ativo: boolean;
+  // Acessos extras liberados pelo dono
+  perm_clientes?: boolean;
+  perm_valores?: boolean;
+  perm_cameras?: boolean;
+  perm_catalogo?: boolean;
   expand?: { usuario?: Usuario; empresa?: Empresa };
 }
 

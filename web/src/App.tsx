@@ -15,6 +15,7 @@ import { Cartaz } from "./paginas/Cartaz";
 import { Privacidade } from "./paginas/Privacidade";
 import { Relatorios } from "./paginas/Relatorios";
 import { Historico } from "./paginas/Historico";
+import { Clientes } from "./paginas/Clientes";
 import { MinhaArea } from "./paginas/MinhaArea";
 import { Painel } from "./paginas/Painel";
 import { PainelDia } from "./paginas/PainelDia";
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="painel" element={<PainelDia />} />
             <Route path="dashboard" element={<Relatorios />} />
             <Route path="historico" element={<Historico />} />
+            <Route path="clientes" element={<Clientes />} />
             <Route path="caixa" element={<Caixa />} />
             <Route path="minha-area" element={<MinhaArea />} />
             <Route path="avaliar/:entrada" element={<Avaliar />} />

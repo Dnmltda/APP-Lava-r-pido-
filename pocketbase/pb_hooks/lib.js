@@ -61,12 +61,27 @@ function ehPatraoAtivo(app, usuarioId, empresaId) {
   return !!v && v.getBool("ativo") && v.getString("papel") === "patrao";
 }
 
+// Acessos extras que o dono libera por pessoa (campos perm_* do vínculo).
+//   clientes | valores | cameras | catalogo
+const ACESSOS = ["clientes", "valores", "cameras", "catalogo"];
+function temAcesso(app, usuarioId, empresaId, acesso) {
+  const v = acharVinculo(app, usuarioId, empresaId);
+  if (!v || !v.getBool("ativo")) return false;
+  const papel = v.getString("papel");
+  if (papel === "patrao") return true;
+  if (papel === "cliente") return false;
+  if (acesso === "valores" && papel === "gerente") return true; // padrão do gerente
+  return v.getBool("perm_" + acesso);
+}
+
 function resumoVinculo(v) {
-  return {
+  const r = {
     papel: v.getString("papel"),
     responsavel_fila: v.getBool("responsavel_fila"),
     ativo: v.getBool("ativo"),
   };
+  for (const a of ACESSOS) r["perm_" + a] = v.getBool("perm_" + a);
+  return r;
 }
 
 // Registra na auditoria. Nunca lança erro para não derrubar a ação principal,
@@ -1105,7 +1120,120 @@ function verificarSensores(app, agora) {
   return alertas;
 }
 
+// Histórico de um cliente numa empresa. comValores=false para o próprio cliente
+// (sem dinheiro); true para o dono ou quem ele liberou (lista de clientes).
+function historicoCliente(app, empresaId, clienteId, vinculo, comValores) {
+  const visitas = Array.from(app.findRecordsByFilter(
+    "fila_entradas", "empresa = {:e} && cliente = {:c} && status = 'finalizado'",
+    "-finalizado_em", 0, 0, { e: empresaId, c: clienteId },
+  ));
+  const nomeServico = {};
+  const servicoDe = (id) => {
+    if (!(id in nomeServico)) {
+      try {
+        nomeServico[id] = app.findRecordById("servicos", id).getString("nome");
+      } catch (_) {
+        nomeServico[id] = "Serviço";
+      }
+    }
+    return nomeServico[id];
+  };
+  const porServico = {};
+  const porProduto = {};
+  const lista = [];
+  let gastoServicos = 0;
+  let gastoProdutos = 0;
+  for (let i = 0; i < visitas.length; i++) {
+    const v = visitas[i];
+    const servico = servicoDe(v.getString("servico"));
+    porServico[servico] = (porServico[servico] || 0) + 1;
+    gastoServicos += v.getFloat("preco_servico");
+    // Produtos: só o que foi vendido de verdade (venda fechada ligada a esta lavagem).
+    const produtos = {};
+    let totalProdutos = 0;
+    const vendas = app.findRecordsByFilter("vendas", "entrada = {:v} && (status = 'fechada' || status = 'corrigida')", "", 0, 0, { v: v.id });
+    for (const venda of vendas) {
+      totalProdutos += venda.getFloat("total");
+      for (const it of app.findRecordsByFilter("vendas_itens", "venda = {:v}", "", 0, 0, { v: venda.id })) {
+        const nome = it.getString("produto_nome");
+        produtos[nome] = (produtos[nome] || 0) + it.getInt("quantidade");
+        porProduto[nome] = (porProduto[nome] || 0) + it.getInt("quantidade");
+      }
+    }
+    gastoProdutos += totalProdutos;
+    if (i < 60) {
+      const item = {
+        id: v.id,
+        data: v.getString("finalizado_em"),
+        servico: servico,
+        produtos: Object.keys(produtos).map((n) => ({ nome: n, quantidade: produtos[n] })),
+      };
+      if (comValores) item.valor = arred(v.getFloat("preco_servico") + totalProdutos);
+      lista.push(item);
+    }
+  }
+  const ordenar = (obj, campo) => Object.keys(obj).map((n) => ({ nome: n, [campo]: obj[n] })).sort((a, b) => b[campo] - a[campo]);
+  const r = {
+    cliente_desde: vinculo.getString("created"),
+    total_visitas: visitas.length,
+    ultima_visita: visitas.length ? visitas[0].getString("finalizado_em") : "",
+    por_servico: ordenar(porServico, "vezes"),
+    produtos: ordenar(porProduto, "quantidade"),
+    visitas: lista,
+  };
+  if (comValores) r.gasto = { servicos: arred(gastoServicos), produtos: arred(gastoProdutos), total: arred(gastoServicos + gastoProdutos) };
+  return r;
+}
+
+// Lista de clientes da empresa com visitas, última visita e gasto (dono ou liberado).
+function listaClientes(app, empresaId) {
+  const vinculos = Array.from(app.findRecordsByFilter("vinculos", "empresa = {:e} && papel = 'cliente'", "", 0, 0, { e: empresaId }));
+  const porCliente = {};
+  const visitas = Array.from(app.findRecordsByFilter("fila_entradas", "empresa = {:e} && status = 'finalizado' && cliente != ''", "", 0, 0, { e: empresaId }));
+  const clienteDaEntrada = {};
+  for (const v of visitas) {
+    const c = v.getString("cliente");
+    clienteDaEntrada[v.id] = c;
+    const r = (porCliente[c] = porCliente[c] || { visitas: 0, ultima: 0, gasto: 0 });
+    r.visitas++;
+    r.ultima = Math.max(r.ultima, dataMs(v, "finalizado_em"));
+    r.gasto += v.getFloat("preco_servico");
+  }
+  const vendas = app.findRecordsByFilter("vendas", "empresa = {:e} && entrada != '' && (status = 'fechada' || status = 'corrigida')", "", 0, 0, { e: empresaId });
+  for (const v of vendas) {
+    const c = clienteDaEntrada[v.getString("entrada")];
+    if (c && porCliente[c]) porCliente[c].gasto += v.getFloat("total");
+  }
+  const lista = [];
+  for (const vin of vinculos) {
+    let u;
+    try {
+      u = app.findRecordById("usuarios", vin.getString("usuario"));
+    } catch (_) {
+      continue;
+    }
+    const a = porCliente[u.id] || { visitas: 0, ultima: 0, gasto: 0 };
+    lista.push({
+      usuario: u.id,
+      nome: u.getString("nome"),
+      celular: u.getString("celular"),
+      aceita_promocoes: u.getBool("aceite_marketing"),
+      ativo: vin.getBool("ativo"),
+      cliente_desde: vin.getString("created"),
+      visitas: a.visitas,
+      ultima_visita: a.ultima ? new Date(a.ultima).toISOString() : "",
+      gasto_total: arred(a.gasto),
+    });
+  }
+  lista.sort((x, y) => (y.ultima_visita || "").localeCompare(x.ultima_visita || "") || y.visitas - x.visitas || x.nome.localeCompare(y.nome));
+  return lista;
+}
+
 module.exports = {
+  historicoCliente,
+  listaClientes,
+  ACESSOS,
+  temAcesso,
   validarSenha,
   relatorioDaEmpresa,
   CAMPOS_SENSOR,

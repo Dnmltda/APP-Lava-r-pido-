@@ -4,6 +4,7 @@ import {
   ChartColumn,
   ChevronRight,
   CircleUserRound,
+  Contact,
   Gauge,
   History,
   ListOrdered,
@@ -83,10 +84,11 @@ export function Painel() {
               {valores && <Atalho para={`/${s}/caixa`} icone={Wallet} titulo="Caixa" texto="Gastos e entradas" />}
               <Atalho para={`/${s}/avaliacoes`} icone={Star} titulo="Avaliações" texto="O que os clientes acharam" />
               {vinculo.papel !== "patrao" && <Atalho para={`/${s}/minha-area`} icone={UserRound} titulo="Minha área" texto="Carros, bônus e vales" />}
+              {pode(vinculo, "clientes") && <Atalho para={`/${s}/clientes`} icone={Contact} titulo="Clientes" texto="Quem veio, quantas vezes e quanto gastou" />}
               {pode(vinculo, "gerenciar_equipe") && <Atalho para={`/${s}/equipe`} icone={Users} titulo="Equipe" texto="Pessoas, permissões, senhas" />}
               {pode(vinculo, "cameras") && <Atalho para={`/${s}/cameras`} icone={Cctv} titulo="Câmeras" texto="Boxes ao vivo e sensor" />}
-              {patrao && <Atalho para={`/${s}/servicos`} icone={Sparkles} titulo="Serviços" texto="Preço e tempo médio" />}
-              {patrao && <Atalho para={`/${s}/produtos`} icone={Package} titulo="Produtos" texto="Preço, estoque, comissão" />}
+              {pode(vinculo, "catalogo") && <Atalho para={`/${s}/servicos`} icone={Sparkles} titulo="Serviços" texto="Preço e tempo médio" />}
+              {pode(vinculo, "catalogo") && <Atalho para={`/${s}/produtos`} icone={Package} titulo="Produtos" texto="Preço, estoque, comissão" />}
               {patrao && <Atalho para={`/${s}/cartaz`} icone={QrCode} titulo="Cartaz do balcão" texto="QR Code para os clientes" />}
               {patrao && <Atalho para={`/${s}/configuracoes`} icone={Settings} titulo="Configurações" texto="Logo, cor, fila, horários" />}
               <Atalho para={`/${s}/conta`} icone={CircleUserRound} titulo="Minha conta" texto="Nome, senha, sair" />

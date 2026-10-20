@@ -42,6 +42,12 @@ Teste: `scripts/testar-novidades.mjs` (39) + `testar-navegador.mjs` (68).
   na equipe e em Minha conta; botão "Mostrar" senha; nome limpo; até 20 cadastros por hora por internet.
 - **Meu histórico (cliente)**: quantas vezes veio, desde quando é cliente, serviços feitos (com quantas vezes)
   e produtos comprados em cada visita. **Sem valores**, por decisão do Diego (`/api/lr/meu-historico/{slug}`).
+- **Clientes (dono)**: lista com visitas, última visita, cliente desde, celular e gasto; histórico de cada um com
+  valores, veículos e WhatsApp. Busca por nome/celular e ordem por recentes, visitas ou gasto.
+- **Acessos liberados pelo dono** (Equipe → pessoa → "Acessos liberados por você"), por pessoa e na hora:
+  lista de clientes, valores e dashboard (o gerente já tem), ver câmeras (configurar continua do dono) e
+  serviços/preços/produtos. Equipe e senhas, vales, holerites, configurações e auditoria continuam só do dono.
+  Promover funcionário a gerente continua na mesma tela. Teste: `scripts/testar-acessos.mjs` (48).
 - `scripts/limpar-producao.mjs`: deixa a produção pronta para testes com pessoas (apaga `teste-*`, o movimento
   da demo e as contas, menos as mantidas). Sem `--executar` só mostra o que faria.
 

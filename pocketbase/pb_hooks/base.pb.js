@@ -308,3 +308,19 @@ onRecordDeleteRequest((e) => {
   });
   e.next();
 }, "empresas");
+
+// Cliente e dono não guardam acessos extras (cliente nunca; dono já tem tudo).
+onRecordUpdate((e) => {
+  const papel = e.record.getString("papel");
+  if (papel === "cliente" || papel === "patrao") {
+    for (const a of ["clientes", "valores", "cameras", "catalogo"]) e.record.set("perm_" + a, false);
+  }
+  e.next();
+}, "vinculos");
+onRecordCreate((e) => {
+  const papel = e.record.getString("papel");
+  if (papel === "cliente" || papel === "patrao") {
+    for (const a of ["clientes", "valores", "cameras", "catalogo"]) e.record.set("perm_" + a, false);
+  }
+  e.next();
+}, "vinculos");

@@ -59,17 +59,17 @@ async function api(method, p, { token, body } = {}, tentativa = 0) {
   return { status: res.status, data };
 }
 
-const MENU = ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Minha área", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"];
+const MENU = ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Minha área", "Clientes", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"];
 // O que cada perfil deve ver no menu (tabela 1.3)
 const VE = {
-  patrao: ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"],
+  patrao: ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Clientes", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"],
   gerente: ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Minha área"],
   funcionario: ["Fila", "Vendas", "Avaliações", "Minha área"],
   responsavel: ["Fila", "Vendas", "Avaliações", "Minha área"],
   cliente: [],
 };
 const ROTA = {
-  Fila: "fila", Vendas: "vendas", Dashboard: "dashboard", "Painel do dia": "painel", Caixa: "caixa", Avaliações: "avaliacoes", "Minha área": "minha-area",
+  Fila: "fila", Vendas: "vendas", Dashboard: "dashboard", "Painel do dia": "painel", Caixa: "caixa", Avaliações: "avaliacoes", "Minha área": "minha-area", Clientes: "clientes",
   Equipe: "equipe", Serviços: "servicos", Produtos: "produtos", Cartaz: "cartaz", Configurações: "configuracoes", Câmeras: "cameras",
 };
 
@@ -263,6 +263,29 @@ async function main() {
     await paginas.gerente.getByText("teste do navegador").first().waitFor({ timeout: 10000 }).catch(() => {});
     const txtGerente = await paginas.gerente.locator("body").innerText();
     checar("gerente vê a avaliação sem o nome do cliente", txtGerente.includes("teste do navegador") && !txtGerente.includes("Carla"), txtGerente.slice(0, 300));
+
+    console.log("\nDono libera acesso pela tela de Equipe");
+    {
+      const pat = paginas.patrao;
+      await pat.goto(`${APP}/${A.slug}/clientes`);
+      await pat.getByText("Carla").first().waitFor({ timeout: 15000 }).catch(() => {});
+      checar("dono vê a lista de clientes com a Carla", (await pat.locator("body").innerText()).includes("Carla Navegadora"));
+      await pat.getByText("Carla Navegadora").first().click();
+      await pat.getByText("Gasto total").waitFor({ timeout: 10000 }).catch(() => {});
+      checar("dono abre o cliente: visitas e gasto", await pat.getByText("Gasto total").isVisible());
+      await pat.goto(`${APP}/${A.slug}/equipe`);
+      await pat.getByText("Gina Gerente").first().click();
+      await pat.getByRole("switch", { name: /Lista de clientes/ }).click();
+      await pat.getByRole("button", { name: "Salvar", exact: true }).click();
+      await pat.waitForTimeout(1500);
+      const ger = paginas.gerente;
+      await ger.goto(`${APP}/${A.slug}`);
+      await ger.locator(`a[href="/${A.slug}/clientes"]`).waitFor({ timeout: 15000 }).catch(() => {});
+      checar("gerente liberado passa a ter o atalho Clientes", (await ger.locator(`a[href="/${A.slug}/clientes"]`).count()) === 1);
+      await ger.goto(`${APP}/${A.slug}/clientes`);
+      await ger.getByText("Carla Navegadora").first().waitFor({ timeout: 15000 }).catch(() => {});
+      checar("e abre a lista de clientes", (await ger.locator("body").innerText()).includes("Carla Navegadora"));
+    }
 
     console.log("\nTodas as telas de cada perfil abrem sem erro");
     for (const p of ["patrao", "gerente", "funcionario", "responsavel"]) {

@@ -77,6 +77,10 @@ export function Equipe() {
               <span className="mt-1 flex flex-wrap gap-1.5">
                 <Etiqueta>{NOME_PAPEL[v.papel]}</Etiqueta>
                 {v.papel === "funcionario" && v.responsavel_fila && <Etiqueta>Responsável pela fila</Etiqueta>}
+                {v.perm_clientes && <Etiqueta>Clientes</Etiqueta>}
+                {v.papel === "funcionario" && v.perm_valores && <Etiqueta>Valores</Etiqueta>}
+                {v.perm_cameras && <Etiqueta>Câmeras</Etiqueta>}
+                {v.perm_catalogo && <Etiqueta>Preços</Etiqueta>}
                 {!v.ativo && <Etiqueta cinza>Desativado</Etiqueta>}
               </span>
             </span>
@@ -221,6 +225,12 @@ function EditarPessoa({ vinculo, onFechar, onSalvo }: { vinculo: Vinculo; onFech
   const u = vinculo.expand?.usuario;
   const [papel, setPapel] = useState<Papel>(vinculo.papel);
   const [respFila, setRespFila] = useState(vinculo.responsavel_fila);
+  const [acessos, setAcessos] = useState({
+    perm_clientes: !!vinculo.perm_clientes,
+    perm_valores: !!vinculo.perm_valores,
+    perm_cameras: !!vinculo.perm_cameras,
+    perm_catalogo: !!vinculo.perm_catalogo,
+  });
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -234,6 +244,7 @@ function EditarPessoa({ vinculo, onFechar, onSalvo }: { vinculo: Vinculo; onFech
       await pb.collection("vinculos").update(vinculo.id, {
         papel,
         responsavel_fila: papel === "funcionario" && respFila,
+        ...acessos,
       });
       onSalvo("Alterações salvas.");
     } catch (err) {
@@ -314,6 +325,37 @@ function EditarPessoa({ vinculo, onFechar, onSalvo }: { vinculo: Vinculo; onFech
             onChange={setRespFila}
           />
         )}
+        <fieldset className="flex flex-col gap-2 rounded-2xl border-2 border-linha bg-white p-4">
+          <legend className="px-1 text-base font-bold text-tinta">Acessos liberados por você</legend>
+          <p className="text-sm text-tinta-suave">
+            Libere ou tire quando quiser. Equipe, senhas, vales, holerites e configurações continuam só seus.
+          </p>
+          <Interruptor
+            rotulo="Lista de clientes"
+            descricao="Quem veio, quantas vezes, celular e quanto gastou."
+            ligado={acessos.perm_clientes}
+            onChange={(v) => setAcessos((a) => ({ ...a, perm_clientes: v }))}
+          />
+          <Interruptor
+            rotulo="Valores e dashboard"
+            descricao={papel === "gerente" ? "O gerente já vê: dashboard, painel do dia, caixa e vendas de todos." : "Dashboard, painel do dia, caixa e vendas de todos."}
+            ligado={papel === "gerente" || acessos.perm_valores}
+            disabled={papel === "gerente"}
+            onChange={(v) => setAcessos((a) => ({ ...a, perm_valores: v }))}
+          />
+          <Interruptor
+            rotulo="Ver câmeras"
+            descricao="Só ver ao vivo. Cadastrar e configurar câmeras continua só com você."
+            ligado={acessos.perm_cameras}
+            onChange={(v) => setAcessos((a) => ({ ...a, perm_cameras: v }))}
+          />
+          <Interruptor
+            rotulo="Serviços, preços e produtos"
+            descricao="Mudar preço, tempo médio, estoque e comissão."
+            ligado={acessos.perm_catalogo}
+            onChange={(v) => setAcessos((a) => ({ ...a, perm_catalogo: v }))}
+          />
+        </fieldset>
         <Botao largo carregando={salvando} onClick={salvar}>
           Salvar
         </Botao>

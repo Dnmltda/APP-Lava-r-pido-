@@ -43,7 +43,7 @@ export function Produtos() {
     carregar();
   }, [carregar]);
 
-  if (!pode(vinculo, "configurar_empresa")) return <Navigate to={`/${empresa.slug}`} replace />;
+  if (!pode(vinculo, "catalogo")) return <Navigate to={`/${empresa.slug}`} replace />;
 
   async function alternarComissao(v: boolean) {
     setSalvandoComissao(true);

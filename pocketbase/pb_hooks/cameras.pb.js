@@ -62,6 +62,13 @@ onRecordEnrich((e) => {
   e.record.withCustomData(true);
   e.record.set("tem_token", e.record.getString("gateway_token") !== "");
   e.record.hide("gateway_token");
+  // Quem só pode VER as câmeras (acesso liberado pelo dono) não vê a configuração.
+  // (no evento de enriquecer, requestInfo é um campo, não uma função)
+  const auth = e.requestInfo ? e.requestInfo.auth : null;
+  const superusuario = !!auth && auth.isSuperuser();
+  if (!superusuario && !require(`${__hooks}/lib.js`).ehPatraoAtivo(e.app, auth ? auth.id : "", e.record.getString("empresa"))) {
+    e.record.hide("endereco_stream", "caminho", "chave_sensor");
+  }
   e.next();
 }, "cameras");
 
@@ -80,7 +87,7 @@ routerAdd("POST", "/api/lr/cameras/{id}/acesso", (e) => {
   try {
     cam = e.app.findRecordById("cameras", e.request.pathValue("id"));
   } catch (_) {}
-  if (!cam || !lib.ehPatraoAtivo(e.app, e.auth.id, cam.getString("empresa"))) throw new NotFoundError("Câmera não encontrada.");
+  if (!cam || !lib.temAcesso(e.app, e.auth.id, cam.getString("empresa"), "cameras")) throw new NotFoundError("Câmera não encontrada.");
   if (!cam.getBool("ativo")) throw new BadRequestError("Esta câmera está desativada.");
   const tipo = cam.getString("tipo_integracao");
   lib.auditar(e.app, { empresa: cam.getString("empresa"), usuario: e.auth.id, acao: "camera_ver", entidade: "cameras", entidade_id: cam.id });
@@ -106,7 +113,7 @@ routerAdd("GET", "/api/lr/cameras/{id}/ver/{passe}/{arquivo...}", (e) => {
     throw new UnauthorizedError("Passe da câmera vencido. Abra a tela de novo.");
   }
   if (claims.cam !== cam.id) throw new ForbiddenError("Passe de outra câmera.");
-  if (!cam.getBool("ativo") || !lib.ehPatraoAtivo(e.app, String(claims.usr || ""), cam.getString("empresa"))) {
+  if (!cam.getBool("ativo") || !lib.temAcesso(e.app, String(claims.usr || ""), cam.getString("empresa"), "cameras")) {
     throw new ForbiddenError("Sem acesso a esta câmera.");
   }
 

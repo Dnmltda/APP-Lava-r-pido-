@@ -7,8 +7,7 @@
 routerAdd("GET", "/api/lr/painel/{empresa}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const empresaId = e.request.pathValue("empresa");
-  const v = lib.vinculoEquipe(e.app, e.auth.id, empresaId);
-  if (!v || ["patrao", "gerente"].indexOf(v.getString("papel")) < 0) throw new ForbiddenError("Só patrão e gerente veem o painel.");
+  if (!lib.temAcesso(e.app, e.auth.id, empresaId, "valores")) throw new ForbiddenError("Só patrão e gerente (ou quem o patrão liberar) veem o painel.");
   const empresa = e.app.findRecordById("empresas", empresaId);
   const agora = Date.now();
   let de = Date.parse(e.request.url.query().get("de") || "");
@@ -27,8 +26,7 @@ routerAdd("GET", "/api/lr/painel/{empresa}", (e) => {
 routerAdd("GET", "/api/lr/relatorio/{empresa}", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const empresaId = e.request.pathValue("empresa");
-  const v = lib.vinculoEquipe(e.app, e.auth.id, empresaId);
-  if (!v || ["patrao", "gerente"].indexOf(v.getString("papel")) < 0) throw new ForbiddenError("Só patrão e gerente veem os relatórios.");
+  if (!lib.temAcesso(e.app, e.auth.id, empresaId, "valores")) throw new ForbiddenError("Só patrão e gerente (ou quem o patrão liberar) veem os relatórios.");
   const empresa = e.app.findRecordById("empresas", empresaId);
   const agora = Date.now();
   let de = Date.parse(e.request.url.query().get("de") || "");

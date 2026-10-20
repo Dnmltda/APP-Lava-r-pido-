@@ -122,7 +122,7 @@ routerAdd("GET", "/api/lr/avaliacoes/{empresa}", (e) => {
   const empresaId = e.request.pathValue("empresa");
   const v = lib.vinculoEquipe(e.app, e.auth.id, empresaId);
   if (!v) throw new ForbiddenError("Só para a equipe.");
-  const patrao = v.getString("papel") === "patrao";
+  const patrao = lib.temAcesso(e.app, e.auth.id, empresaId, "clientes");
   let funcionario = e.request.url.query().get("funcionario") || "";
   if (funcionario === "eu") funcionario = e.auth.id;
   const filtro = "empresa = {:e}" + (funcionario ? " && funcionario = {:f}" : "");
@@ -171,55 +171,5 @@ routerAdd("GET", "/api/lr/meu-historico/{slug}", (e) => {
   if (!empresa) throw new NotFoundError("Lava rápido não encontrado.");
   const vinculo = lib.acharVinculo(e.app, e.auth.id, empresa.id);
   if (!vinculo || !vinculo.getBool("ativo")) throw new ForbiddenError("Você não é cliente deste lava rápido.");
-
-  const visitas = Array.from(e.app.findRecordsByFilter(
-    "fila_entradas", "empresa = {:e} && cliente = {:c} && status = 'finalizado'",
-    "-finalizado_em", 0, 0, { e: empresa.id, c: e.auth.id },
-  ));
-  const nomeServico = {};
-  const servicoDe = (id) => {
-    if (!(id in nomeServico)) {
-      try {
-        nomeServico[id] = e.app.findRecordById("servicos", id).getString("nome");
-      } catch (_) {
-        nomeServico[id] = "Serviço";
-      }
-    }
-    return nomeServico[id];
-  };
-  const porServico = {};
-  const porProduto = {};
-  const lista = [];
-  for (let i = 0; i < visitas.length; i++) {
-    const v = visitas[i];
-    const servico = servicoDe(v.getString("servico"));
-    porServico[servico] = (porServico[servico] || 0) + 1;
-    // Produtos: só o que foi vendido de verdade (venda fechada ligada a esta lavagem).
-    const produtos = {};
-    const vendas = e.app.findRecordsByFilter("vendas", "entrada = {:v} && (status = 'fechada' || status = 'corrigida')", "", 0, 0, { v: v.id });
-    for (const venda of vendas) {
-      for (const it of e.app.findRecordsByFilter("vendas_itens", "venda = {:v}", "", 0, 0, { v: venda.id })) {
-        const nome = it.getString("produto_nome");
-        produtos[nome] = (produtos[nome] || 0) + it.getInt("quantidade");
-        porProduto[nome] = (porProduto[nome] || 0) + it.getInt("quantidade");
-      }
-    }
-    if (i < 60) {
-      lista.push({
-        id: v.id,
-        data: v.getString("finalizado_em"),
-        servico: servico,
-        produtos: Object.keys(produtos).map((n) => ({ nome: n, quantidade: produtos[n] })),
-      });
-    }
-  }
-  const ordenar = (obj, campo) => Object.keys(obj).map((n) => ({ nome: n, [campo]: obj[n] })).sort((a, b) => b[campo] - a[campo]);
-  return e.json(200, {
-    cliente_desde: vinculo.getString("created"),
-    total_visitas: visitas.length,
-    ultima_visita: visitas.length ? visitas[0].getString("finalizado_em") : "",
-    por_servico: ordenar(porServico, "vezes"),
-    produtos: ordenar(porProduto, "quantidade"),
-    visitas: lista,
-  });
+  return e.json(200, lib.historicoCliente(e.app, empresa.id, e.auth.id, vinculo, false));
 }, $apis.requireAuth("usuarios"));

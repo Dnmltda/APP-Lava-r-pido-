@@ -55,7 +55,10 @@ Tudo do responsável pela fila, mais:
 ## Patrão
 Tudo do gerente, mais:
 - **Equipe**: **+ Adicionar pessoa** (nome, celular, senha inicial, gerente ou funcionário), ligar
-  **responsável pela fila**, desativar, **Trocar senha**. Em cada pessoa: área, **Lançar vale** (com comprovante) e holerites.
+  **responsável pela fila**, promover a gerente, desativar, **Trocar senha**.
+  Em **Acessos liberados por você** o dono dá (ou tira) para cada pessoa: lista de clientes, valores e dashboard,
+  ver câmeras, serviços/preços/produtos.
+- **Clientes**: quem veio, quantas vezes, última visita, quanto gastou e o histórico de cada um (com WhatsApp). Em cada pessoa: área, **Lançar vale** (com comprovante) e holerites.
 - **Vendas**: **Corrigir venda** fechada (pede o motivo; fica no histórico).
 - **Serviços** e **Produtos**: preço, tempo médio, estoque, estoque mínimo e comissão.
 - **Configurações**: logo, cor, quantos carros lava ao mesmo tempo, tolerância de atraso, antecedência do aviso,
