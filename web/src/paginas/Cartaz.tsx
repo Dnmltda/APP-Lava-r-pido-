@@ -31,21 +31,21 @@ export function Cartaz() {
       <p className="mx-auto max-w-2xl px-4 pb-3 text-base text-tinta-suave print:hidden">
         Imprima em A4 e deixe no balcão, na parede da espera e no caixa. Também dá para salvar em PDF e mandar nas redes sociais.
       </p>
-      <article className="mx-auto flex max-w-[20cm] flex-col items-center gap-5 rounded-3xl border-[6px] border-marca bg-white px-8 py-10 text-center shadow-sm print:max-w-none print:rounded-none print:shadow-none">
+      <article className="mx-auto flex max-w-[20cm] flex-col items-center gap-5 rounded-3xl border-[6px] border-marca bg-white px-8 py-10 text-center shadow-sm print:min-h-[27.5cm] print:max-w-none print:justify-center print:gap-7 print:rounded-none print:shadow-none">
         {logo ? (
           <img src={logo} alt="" className="h-24 w-24 rounded-2xl object-contain" />
         ) : (
           <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-marca text-4xl font-black text-sobre-marca">{empresa.nome.slice(0, 1)}</span>
         )}
-        <h1 className="text-4xl font-black leading-tight text-tinta">{empresa.nome}</h1>
-        <p className="text-3xl font-extrabold leading-tight text-marca-forte">Entre na fila pelo celular</p>
-        <p className="max-w-md text-xl text-tinta">Veja a fila ao vivo, a previsão do seu carro e receba o aviso quando for a sua vez.</p>
+        <h1 className="text-4xl font-black leading-tight text-tinta print:text-6xl">{empresa.nome}</h1>
+        <p className="text-3xl font-extrabold leading-tight text-marca-forte print:text-5xl">Entre na fila pelo celular</p>
+        <p className="max-w-md text-xl text-tinta print:max-w-xl print:text-2xl">Veja a fila ao vivo, a previsão do seu carro e receba o aviso quando for a sua vez.</p>
         {svg ? (
-          <div className="w-64 max-w-full sm:w-72" role="img" aria-label={`QR Code para ${link}`} dangerouslySetInnerHTML={{ __html: svg }} />
+          <div className="w-64 max-w-full sm:w-72 print:w-[10cm]" role="img" aria-label={`QR Code para ${link}`} dangerouslySetInnerHTML={{ __html: svg }} />
         ) : (
           <Carregando texto="Gerando o QR Code…" />
         )}
-        <ol className="flex flex-col gap-1 text-left text-xl text-tinta">
+        <ol className="flex flex-col gap-1 text-left text-xl text-tinta print:text-2xl">
           <li>
             <strong>1.</strong> Aponte a câmera do celular para o código
           </li>
@@ -56,7 +56,7 @@ export function Cartaz() {
             <strong>3.</strong> Toque em <strong>“Entrar na fila”</strong>
           </li>
         </ol>
-        <p className="break-all text-lg font-bold text-tinta-suave">{link.replace(/^https?:\/\//, "")}</p>
+        <p className="break-all text-lg font-bold text-tinta-suave print:text-2xl">{link.replace(/^https?:\/\//, "")}</p>
         <p className="text-sm text-tinta-suave">Pagamento só no lava rápido, na hora. · DNM&amp;LTDA Lava Rápido</p>
       </article>
     </div>
