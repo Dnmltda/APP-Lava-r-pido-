@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
 import { Aviso, Botao, Campo, Carregando, Cartao, Confirmar, EstadoErro, EstadoVazio, Folha, Interruptor } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
-import { celularValido, linkWhatsApp, mascaraCelular, somenteDigitos } from "../lib/formato";
+import { celularValido, linkWhatsApp, mascaraCelular, reais, somenteDigitos } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
 import { pode } from "../lib/permissoes";
-import { NOME_PAPEL, type Papel, type Vinculo } from "../lib/tipos";
+import { NOME_PAPEL, type Papel, type RegraBonus, type Vinculo } from "../lib/tipos";
 
 const ORDEM: Record<Papel, number> = { patrao: 0, gerente: 1, funcionario: 2, cliente: 3 };
 
@@ -48,6 +48,9 @@ export function Equipe() {
       <Botao largo onClick={() => setNovo(true)}>
         + Adicionar pessoa
       </Botao>
+      <div className="mt-4">
+        <CartaoBonus empresaId={empresa.id} />
+      </div>
       {mensagem && (
         <div className="mt-4">
           <Aviso tipo="sucesso">{mensagem}</Aviso>
@@ -295,6 +298,13 @@ function EditarPessoa({ vinculo, onFechar, onSalvo }: { vinculo: Vinculo; onFech
             </a>
           </Cartao>
         )}
+        <Link
+          to={`../equipe/${vinculo.usuario}`}
+          relative="path"
+          className="flex min-h-12 items-center justify-between rounded-xl border-2 border-linha bg-white px-4 font-bold text-tinta"
+        >
+          Financeiro: bônus, vales e holerites <span className="text-marca">›</span>
+        </Link>
         <EscolhaPapel valor={papel} onChange={setPapel} />
         {papel === "funcionario" && (
           <Interruptor
@@ -324,5 +334,79 @@ function EditarPessoa({ vinculo, onFechar, onSalvo }: { vinculo: Vinculo; onFech
         </div>
       </div>
     </Folha>
+  );
+}
+
+// Bônus por carro lavado (só o patrão vê e edita).
+function CartaoBonus({ empresaId }: { empresaId: string }) {
+  const [regra, setRegra] = useState<RegraBonus | null | undefined>(undefined);
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState("");
+  const [ativo, setAtivo] = useState(true);
+  const [erro, setErro] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  const carregar = useCallback(() => {
+    pb.collection("regras_bonus")
+      .getFullList<RegraBonus>({ filter: pb.filter("empresa = {:e}", { e: empresaId }) })
+      .then((l) => setRegra(l[0] || null))
+      .catch(() => setRegra(null));
+  }, [empresaId]);
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  async function salvar(ev: FormEvent) {
+    ev.preventDefault();
+    setErro("");
+    const v = Number(valor.replace(/\./g, "").replace(",", "."));
+    if (isNaN(v) || v < 0) return setErro("Valor inválido.");
+    setSalvando(true);
+    try {
+      const dados = { empresa: empresaId, valor_por_carro: Math.round(v * 100) / 100, ativo };
+      if (regra) await pb.collection("regras_bonus").update(regra.id, dados);
+      else await pb.collection("regras_bonus").create(dados);
+      setEditando(false);
+      carregar();
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  if (regra === undefined) return null;
+  return (
+    <>
+      <button
+        onClick={() => {
+          setValor(regra ? String(regra.valor_por_carro).replace(".", ",") : "");
+          setAtivo(regra ? regra.ativo : true);
+          setEditando(true);
+        }}
+        className="flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-linha bg-white px-4 py-3 text-left shadow-sm hover:border-marca"
+      >
+        <span>
+          <span className="block text-lg font-bold text-tinta">Bônus por carro lavado</span>
+          <span className="block text-base text-tinta-suave">
+            {regra && regra.ativo ? `${reais(regra.valor_por_carro)} por carro` : "Desligado"} · comissão por produto em Produtos
+          </span>
+        </span>
+        <span className="text-2xl text-marca" aria-hidden="true">›</span>
+      </button>
+      {editando && (
+        <Folha titulo="Bônus por carro lavado" onFechar={() => setEditando(false)}>
+          <form onSubmit={salvar} className="flex flex-col gap-4" noValidate>
+            <Campo rotulo="Valor por carro (R$)" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value.replace(/[^\d,.]/g, ""))} />
+            <Interruptor rotulo="Bônus ligado" descricao="Conta para quem foi marcado como 'quem lavou' na baixa do carro." ligado={ativo} onChange={setAtivo} />
+            <p className="text-sm text-tinta-suave">Só você vê esta regra. Cada pessoa vê apenas o próprio bônus estimado.</p>
+            {erro && <Aviso>{erro}</Aviso>}
+            <Botao type="submit" largo carregando={salvando}>
+              Salvar
+            </Botao>
+          </form>
+        </Folha>
+      )}
+    </>
   );
 }

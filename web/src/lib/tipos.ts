@@ -150,3 +150,70 @@ export interface VendaItem extends Base {
   preco_unitario: number;
   comissao_calculada: number;
 }
+
+export interface LancamentoCaixa extends Base {
+  empresa: string;
+  data: string;
+  tipo: "entrada" | "saida";
+  categoria: string;
+  valor: number;
+  descricao: string;
+  criado_por: string;
+  cancelado: boolean;
+  expand?: { criado_por?: Usuario };
+}
+
+export interface Meta extends Base {
+  empresa: string;
+  periodo: "dia" | "mes";
+  valor: number;
+}
+
+export interface RegraBonus extends Base {
+  empresa: string;
+  valor_por_carro: number;
+  ativo: boolean;
+}
+
+export interface Vale extends Base {
+  empresa: string;
+  funcionario: string;
+  valor: number;
+  data: string;
+  comprovante: string;
+  observacao: string;
+  lancado_por: string;
+  cancelado: boolean;
+}
+
+export interface Holerite extends Base {
+  empresa: string;
+  funcionario: string;
+  competencia: string;
+  arquivo: string;
+}
+
+export interface DadosPainel {
+  periodo: { de: string; ate: string };
+  carros_lavados: number;
+  faturamento: { servicos: number; produtos: number; total: number };
+  caixa: { entradas: number; saidas: number; gastos_por_categoria: Record<string, number> };
+  saldo: number;
+  por_forma_pagamento: Record<FormaPagamento, number>;
+  ranking_funcionarios: { usuario: string; nome: string; vendas_total: number; vendas_qtd: number; carros: number }[];
+  ranking_produtos: { nome: string; quantidade: number; total: number }[];
+  estoque_baixo: { id: string; nome: string; estoque: number; minimo: number }[];
+  fila_agora: { esperando: number; pendentes: number; lavando: number; prontos: number; clientes_atrasados: number };
+  atrasos: { total: number; media_min: number; lista: { id: string; minutos: number; previsto: string; inicio: string; reserva: boolean }[] };
+  metas: { dia: number; mes: number; realizado_dia: number; realizado_mes: number };
+}
+
+export interface DadosArea {
+  usuario: string;
+  mes: { de: string; ate: string };
+  carros: { hoje: number; semana: number; mes: number };
+  vendas: { quantidade: number; total: number; comissao: number };
+  bonus: { valor_por_carro: number; por_carros: number; comissao: number; estimado: number };
+  vales: { quantidade: number; total: number };
+  saldo_estimado: number;
+}

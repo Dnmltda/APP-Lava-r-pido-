@@ -8,7 +8,10 @@ import { Conta } from "./paginas/Conta";
 import { Equipe } from "./paginas/Equipe";
 import { Inicio } from "./paginas/Inicio";
 import { FilaEquipe } from "./paginas/FilaEquipe";
+import { Caixa } from "./paginas/Caixa";
+import { MinhaArea } from "./paginas/MinhaArea";
 import { Painel } from "./paginas/Painel";
+import { PainelDia } from "./paginas/PainelDia";
 import { Produtos } from "./paginas/Produtos";
 import { Servicos } from "./paginas/Servicos";
 import { VendaForm, Vendas } from "./paginas/Vendas";
@@ -57,6 +60,10 @@ export default function App() {
             <Route path="cadastro" element={<Cadastro />} />
             <Route path="conta" element={<Conta />} />
             <Route path="equipe" element={<Equipe />} />
+            <Route path="equipe/:usuario" element={<MinhaArea />} />
+            <Route path="painel" element={<PainelDia />} />
+            <Route path="caixa" element={<Caixa />} />
+            <Route path="minha-area" element={<MinhaArea />} />
             <Route path="configuracoes" element={<Configuracoes />} />
             <Route path="servicos" element={<Servicos />} />
             <Route path="fila" element={<FilaEquipe />} />

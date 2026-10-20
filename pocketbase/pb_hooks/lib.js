@@ -424,7 +424,209 @@ function resumoVenda(app, venda) {
   };
 }
 
+// ---------------------------------------------------------------- painéis
+// Brasil sem horário de verão: São Paulo = UTC−3.
+const OFFSET_SP = 3 * 3600000;
+const DIA = 86400000;
+
+function inicioDiaSP(ms) {
+  return Math.floor((ms - OFFSET_SP) / DIA) * DIA + OFFSET_SP;
+}
+function inicioSemanaSP(ms) {
+  const dia = inicioDiaSP(ms);
+  const dow = new Date(dia).getUTCDay(); // 0 = domingo
+  return dia - ((dow + 6) % 7) * DIA; // segunda-feira
+}
+function inicioMesSP(ms) {
+  const d = new Date(ms - OFFSET_SP);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) + OFFSET_SP;
+}
+function inicioMesSeguinteSP(ms) {
+  const d = new Date(ms - OFFSET_SP);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) + OFFSET_SP;
+}
+function dataPB(ms) {
+  return new Date(ms).toISOString().replace("T", " ");
+}
+// "2026-10" → [início, fim) do mês em São Paulo
+function mesCompetencia(comp) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(comp || ""));
+  if (!m) return null;
+  const ini = Date.UTC(parseInt(m[1], 10), parseInt(m[2], 10) - 1, 1) + OFFSET_SP;
+  return [ini, inicioMesSeguinteSP(ini)];
+}
+
+function buscar(app, col, filtro, params) {
+  return Array.from(app.findRecordsByFilter(col, filtro, "", 0, 0, params));
+}
+
+function somar(lista, fn) {
+  let s = 0;
+  for (const x of lista) s += fn(x);
+  return arred(s);
+}
+
+// Faturamento (serviços finalizados + vendas fechadas) num intervalo.
+function faturamento(app, empresaId, de, ate) {
+  const p = { e: empresaId, de: dataPB(de), ate: dataPB(ate) };
+  const carros = buscar(app, "fila_entradas", "empresa = {:e} && status = 'finalizado' && finalizado_em >= {:de} && finalizado_em < {:ate}", p);
+  const vendas = buscar(app, "vendas", "empresa = {:e} && (status = 'fechada' || status = 'corrigida') && fechada_em >= {:de} && fechada_em < {:ate}", p);
+  const servicos = somar(carros, (r) => r.getFloat("preco_servico"));
+  const produtos = somar(vendas, (r) => r.getFloat("total"));
+  return { carros: carros, vendas: vendas, servicos: servicos, produtos: produtos, total: arred(servicos + produtos) };
+}
+
+function nomesDeUsuarios(app, ids) {
+  const nomes = {};
+  for (const id of ids) {
+    if (!id || nomes[id] !== undefined) continue;
+    try {
+      nomes[id] = app.findRecordById("usuarios", id).getString("nome");
+    } catch (_) {
+      nomes[id] = "";
+    }
+  }
+  return nomes;
+}
+
+function painelDaEmpresa(app, empresa, de, ate) {
+  const agora = Date.now();
+  const f = faturamento(app, empresa.id, de, ate);
+  const p = { e: empresa.id, de: dataPB(de), ate: dataPB(ate) };
+
+  // Caixa
+  const lanc = buscar(app, "lancamentos_caixa", "empresa = {:e} && cancelado = false && data >= {:de} && data < {:ate}", p);
+  const entradas = somar(lanc.filter((l) => l.getString("tipo") === "entrada"), (l) => l.getFloat("valor"));
+  const saidas = somar(lanc.filter((l) => l.getString("tipo") === "saida"), (l) => l.getFloat("valor"));
+  const gastosPorCategoria = {};
+  for (const l of lanc) {
+    if (l.getString("tipo") !== "saida") continue;
+    const c = l.getString("categoria") || "Outros";
+    gastosPorCategoria[c] = arred((gastosPorCategoria[c] || 0) + l.getFloat("valor"));
+  }
+
+  // Formas de pagamento (vendas de produtos)
+  const porForma = { cartao: 0, dinheiro: 0, pix: 0 };
+  for (const v of f.vendas) porForma[v.getString("forma_pagamento")] = arred((porForma[v.getString("forma_pagamento")] || 0) + v.getFloat("total"));
+
+  // Ranking por funcionário: vendas e carros lavados
+  const rank = {};
+  const linha = (id) => (rank[id] = rank[id] || { usuario: id, vendas_total: 0, vendas_qtd: 0, carros: 0 });
+  for (const v of f.vendas) {
+    const r = linha(v.getString("funcionario"));
+    r.vendas_total = arred(r.vendas_total + v.getFloat("total"));
+    r.vendas_qtd++;
+  }
+  for (const c of f.carros) if (c.getString("lavado_por")) linha(c.getString("lavado_por")).carros++;
+  const nomes = nomesDeUsuarios(app, Object.keys(rank));
+  const rankingFuncionarios = Object.values(rank)
+    .map((r) => Object.assign(r, { nome: nomes[r.usuario] || "—" }))
+    .sort((a, b) => b.vendas_total - a.vendas_total || b.carros - a.carros);
+
+  // Ranking por produto
+  const porProduto = {};
+  for (const v of f.vendas) {
+    for (const it of buscar(app, "vendas_itens", "venda = {:v}", { v: v.id })) {
+      const nome = it.getString("produto_nome");
+      const r = (porProduto[nome] = porProduto[nome] || { nome: nome, quantidade: 0, total: 0 });
+      r.quantidade += it.getInt("quantidade");
+      r.total = arred(r.total + it.getInt("quantidade") * it.getFloat("preco_unitario"));
+    }
+  }
+  const rankingProdutos = Object.values(porProduto).sort((a, b) => b.total - a.total);
+
+  // Estoque baixo
+  const estoqueBaixo = buscar(app, "produtos", "empresa = {:e} && ativo = true && estoque <= estoque_minimo", { e: empresa.id })
+    .map((r) => ({ id: r.id, nome: r.getString("nome"), estoque: r.getInt("estoque"), minimo: r.getInt("estoque_minimo") }));
+
+  // Fila agora
+  const estado = carregarFila(app, empresa);
+  const filaAgora = {
+    esperando: estado.espera.length,
+    pendentes: estado.espera.filter((r) => r.getString("status") === "pendente").length,
+    lavando: estado.ativos.filter((r) => r.getString("status") === "lavando").length,
+    prontos: estado.ativos.filter((r) => r.getString("status") === "pronto").length,
+    clientes_atrasados: estado.espera.filter((r) => minutosAtraso(r, empresa, agora) > 0).length,
+  };
+
+  // Atrasos da fila (equipe começou depois da previsão confirmada)
+  const tol = empresa.getInt("tolerancia_min") || 10;
+  const comecados = buscar(app, "fila_entradas", "empresa = {:e} && inicio_em >= {:de} && inicio_em < {:ate} && previsao_inicio != ''", p);
+  const atrasos = [];
+  for (const r of comecados) {
+    const min = Math.round((dataMs(r, "inicio_em") - dataMs(r, "previsao_inicio")) / MIN);
+    if (min >= tol) {
+      atrasos.push({ id: r.id, minutos: min, previsto: r.getString("previsao_inicio"), inicio: r.getString("inicio_em"), reserva: r.getString("origem") === "reserva" });
+    }
+  }
+  atrasos.sort((a, b) => b.minutos - a.minutos);
+
+  // Metas (sempre hoje e mês atual)
+  const metas = {};
+  for (const m of buscar(app, "metas", "empresa = {:e}", { e: empresa.id })) metas[m.getString("periodo")] = m.getFloat("valor");
+  const hoje = faturamento(app, empresa.id, inicioDiaSP(agora), inicioDiaSP(agora) + DIA);
+  const mes = faturamento(app, empresa.id, inicioMesSP(agora), inicioMesSeguinteSP(agora));
+
+  return {
+    periodo: { de: new Date(de).toISOString(), ate: new Date(ate).toISOString() },
+    carros_lavados: f.carros.length,
+    faturamento: { servicos: f.servicos, produtos: f.produtos, total: f.total },
+    caixa: { entradas: entradas, saidas: saidas, gastos_por_categoria: gastosPorCategoria },
+    saldo: arred(f.total + entradas - saidas),
+    por_forma_pagamento: porForma,
+    ranking_funcionarios: rankingFuncionarios,
+    ranking_produtos: rankingProdutos,
+    estoque_baixo: estoqueBaixo,
+    fila_agora: filaAgora,
+    atrasos: { total: atrasos.length, media_min: atrasos.length ? Math.round(atrasos.reduce((s, a) => s + a.minutos, 0) / atrasos.length) : 0, lista: atrasos.slice(0, 20) },
+    metas: {
+      dia: metas.dia || 0, mes: metas.mes || 0,
+      realizado_dia: hoje.total, realizado_mes: mes.total,
+    },
+  };
+}
+
+// Área de uma pessoa da equipe num mês: carros, vendas, comissão, bônus estimado e vales.
+function areaDoFuncionario(app, empresa, usuarioId, mesIni, mesFim) {
+  const agora = Date.now();
+  const contar = (de, ate) =>
+    buscar(app, "fila_entradas", "empresa = {:e} && lavado_por = {:u} && status = 'finalizado' && finalizado_em >= {:de} && finalizado_em < {:ate}",
+      { e: empresa.id, u: usuarioId, de: dataPB(de), ate: dataPB(ate) }).length;
+  const vendas = buscar(app, "vendas", "empresa = {:e} && funcionario = {:u} && (status = 'fechada' || status = 'corrigida') && fechada_em >= {:de} && fechada_em < {:ate}",
+    { e: empresa.id, u: usuarioId, de: dataPB(mesIni), ate: dataPB(mesFim) });
+  const carrosMes = contar(mesIni, mesFim);
+  let regra = null;
+  try {
+    regra = app.findFirstRecordByData("regras_bonus", "empresa", empresa.id);
+  } catch (_) {}
+  const porCarro = regra && regra.getBool("ativo") ? regra.getFloat("valor_por_carro") : 0;
+  const comissao = somar(vendas, (v) => v.getFloat("comissao_total"));
+  const vales = buscar(app, "vales", "empresa = {:e} && funcionario = {:u} && cancelado = false && data >= {:de} && data < {:ate}",
+    { e: empresa.id, u: usuarioId, de: dataPB(mesIni), ate: dataPB(mesFim) });
+  const bonusCarros = arred(carrosMes * porCarro);
+  const totalVales = somar(vales, (v) => v.getFloat("valor"));
+  return {
+    usuario: usuarioId,
+    mes: { de: new Date(mesIni).toISOString(), ate: new Date(mesFim).toISOString() },
+    carros: {
+      hoje: contar(inicioDiaSP(agora), inicioDiaSP(agora) + DIA),
+      semana: contar(inicioSemanaSP(agora), inicioDiaSP(agora) + DIA),
+      mes: carrosMes,
+    },
+    vendas: { quantidade: vendas.length, total: somar(vendas, (v) => v.getFloat("total")), comissao: comissao },
+    bonus: { valor_por_carro: porCarro, por_carros: bonusCarros, comissao: comissao, estimado: arred(bonusCarros + comissao) },
+    vales: { quantidade: vales.length, total: totalVales },
+    saldo_estimado: arred(bonusCarros + comissao - totalVales),
+  };
+}
+
 module.exports = {
+  inicioDiaSP,
+  inicioMesSP,
+  inicioMesSeguinteSP,
+  mesCompetencia,
+  painelDaEmpresa,
+  areaDoFuncionario,
   FORMAS_PAGAMENTO,
   validarItens,
   gravarItensVenda,

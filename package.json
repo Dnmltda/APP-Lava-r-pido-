@@ -5,7 +5,7 @@
     "pb": "cd pocketbase && ./bin/pocketbase serve --dir ./pb_data --migrationsDir ./pb_migrations --hooksDir ./pb_hooks",
     "web": "npm --prefix web run dev",
     "build": "npm --prefix web run build",
-    "testar": "node scripts/testar-isolamento.mjs && node scripts/testar-fila.mjs && node scripts/testar-regras-fila.mjs && node scripts/testar-vendas.mjs",
+    "testar": "node scripts/testar-isolamento.mjs && node scripts/testar-fila.mjs && node scripts/testar-regras-fila.mjs && node scripts/testar-vendas.mjs && node scripts/testar-paineis.mjs",
     "demo": "node scripts/criar-empresa.mjs --demo",
     "pb:reiniciar": "./scripts/pb-reiniciar.sh"
   }

@@ -48,7 +48,13 @@ export function Painel() {
               texto={pode(vinculo, "ver_valores") ? "Registrar e ver as vendas do dia" : "Registrar e ver as minhas vendas"}
             />
             {pode(vinculo, "ver_valores") && (
-              <Atalho titulo="Painel do dia" texto="Metas, caixa e ranking. Na próxima etapa." desativado />
+              <Atalho para={`/${empresa.slug}/painel`} titulo="Painel do dia" texto="Faturamento, metas, ranking, estoque e atrasos" />
+            )}
+            {pode(vinculo, "ver_valores") && (
+              <Atalho para={`/${empresa.slug}/caixa`} titulo="Caixa" texto="Gastos e entradas do mês" />
+            )}
+            {vinculo.papel !== "patrao" && (
+              <Atalho para={`/${empresa.slug}/minha-area`} titulo="Minha área" texto="Carros lavados, bônus, vales e holerites" />
             )}
             {pode(vinculo, "gerenciar_equipe") && (
               <Atalho para={`/${empresa.slug}/equipe`} titulo="Equipe" texto="Cadastrar, permissões, senhas" />

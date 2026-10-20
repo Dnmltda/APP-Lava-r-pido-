@@ -17,7 +17,22 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 | 2. Fila (fatia principal) | ✅ concluída | `testar-fila.mjs`: 56/56 + teste com 2 celulares no navegador |
 | 3. Regras da fila | ✅ concluída | `testar-regras-fila.mjs`: 49/49 (dia com 15 carros e 5 reservas) |
 | 4. Produtos e vendas | ✅ concluída | `testar-vendas.mjs`: 53/53 |
-| 5 a 8 | a fazer | |
+| 5. Painéis | ✅ concluída | `testar-paineis.mjs`: 59/59 |
+| 6 a 8 | a fazer | |
+
+### Etapa 5: Painéis
+- **Painel do dia** (patrão e gerente), por hoje, ontem, 7 dias ou mês:
+  - faturamento (serviços + produtos), carros lavados, gastos, outras entradas e saldo;
+  - metas do dia e do mês com barra de progresso (só o patrão define);
+  - fila agora, com pendentes e clientes atrasados;
+  - **estoque baixo**;
+  - ranking de vendas por funcionário (com carros lavados) e por produto;
+  - formas de pagamento, gastos por categoria e **atrasos da fila** (carros que começaram depois da previsão confirmada).
+- **Caixa**: o patrão lança gastos e entradas avulsas. Lançamento se cancela, não se apaga. O gerente só consulta.
+- **Bônus por carro lavado** (regra que só o patrão vê) mais a **comissão por produto** (Etapa 4).
+- **Vales e adiantamentos** com **comprovante do Pix**, e **holerites** por mês. São arquivos **protegidos**: só o patrão e a própria pessoa abrem, e nem o gerente abre os dos outros.
+- **Minha área** (gerente e funcionário): carros lavados (hoje, semana, mês), vendas, bônus estimado, vales, saldo estimado (bônus − vales) e holerites. O patrão vê a de cada pessoa em Equipe → Financeiro.
+- Tudo na auditoria.
 
 ### Etapa 4: Produtos e vendas
 - **Produtos** (o patrão cadastra): foto, preço, estoque, mínimo para alerta, comissão por produto (nenhuma, R$ por unidade ou % do valor). A comissão só vale com a chave "Comissão por produto" ligada. Mudanças de preço, estoque e comissão vão para a auditoria.
