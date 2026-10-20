@@ -159,6 +159,21 @@ async function main() {
     r = await api("GET", `/api/lr/relatorio/${A.id}?de=${new Date(Date.now() - 500 * 864e5).toISOString()}`, { token: patrao.token });
     checar("período acima de 400 dias é recusado", r.status === 400, r.status);
 
+    console.log("\nHistórico do cliente");
+    r = await api("GET", `/api/lr/meu-historico/${A.slug}`, { token: c1.token });
+    const h = r.data;
+    checar("cliente vê quantas vezes veio", r.status === 200 && h.total_visitas === 1, h);
+    checar("vê o serviço que fez e quantas vezes", h && h.por_servico.length === 1 && h.por_servico[0].nome === "Simples" && h.por_servico[0].vezes === 1, h && h.por_servico);
+    checar("vê os produtos que comprou na visita", h && h.visitas[0].produtos.some((p) => p.nome === "Pretinho" && p.quantidade === 1), h && h.visitas);
+    checar("mostra desde quando é cliente", h && !!h.cliente_desde && !!h.ultima_visita);
+    checar("não mostra nenhum valor em dinheiro", h && !/preco|valor|"total"|comissao|R\$/.test(JSON.stringify(h)), JSON.stringify(h).slice(0, 200));
+    r = await api("GET", `/api/lr/meu-historico/${A.slug}`, { token: c2.token });
+    checar("outro cliente vê só o próprio histórico (zero)", r.status === 200 && r.data.total_visitas === 0, r.data);
+    r = await api("GET", `/api/lr/meu-historico/${A.slug}`, { token: patraoB.token });
+    checar("quem não é cliente deste lava rápido não vê", negado(r), r.status);
+    r = await api("GET", `/api/lr/meu-historico/${A.slug}`);
+    checar("sem login não vê", negado(r), r.status);
+
     console.log("\nCadastro do cliente");
     const cel = "114" + sufixo + "77";
     const cad = (senha, extra = {}) =>

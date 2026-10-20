@@ -40,6 +40,8 @@ Teste: `scripts/testar-novidades.mjs` (39) + `testar-navegador.mjs` (68).
 - `scripts/popular-demo.mjs`: 30 dias de movimento fictício só na empresa **demo** (para ver o dashboard).
 - **Cadastro**: senha fácil é recusada (todos iguais, sequência, o próprio celular, "senha123"…) no cadastro,
   na equipe e em Minha conta; botão "Mostrar" senha; nome limpo; até 20 cadastros por hora por internet.
+- **Meu histórico (cliente)**: quantas vezes veio, desde quando é cliente, serviços feitos (com quantas vezes)
+  e produtos comprados em cada visita. **Sem valores**, por decisão do Diego (`/api/lr/meu-historico/{slug}`).
 - `scripts/limpar-producao.mjs`: deixa a produção pronta para testes com pessoas (apaga `teste-*`, o movimento
   da demo e as contas, menos as mantidas). Sem `--executar` só mostra o que faria.
 

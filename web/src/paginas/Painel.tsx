@@ -5,6 +5,7 @@ import {
   ChevronRight,
   CircleUserRound,
   Gauge,
+  History,
   ListOrdered,
   Package,
   QrCode,
@@ -24,6 +25,7 @@ import { Aviso, Botao, Cartao } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
 import { FilaCliente } from "./FilaCliente";
+import { tempoDeCliente, useHistorico, vezes } from "./Historico";
 import { DIAS_SEMANA, linkWhatsApp, primeiroNome, reais } from "../lib/formato";
 import { useFilaAoVivo } from "../lib/fila";
 import { pb } from "../lib/pb";
@@ -93,6 +95,7 @@ export function Painel() {
         ) : (
           <>
             <FilaCliente />
+            <ResumoCliente />
             <InfoEmpresa empresa={empresa} />
             <Link
               to={`/${s}/conta`}
@@ -108,6 +111,35 @@ export function Painel() {
         )}
       </div>
     </Moldura>
+  );
+}
+
+// Cliente: quantas vezes já veio e desde quando (abre o histórico completo).
+function ResumoCliente() {
+  const { empresa } = useEmpresa();
+  const { dados } = useHistorico(empresa.slug);
+  return (
+    <Link
+      to={`/${empresa.slug}/historico`}
+      className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-linha bg-white px-4 py-3 shadow-sm hover:border-marca"
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-marca-suave text-marca-forte">
+          <History className="h-6 w-6" aria-hidden="true" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-base font-extrabold text-tinta">Meu histórico</span>
+          <span className="block text-sm text-tinta-suave">
+            {dados
+              ? dados.total_visitas
+                ? `${vezes(dados.total_visitas)} aqui · cliente ${tempoDeCliente(dados.cliente_desde)}`
+                : `Cliente ${tempoDeCliente(dados.cliente_desde)} · serviços e produtos de cada visita`
+              : "Quantas vezes você veio e o que fez"}
+          </span>
+        </span>
+      </span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-tinta-suave" aria-hidden="true" />
+    </Link>
   );
 }
 

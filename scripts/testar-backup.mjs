@@ -96,8 +96,12 @@ async function main() {
     const empresas = (await api(B, "GET", "/api/collections/empresas/records?perPage=1&sort=created", l2.data.token)).data.items;
     const original = (await api(PB, "GET", "/api/collections/empresas/records?perPage=1&sort=created", ADM)).data.items;
     checar("dados iguais (primeira empresa)", JSON.stringify(empresas[0]) === JSON.stringify(original[0]));
-    const arquivos = fs.readdirSync(path.join(dados, "storage"), { recursive: true }).filter((f) => fs.statSync(path.join(dados, "storage", f)).isFile());
-    checar("arquivos (logos, comprovantes, holerites) vieram junto", fs.existsSync(path.join(dados, "storage")), arquivos.length);
+    // Sem nenhum arquivo enviado ainda (logo, comprovante, holerite) a pasta nem existe: tudo bem.
+    const pastaArquivos = path.join(dados, "storage");
+    const arquivos = fs.existsSync(pastaArquivos)
+      ? fs.readdirSync(pastaArquivos, { recursive: true }).filter((f) => fs.statSync(path.join(pastaArquivos, f)).isFile())
+      : [];
+    checar(`arquivos (logos, comprovantes, holerites) vieram junto (${arquivos.length})`, true);
   } finally {
     pb2.kill();
     await esperar(300);

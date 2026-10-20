@@ -14,6 +14,7 @@ import { Cameras } from "./paginas/Cameras";
 import { Cartaz } from "./paginas/Cartaz";
 import { Privacidade } from "./paginas/Privacidade";
 import { Relatorios } from "./paginas/Relatorios";
+import { Historico } from "./paginas/Historico";
 import { MinhaArea } from "./paginas/MinhaArea";
 import { Painel } from "./paginas/Painel";
 import { PainelDia } from "./paginas/PainelDia";
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="equipe/:usuario" element={<MinhaArea />} />
             <Route path="painel" element={<PainelDia />} />
             <Route path="dashboard" element={<Relatorios />} />
+            <Route path="historico" element={<Historico />} />
             <Route path="caixa" element={<Caixa />} />
             <Route path="minha-area" element={<MinhaArea />} />
             <Route path="avaliar/:entrada" element={<Avaliar />} />

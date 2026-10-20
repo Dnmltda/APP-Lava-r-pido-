@@ -149,7 +149,7 @@ async function main() {
       await novo.getByRole("button", { name: "Mostrar" }).click();
       checar("botão Mostrar revela a senha digitada", (await novo.getByLabel("Crie uma senha").getAttribute("type")) === "text");
       await novo.getByRole("button", { name: "Criar cadastro" }).click();
-      await novo.getByText("Minha conta").waitFor({ timeout: 15000 }).catch(() => {});
+      await novo.getByRole("button", { name: "Entrar na fila" }).waitFor({ timeout: 20000 }).catch(() => {});
       checar("cliente novo se cadastra e já entra no app", await novo.getByRole("button", { name: "Entrar na fila" }).isVisible());
       const u = await api("GET", `/api/collections/usuarios/records?filter=${encodeURIComponent(`celular="${celNovo}"`)}`, { token: ADM });
       if (u.data.items[0]) criados.usuarios.push(u.data.items[0].id);
@@ -247,6 +247,13 @@ async function main() {
     await foto("cliente", "4-cliente-avaliou");
     const av = await api("GET", `/api/collections/avaliacoes/records?filter=${encodeURIComponent(`entrada="${entrada.id}"`)}`, { token: ADM });
     checar("cliente avalia com estrelas e comentário", av.data.items.length === 1 && av.data.items[0].nota_funcionario === 5, av.data.items);
+
+    await cli.goto(`${APP}/${A.slug}`);
+    await cli.getByRole("link", { name: /Meu histórico/ }).click();
+    await cli.getByText("Suas visitas").waitFor({ timeout: 20000 }).catch(() => {});
+    const txtHist = await cli.locator("body").innerText();
+    checar("cliente vê no histórico: 1 vez, o serviço e o produto comprado", txtHist.includes("1 vez") && txtHist.includes("Lavagem simples") && !txtHist.includes("R$"), txtHist.slice(0, 300));
+    await foto("cliente", "5-historico");
 
     await paginas.patrao.goto(`${APP}/${A.slug}/avaliacoes`);
     await paginas.patrao.getByText("teste do navegador").first().waitFor({ timeout: 10000 }).catch(() => {});
