@@ -77,6 +77,10 @@ Tudo do gerente, mais:
   textos das notificações, horário de funcionamento, comissão ligada/desligada. Metas e bônus por carro.
 - **Câmeras**: ver os boxes ao vivo; sensor de movimento com alerta de área parada (ver `docs/CAMERAS.md`).
 - **Cartaz do balcão**: QR Code para imprimir. Coloque no balcão, na espera e no caixa.
+- **Modo TV**: abra `endereço-do-app/<seu-lava-rápido>/tv` no navegador da TV ou de um tablet na recepção (o link também
+  está no Cartaz e no atalho *Modo TV*). Mostra quem está lavando, os próximos com a previsão e quem já pode retirar,
+  com o QR Code para entrar na fila. Não precisa de login, atualiza sozinho e só mostra primeiro nome e final da placa.
+  Toque em **Tela cheia** e deixe o descanso de tela da TV/tablet desligado.
 - **Avaliações** com o nome do cliente.
 
 ## Cliente (o que explicar no balcão)

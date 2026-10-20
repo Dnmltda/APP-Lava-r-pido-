@@ -18,6 +18,7 @@ import {
   Users,
   Wallet,
   Receipt,
+  Tv,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -84,6 +85,7 @@ export function Painel() {
               {valores && <Atalho para={`/${s}/painel`} icone={Gauge} titulo="Painel do dia" texto="Metas, estoque e atrasos" />}
               {valores && <Atalho para={`/${s}/caixa`} icone={Wallet} titulo="Caixa" texto="Gastos fixos e fechamento do mês" />}
               {valores && <Atalho para={`/${s}/fechamento`} icone={Receipt} titulo="Fechamento do dia" texto="Maquininhas, dinheiro e notas" />}
+              {pode(vinculo, "gerenciar_fila") && <Atalho para={`/${s}/tv`} icone={Tv} titulo="Modo TV" texto="Fila em tela grande na recepção" />}
               <Atalho para={`/${s}/avaliacoes`} icone={Star} titulo="Avaliações" texto="O que os clientes acharam" />
               {vinculo.papel !== "patrao" && <Atalho para={`/${s}/minha-area`} icone={UserRound} titulo="Minha área" texto="Carros, bônus e vales" />}
               {pode(vinculo, "clientes") && <Atalho para={`/${s}/clientes`} icone={Contact} titulo="Clientes" texto="Quem veio, quantas vezes e quanto gastou" />}

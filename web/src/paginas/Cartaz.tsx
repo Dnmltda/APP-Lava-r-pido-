@@ -31,6 +31,21 @@ export function Cartaz() {
       <p className="mx-auto max-w-2xl px-4 pb-3 text-base text-tinta-suave print:hidden">
         Imprima em A4 e deixe no balcão, na parede da espera e no caixa. Também dá para salvar em PDF e mandar nas redes sociais.
       </p>
+      <section className="mx-auto mb-4 max-w-2xl px-4 print:hidden" aria-labelledby="titulo-tv">
+        <div className="rounded-2xl border border-linha bg-white p-4">
+          <h2 id="titulo-tv" className="text-lg font-extrabold text-tinta">
+            Modo TV (fila na recepção)
+          </h2>
+          <p className="mt-1 text-base text-tinta-suave">
+            Abra este endereço no navegador da TV ou de um tablet na recepção. A fila aparece em tela grande e se atualiza sozinha. Não precisa de login e só mostra o primeiro nome e o
+            final da placa.
+          </p>
+          <p className="mt-2 break-all font-mono text-base font-bold text-tinta">{`${link}/tv`.replace(/^https?:\/\//, "")}</p>
+          <Link to={`/${empresa.slug}/tv`} className="mt-3 inline-flex min-h-12 items-center rounded-xl bg-marca px-5 font-bold text-sobre-marca">
+            Abrir o Modo TV
+          </Link>
+        </div>
+      </section>
       <article className="mx-auto flex max-w-[20cm] flex-col items-center gap-5 rounded-3xl border-[6px] border-marca bg-white px-8 py-10 text-center shadow-sm print:min-h-[27.5cm] print:max-w-none print:justify-center print:gap-7 print:rounded-none print:shadow-none">
         {logo ? (
           <img src={logo} alt="" className="h-24 w-24 rounded-2xl object-contain" />

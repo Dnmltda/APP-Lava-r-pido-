@@ -18,6 +18,7 @@ import { Relatorios } from "./paginas/Relatorios";
 import { Historico } from "./paginas/Historico";
 import { Clientes } from "./paginas/Clientes";
 import { MinhaArea } from "./paginas/MinhaArea";
+import { ModoTV } from "./paginas/ModoTV";
 import { Painel } from "./paginas/Painel";
 import { PainelDia } from "./paginas/PainelDia";
 import { Produtos } from "./paginas/Produtos";
@@ -80,6 +81,7 @@ export default function App() {
             <Route path="avaliacoes" element={<Avaliacoes />} />
             <Route path="cameras" element={<Cameras />} />
             <Route path="cartaz" element={<Cartaz />} />
+            <Route path="tv" element={<ModoTV />} />
             <Route path="privacidade" element={<Privacidade />} />
             <Route path="configuracoes" element={<Configuracoes />} />
             <Route path="servicos" element={<Servicos />} />

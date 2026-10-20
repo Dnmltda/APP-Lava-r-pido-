@@ -391,6 +391,24 @@ async function main() {
       checar("gerente acompanha os gastos fixos (sem botão de criar)", (await ger.getByText("Aluguel do galpão").count()) > 0 && (await ger.getByRole("button", { name: "+ Gasto fixo" }).count()) === 0);
     }
 
+    console.log("\nModo TV (sem login, tela grande)");
+    {
+      const ctx = await navegador.newContext({ viewport: { width: 1920, height: 1080 }, locale: "pt-BR", timezoneId: "America/Sao_Paulo" });
+      const tv = await ctx.newPage();
+      const errosTv = [];
+      tv.on("pageerror", (e) => errosTv.push(String(e)));
+      await tv.goto(`${APP}/${A.slug}/tv`);
+      await tv.getByRole("heading", { name: "Lava Teste Navegador" }).waitFor({ timeout: 15000 }).catch(() => {});
+      await tv.getByText("Carla").first().waitFor({ timeout: 15000 }).catch(() => {});
+      const txt = await tv.locator("body").innerText();
+      checar("Modo TV abre sem login e mostra a fila", /próximos/i.test(txt) && txt.includes("Carla") && new URL(tv.url()).pathname.endsWith("/tv"), txt.slice(0, 200));
+      checar("Modo TV não mostra sobrenome, celular nem valores", !txt.includes("Navegadora") && !txt.includes("R$"));
+      checar("Modo TV tem o QR Code para entrar na fila", (await tv.locator('[role="img"] svg').count()) === 1);
+      checar("Modo TV sem erro de JavaScript", errosTv.length === 0, errosTv);
+      if (FOTOS) await tv.screenshot({ path: path.join(FOTOS, "modo-tv.png") });
+      await ctx.close();
+    }
+
     console.log("\nTodas as telas de cada perfil abrem sem erro");
     for (const p of ["patrao", "gerente", "funcionario", "responsavel"]) {
       const page = paginas[p];
