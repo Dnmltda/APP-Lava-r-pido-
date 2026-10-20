@@ -2,138 +2,91 @@
 'use strict';
 
 /*
- * DNM&LTDA Lava Rápido — servidor para a hospedagem Node.js da Hostinger.
+ * DNM&LTDA Lava Rápido — inicialização na hospedagem Node.js da Hostinger.
  *
- * A Hostinger exige que o processo Node escute a porta (PORT, padrão 8080) em
- * poucos segundos. Então este script:
- *   1. escuta a porta na hora;
- *   2. sobe o PocketBase numa porta interna (127.0.0.1) e o mantém vivo;
- *   3. repassa cada requisição para o PocketBase (inclusive o tempo real, SSE).
- * O PocketBase serve a API e o app (pb_public).
+ * O que vale nesse ambiente (comprovado no APP OBRA e de novo aqui):
+ *  - o processo Node iniciado pela Hostinger precisa chamar listen() na porta
+ *    (PORT, padrão 8080) em até 3 segundos;
+ *  - o tráfego fica preso a ESSE processo; outro processo na mesma porta não recebe;
+ *  - conexão interna para outra porta (proxy Node → PocketBase) é bloqueada.
  *
- * Os dados (pb_data) ficam FORA da pasta publicada (PB_DATA_DIR), para uma nova
- * publicação nunca apagar o banco.
+ * Solução (mesma do APP OBRA): abrir a porta na hora com uma página
+ * "iniciando", preparar os dados e então chamar execve(): o MESMO processo
+ * (mesmo PID) vira o PocketBase, que passa a servir a API e o app (pb_public)
+ * direto na porta. Se o PocketBase cair, o processo termina e a Hostinger
+ * reinicia o `node server.js`.
+ *
+ * Os dados (pb_data) ficam FORA da pasta publicada (PB_DATA_DIR), então uma
+ * nova publicação nunca apaga o banco. O módulo execve.node é compilado de
+ * deploy/hostinger/execve/execve.c.
  */
 
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
-const { spawn, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
-const PORT = Number(process.env.PORT || 8080);
-const PB_PORT = Number(process.env.PB_INTERNAL_PORT || 28090);
+const PORT = process.env.PORT || 8080;
 const ROOT = __dirname;
 const PB_BINARY = path.join(ROOT, 'pocketbase');
 const DATA_DIR = process.env.PB_DATA_DIR || path.join(os.homedir(), 'dnm-lava-rapido-data');
+const ESPERA_MS = 1000;
 
-let pbPronto = false;
-let ultimoErro = 0;
+process.on('uncaughtException', (err) => console.error('[server.js] erro:', err && err.stack ? err.stack : err));
 
-// ------------------------------------------------------------ proxy
-function ipDoCliente(req) {
-  const real = req.headers['x-real-ip'];
-  if (real) return String(real).trim();
-  const xff = String(req.headers['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (xff.length) return xff[xff.length - 1];
-  return req.socket.remoteAddress || '';
-}
-
-const servidor = http.createServer((req, res) => {
-  const headers = { ...req.headers };
-  headers['x-real-ip'] = ipDoCliente(req);
-  headers['x-forwarded-proto'] = headers['x-forwarded-proto'] || 'https';
-  const destino = http.request(
-    { host: '127.0.0.1', port: PB_PORT, method: req.method, path: req.url, headers },
-    (resp) => {
-      res.writeHead(resp.statusCode || 502, resp.headers);
-      resp.pipe(res);
-    },
-  );
-  destino.on('error', (err) => {
-    if (!ultimoErro || Date.now() - ultimoErro > 30000) {
-      ultimoErro = Date.now();
-      console.error(`[server.js] proxy → PocketBase falhou: ${err.code || ''} ${err.message}`);
-    }
-    if (res.headersSent) return res.end();
-    res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8', 'Retry-After': '5' });
-    res.end(pbPronto ? 'Servidor indisponível. Tente de novo.' : 'Iniciando o DNM&LTDA Lava Rápido… recarregue em alguns segundos.');
-  });
-  req.pipe(destino);
-  // Tempo real (SSE): sem limite de tempo na conexão.
-  req.socket.setTimeout(0);
+// 1) Abre a porta na hora (exigência da Hostinger).
+const provisorio = http.createServer((req, res) => {
+  res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '3' });
+  res.end('DNM&LTDA Lava Rápido está iniciando. Recarregue em alguns segundos.');
 });
-servidor.keepAliveTimeout = 65000;
-servidor.requestTimeout = 0;
-servidor.listen(PORT, '0.0.0.0', () => console.log(`[server.js] escutando na porta ${PORT}`));
 
-// --------------------------------------------------------- PocketBase
-function prepararPocketBase() {
-  if (!fs.existsSync(PB_BINARY)) {
-    console.error(`[server.js] PocketBase não encontrado em ${PB_BINARY}`);
-    return false;
-  }
+provisorio.listen(PORT, '0.0.0.0', () => {
+  console.log(`[server.js] porta ${PORT} aberta (pid ${process.pid})`);
+
+  // 2) Prepara binário, pasta de dados e admin.
   try {
     fs.chmodSync(PB_BINARY, 0o755);
   } catch (err) {
     console.error('[server.js] chmod falhou (seguindo):', err.message);
   }
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  // Mantém o admin da DNM&LTDA (variáveis de ambiente do site na Hostinger).
   if (process.env.PB_ADMIN_EMAIL && process.env.PB_ADMIN_PASSWORD) {
     const r = spawnSync(
       PB_BINARY,
       ['superuser', 'upsert', process.env.PB_ADMIN_EMAIL, process.env.PB_ADMIN_PASSWORD, `--dir=${DATA_DIR}`, `--migrationsDir=${path.join(ROOT, 'pb_migrations')}`],
-      { cwd: ROOT, encoding: 'utf8' },
+      { cwd: ROOT, encoding: 'utf8', timeout: 20000 },
     );
-    console.log(r.status === 0 ? '[server.js] admin ok' : `[server.js] admin falhou: ${r.stderr || r.stdout}`);
+    console.log(r.status === 0 ? '[server.js] admin ok' : `[server.js] admin falhou: ${r.stderr || r.stdout || r.error}`);
   }
-  return true;
-}
 
-let encerrando = false;
-let filho = null;
+  let execve;
+  try {
+    execve = require(path.join(ROOT, 'execve.node')).execve;
+  } catch (err) {
+    console.error('[server.js] FATAL: módulo execve.node não carregou:', err.message);
+    process.exit(1);
+  }
 
-function iniciar() {
-  console.log(`[server.js] iniciando PocketBase em 127.0.0.1:${PB_PORT} (dados em ${DATA_DIR})`);
-  filho = spawn(
-    PB_BINARY,
-    [
-      'serve',
-      `--http=127.0.0.1:${PB_PORT}`,
-      `--dir=${DATA_DIR}`,
-      `--migrationsDir=${path.join(ROOT, 'pb_migrations')}`,
-      `--hooksDir=${path.join(ROOT, 'pb_hooks')}`,
-      '--hooksWatch=false',
-      `--publicDir=${path.join(ROOT, 'pb_public')}`,
-    ],
-    { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], env: process.env },
-  );
-  // A Hostinger só guarda o que o Node escreve no console.
-  const repassar = (dados) => {
-    for (const linha of String(dados).split('\n')) if (linha.trim()) console.log(`[pocketbase] ${linha.slice(0, 500)}`);
-  };
-  filho.stdout.on('data', repassar);
-  filho.stderr.on('data', repassar);
-  pbPronto = true;
-  filho.on('exit', (code, signal) => {
-    pbPronto = false;
-    console.error(`[server.js] PocketBase saiu (code=${code}, signal=${signal}).`);
-    if (!encerrando) setTimeout(iniciar, 3000);
-  });
-  filho.on('error', (err) => console.error('[server.js] falha ao iniciar o PocketBase:', err));
-}
-
-// Depois do listen(), para a Hostinger ver o app de pé na hora.
-setImmediate(() => {
-  if (prepararPocketBase()) iniciar();
+  // 3) Fecha a porta provisória e vira o PocketBase (mesmo processo).
+  setTimeout(() => {
+    provisorio.close(() => {
+      console.log(`[server.js] virando PocketBase (dados em ${DATA_DIR})`);
+      try {
+        execve(PB_BINARY, [
+          PB_BINARY,
+          'serve',
+          `--http=0.0.0.0:${PORT}`,
+          `--dir=${DATA_DIR}`,
+          `--migrationsDir=${path.join(ROOT, 'pb_migrations')}`,
+          `--hooksDir=${path.join(ROOT, 'pb_hooks')}`,
+          '--hooksWatch=false',
+          `--publicDir=${path.join(ROOT, 'pb_public')}`,
+        ]);
+      } catch (err) {
+        console.error('[server.js] FATAL: execve falhou:', err.message);
+      }
+      process.exit(1);
+    });
+  }, ESPERA_MS);
 });
-
-function desligar(sinal) {
-  encerrando = true;
-  if (filho && !filho.killed) filho.kill(sinal);
-  servidor.close();
-  process.exit(0);
-}
-process.on('SIGTERM', () => desligar('SIGTERM'));
-process.on('SIGINT', () => desligar('SIGINT'));

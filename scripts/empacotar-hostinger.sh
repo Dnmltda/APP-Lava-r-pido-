@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
 # Gera dist-hostinger/lava-rapido.zip pronto para a hospedagem Node.js da Hostinger:
-#   server.js + package.json + pocketbase (linux amd64) + pb_migrations + pb_hooks + pb_public (app)
+#   server.js + execve.node + package.json + pocketbase (linux amd64) + pb_migrations + pb_hooks + pb_public (app)
+# Precisa de gcc e dos cabeçalhos do Node para compilar o execve.node.
 set -e
 RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
 VERSAO="${PB_VERSAO:-0.40.4}"
@@ -20,6 +21,8 @@ rm "$SAIDA/pb.zip"
 chmod +x "$PACOTE/pocketbase"
 
 echo "3/3 Montando o pacote…"
+"$RAIZ/deploy/hostinger/execve/compilar.sh" >/dev/null
+cp "$RAIZ/deploy/hostinger/execve/execve.node" "$PACOTE/"
 cp "$RAIZ/deploy/hostinger/server.js" "$RAIZ/deploy/hostinger/package.json" "$PACOTE/"
 cp -r "$RAIZ/pocketbase/pb_migrations" "$RAIZ/pocketbase/pb_hooks" "$PACOTE/"
 cd "$PACOTE" && zip -qr "$SAIDA/lava-rapido.zip" .

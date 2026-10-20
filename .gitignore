@@ -8,3 +8,4 @@ pocketbase/bin/
 *.log
 .DS_Store
 dist-hostinger/
+deploy/hostinger/execve/execve.node
