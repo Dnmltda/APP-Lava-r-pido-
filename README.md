@@ -5,9 +5,9 @@ PWA em React + Vite + TypeScript + Tailwind, com backend PocketBase.
 
 O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md).
 
-## No ar (demonstração)
+## No ar (empresa de teste, começa vazia)
 
-**https://seagreen-cattle-355822.hostingersite.com/demo**: hospedagem Node.js da Hostinger (ver [`deploy/hostinger/README.md`](deploy/hostinger/README.md)).
+**https://seagreen-cattle-355822.hostingersite.com/lava-teste**: hospedagem Node.js da Hostinger (ver [`deploy/hostinger/README.md`](deploy/hostinger/README.md)).
 
 ## Situação
 

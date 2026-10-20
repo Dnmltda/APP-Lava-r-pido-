@@ -3,9 +3,9 @@
 Um roteiro curto por perfil. Faça o treino **no celular de cada pessoa**, com o login dela
 (cada um tem o seu; nada de usar o celular do outro). Leva uns 10 minutos por pessoa.
 
-Para praticar sem mexer em dados reais, use a demonstração: `https://<endereço do app>/demo`
-(senha de todos: `demo12345` — patrão 11 90000-0001, gerente …0002, responsável pela fila …0003,
-funcionário …0004, cliente …0005).
+Para praticar sem mexer em dados reais, use a empresa de teste: `https://<endereço do app>/lava-teste`
+(senha de todos: `demo12345` — dono 11 90000-0001, gerente …0002, responsável pela fila …0003,
+funcionário …0004, cliente …0005). Ela começa vazia: o dono cadastra serviços, preços e o resto.
 
 ---
 
