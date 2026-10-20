@@ -145,6 +145,7 @@ async function main() {
       await novo.getByLabel("Modelo do carro").fill("HB20 1.0");
       await novo.getByLabel("Cor do carro").fill("Branco");
       await novo.getByLabel("Instagram ou outra rede social (opcional)").fill("@nova.testadora");
+      await novo.getByText("HB20 · Carro pequeno ✓").waitFor({ timeout: 10000 }).catch(() => {});
       checar("cadastro já sabe o tamanho pelo modelo (HB20 = carro pequeno), sem perguntar", (await novo.getByText("HB20 · Carro pequeno ✓").count()) === 1 && (await novo.getByRole("radio", { name: /^Pequeno/ }).count()) === 0);
       await novo.getByRole("button", { name: "Criar cadastro" }).click();
       await novo.getByText(/fácil de adivinhar/).waitFor({ timeout: 10000 }).catch(() => {});
