@@ -285,8 +285,9 @@ async function main() {
       for (const x of lista.data.items) await api("DELETE", `/api/collections/${col}/records/${x.id}`, { token: ADM });
     }
   } finally {
-    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
+    // Empresa primeiro (leva junto lavagens, vendas e histórico do teste), depois as pessoas.
     for (const id of criados.empresas) await api("DELETE", `/api/collections/empresas/records/${id}`, { token: ADM });
+    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
     servidor.close();
   }
 

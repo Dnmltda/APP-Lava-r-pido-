@@ -284,8 +284,9 @@ async function main() {
     for (const p of Object.keys(pessoas)) checar(`${p}: nenhum erro de JavaScript`, erros[p].length === 0, erros[p]);
   } finally {
     await navegador.close();
-    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
+    // Empresa primeiro (leva junto lavagens, vendas e histórico do teste), depois as pessoas.
     for (const id of criados.empresas) await api("DELETE", `/api/collections/empresas/records/${id}`, { token: ADM });
+    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
   }
 
   console.log(`\n${total - falhas}/${total} verificações passaram.`);

@@ -197,8 +197,9 @@ async function main() {
     checar("conexão do tempo real abre (atualização na hora)", rt.status === 200 && (rt.headers.get("content-type") || "").includes("event-stream"), rt.status);
     ctl.abort();
   } finally {
-    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
+    // Empresa primeiro (leva junto lavagens, vendas e histórico do teste), depois as pessoas.
     for (const id of criados.empresas) await api("DELETE", `/api/collections/empresas/records/${id}`, { token: ADM });
+    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
   }
   console.log(`\n${total - falhas}/${total} verificações passaram.`);
   process.exit(falhas ? 1 : 0);

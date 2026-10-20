@@ -298,8 +298,9 @@ async function main() {
       return ok(await api("PATCH", `/api/collections/empresas/records/${A.id}`, { token: T(p), body: { textos_aviso: { pronto: "Pronto! " + p } } }));
     });
   } finally {
-    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
+    // Empresa primeiro (leva junto lavagens, vendas e histórico do teste), depois as pessoas.
     for (const id of criados.empresas) await api("DELETE", `/api/collections/empresas/records/${id}`, { token: ADM });
+    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
     // Pessoas cadastradas pela rota /api/lr/equipe durante o teste
     const novos = await api("GET", `/api/collections/usuarios/records?filter=${qs(`celular~"118${sufixo}"`)}`, { token: ADM });
     for (const u of novos.data?.items || []) await api("DELETE", `/api/collections/usuarios/records/${u.id}`, { token: ADM });

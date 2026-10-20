@@ -283,8 +283,9 @@ async function main() {
     checar("chave nova funciona", r.status === 204, r.status);
   } finally {
     if (gateway) gateway.kill();
-    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
+    // Empresa primeiro (leva junto lavagens, vendas e histórico do teste), depois as pessoas.
     for (const id of criados.empresas) await api("DELETE", `/api/collections/empresas/records/${id}`, { token: ADM });
+    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
     for (const d of [dahua, hik]) {
       for (const c of d.conexoes) c.destroy();
       d.servidor.close();

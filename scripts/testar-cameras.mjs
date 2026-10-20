@@ -247,8 +247,9 @@ async function main() {
     r = await api("DELETE", `${col}/${cam3.id}`, { token: patrao.token });
     checar("patrão exclui câmera", r.status === 204, r.status);
   } finally {
-    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
+    // Empresa primeiro (leva junto lavagens, vendas e histórico do teste), depois as pessoas.
     for (const id of criados.empresas) await api("DELETE", `/api/collections/empresas/records/${id}`, { token: ADM });
+    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
     servidor.close();
   }
 

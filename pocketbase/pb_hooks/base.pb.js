@@ -295,3 +295,16 @@ onRecordUpdateRequest((e) => {
   }
   e.next();
 }, "usuarios");
+
+// Empresas de teste automático ("teste-*"): o administrador pode apagar com tudo dentro.
+// Empresas de verdade continuam protegidas (vendas, lavagens e histórico impedem apagar).
+onRecordDeleteRequest((e) => {
+  if (!e.hasSuperuserAuth() || e.record.getString("slug").indexOf("teste-") !== 0) return e.next();
+  const id = e.record.id;
+  e.app.runInTransaction((tx) => {
+    for (const col of ["vendas_itens", "vendas", "itens_pedido", "fila_entradas", "auditoria"]) {
+      for (const r of tx.findRecordsByFilter(col, "empresa = {:e}", "", 0, 0, { e: id })) tx.delete(r);
+    }
+  });
+  e.next();
+}, "empresas");
