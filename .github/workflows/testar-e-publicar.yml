@@ -1,5 +1,6 @@
-# A cada push no main: testa tudo (tipos, build, isolamento e fila) e, se passar,
-# publica no Fly.io. Em pull request: só testa.
+# A cada push no main: testa tudo (tipos, build, todas as etapas, permissões por perfil,
+# navegador, backup e segurança) e, se passar, publica no Fly.io (se configurado).
+# Em pull request: só testa.
 name: Testar e publicar
 
 on:
@@ -19,7 +20,7 @@ env:
 jobs:
   testes:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +46,7 @@ jobs:
           ./scripts/compilar-pocketbase.sh
           cd pocketbase
           ./bin/pocketbase superuser upsert ci@teste.local 'SenhaCI-123456' --dir ./pb_data --migrationsDir ./pb_migrations
-          LR_CAMERAS_LOCAL=1 nohup ./bin/pocketbase serve --dir ./pb_data --migrationsDir ./pb_migrations --hooksDir ./pb_hooks --http 127.0.0.1:8090 > pb.log 2>&1 &
+          LR_CAMERAS_LOCAL=1 nohup ./bin/pocketbase serve --dir ./pb_data --migrationsDir ./pb_migrations --hooksDir ./pb_hooks --publicDir ../web/dist --http 127.0.0.1:8090 > pb.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8090/api/health && break; sleep 1; done
 
       - name: Teste de isolamento (Etapa 1)
@@ -79,6 +80,34 @@ jobs:
       - name: Teste do sensor de movimento (DVRs Intelbras e Hikvision falsos + gateway)
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
         run: node scripts/testar-sensor.mjs
+
+      - name: Tabela de permissões completa (Etapa 8 — cada linha x 5 perfis)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-permissoes.mjs
+
+      - name: Navegador (Etapa 8 — fluxo completo com um celular por perfil)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456, APP_URL: "http://127.0.0.1:8090" }
+        run: |
+          npm i --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+          node scripts/testar-navegador.mjs fotos-navegador
+
+      - name: Backup e restauração (Etapa 8)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-backup.mjs
+
+      - name: Auditoria de segurança (Etapa 8)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/auditar-seguranca.mjs
+
+      - name: Fotos das telas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fotos-navegador
+          path: fotos-navegador
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Log do PocketBase (se falhar)
         if: failure()

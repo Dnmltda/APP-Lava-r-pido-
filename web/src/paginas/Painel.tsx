@@ -70,6 +70,9 @@ export function Painel() {
               <Atalho para={`/${empresa.slug}/produtos`} titulo="Produtos" texto="Preço, estoque e comissão" />
             )}
             {pode(vinculo, "configurar_empresa") && (
+              <Atalho para={`/${empresa.slug}/cartaz`} titulo="Cartaz do balcão" texto="QR Code para os clientes entrarem na fila" />
+            )}
+            {pode(vinculo, "configurar_empresa") && (
               <Atalho para={`/${empresa.slug}/configuracoes`} titulo="Configurações" texto="Logo, cor, fila, avisos e horários" />
             )}
           </>

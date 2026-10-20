@@ -21,7 +21,21 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 | 6. Avisos e avaliação | ✅ concluída | `testar-avisos.mjs`: 31/31 (Web Push descriptografado + VAPID conferido) |
 | 7. Câmeras | ✅ concluída | `testar-cameras.mjs`: 60/60 (gateway falso com token, passes forjados/vencidos) |
 | 7b. Sensor de movimento | ✅ concluída | `testar-sensor.mjs`: 41/41 (DVRs Intelbras e Hikvision falsos com login Digest + gateway) |
-| 8. Testes e publicação final | a fazer | |
+| 8. Testes e publicação final | ✅ concluída | `testar-permissoes.mjs` 163/163 · `testar-navegador.mjs` 63/63 · `testar-backup.mjs` 8/8 · `auditar-seguranca.mjs` 124/124 (produção) |
+
+### Etapa 8: Testes e publicação
+Checklist completo com as evidências: [`docs/CHECKLIST-PRONTO.md`](docs/CHECKLIST-PRONTO.md).
+- **Tabela de permissões 1.3 inteira** testada pela API com os 5 perfis (163 verificações).
+- **Teste no navegador com um celular por perfil**: menu de cada um, telas proibidas, fluxo completo
+  (fila → confirmar → lavar → baixa → avaliação) e todas as telas sem erro. Roda também contra a produção.
+- **Segurança** (`scripts/auditar-seguranca.mjs`, roda local ou na produção). Corrigidos nesta etapa:
+  - regras que deixavam visitante sem login ler entradas de balcão/reserva (nome, celular, placa);
+  - coleção padrão `users` do PocketBase, aberta para criar conta pela API;
+  - cabeçalhos CSP, HSTS, Referrer-Policy e Permissions-Policy.
+- **Backup** automático diário (03:00, guarda 7) e **restauração testada** com o backup da produção.
+- **Cartaz do balcão** com QR Code (patrão) e **política de privacidade** (LGPD) por lava rápido.
+- **Treinamento** por perfil ([`docs/TREINAMENTO.md`](docs/TREINAMENTO.md)) e **implantação** de um lava rápido novo
+  ([`docs/IMPLANTACAO.md`](docs/IMPLANTACAO.md)).
 
 ### Etapa 7: Câmeras (só o patrão)
 - Tela **Câmeras** no painel do patrão. Gerente, funcionário e cliente não veem nem pela API (regra no PocketBase).
@@ -169,7 +183,8 @@ O limite de 5 cadastros por hora vale também para o teste. Se rodar várias vez
 
 ## Publicação
 
-- **Tudo junto no Fly.io:** o `Dockerfile` da raiz compila o app e o coloca dentro do PocketBase (`pb_public`). App e API ficam no mesmo endereço, como no APP OBRA.
+- **Produção atual: Hostinger** (Node.js) — ver [`deploy/hostinger/README.md`](deploy/hostinger/README.md) e [`COWORK.md`](COWORK.md).
+- **Alternativa no Fly.io:** o `Dockerfile` da raiz compila o app e o coloca dentro do PocketBase (`pb_public`). App e API ficam no mesmo endereço, como no APP OBRA.
 - Para separar o frontend (ex.: Hostinger estática), faça o build com `VITE_PB_URL=https://backend` e configure o redirecionamento de SPA.
 - Backup diário automático (ver Automação).
 

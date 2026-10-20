@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
 import { MeusVeiculos } from "../componentes/MeusVeiculos";
 import { Aviso, Botao, Campo, Interruptor } from "../componentes/ui";
@@ -114,6 +114,9 @@ export function Conta() {
         >
           Sair do app
         </Botao>
+        <Link to={`/${empresa.slug}/privacidade`} className="mt-2 text-center text-base font-bold text-marca-forte underline">
+          Política de privacidade
+        </Link>
       </div>
     </Moldura>
   );

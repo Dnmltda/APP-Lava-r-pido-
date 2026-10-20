@@ -1,63 +1,63 @@
 # Cowork: deixar o DNM&LTDA Lava Rápido 100% automático
 
-Mesmo modelo do APP OBRA: **um endereço só no Fly.io** (o PocketBase serve o app e a API, com HTTPS).
-Depois destes passos, o Claude Code trabalha sozinho:
-- Cada push no `main` testa tudo e, se passar, publica.
-- O backup roda todo dia às 03:00.
-- Empresas novas são criadas por um botão no GitHub Actions.
+**Produção atual: Hostinger** (hospedagem Node.js), em
+`https://seagreen-cattle-355822.hostingersite.com` — o PocketBase serve o app e a API no mesmo endereço.
+O Claude Code publica sozinho pela API da Hostinger (ver `deploy/hostinger/README.md`).
 
-Ninguém precisa mandar senha para o Claude: ele usa os secrets guardados no GitHub, sem ver o valor.
+O que ainda depende do Cowork / do Diego (o Claude não tem acesso a essas telas):
 
 ---
 
-## Passo 1: Token do Fly.io (2 min)
-1. Entrar em https://fly.io/dashboard com a conta da DNM&LTDA (a mesma do APP OBRA).
-2. Menu **Tokens** (ou *Account → Access Tokens*) → **Create token** → tipo **Org token** da organização `personal`, sem prazo de validade (ou 1 ano).
-   - Pelo terminal: `fly tokens create org personal`
-3. Copiar o token (começa com `FlyV1 ...`).
+## Passo 1: Backup fora do servidor + criação de empresas pelo GitHub (3 min)
+O backup diário já roda **dentro** do servidor (03:00, guarda 7). Para ter uma **cópia fora** da Hostinger
+(guardada 90 dias no GitHub) e o botão "Criar lava rápido" funcionando:
 
-> Precisa ser **Org token** (não "deploy token"): na primeira publicação, o robô cria sozinho o app `dnm-lava-rapido` e o volume de dados em São Paulo.
+Em https://github.com/Dnmltda/APP-Lava-r-pido-/settings/secrets/actions:
 
-## Passo 2: Secrets no GitHub (3 min)
-Em https://github.com/Dnmltda/APP-Lava-r-pido-/settings/secrets/actions → **New repository secret**, criar os 3:
+**Aba Secrets → New repository secret**
 
 | Nome | Valor |
 |---|---|
-| `FLY_API_TOKEN` | o token do Passo 1 (inteiro, com `FlyV1`) |
-| `PB_ADMIN_EMAIL` | e-mail do admin do PocketBase, ex.: `admin@dnmltda.com.br` |
-| `PB_ADMIN_PASSWORD` | senha forte nova (16+ caracteres). Guardar no cofre de senhas da DNM&LTDA |
+| `PB_ADMIN_EMAIL` | `admin@dnmltda.com.br` |
+| `PB_ADMIN_PASSWORD` | a senha do administrador do PocketBase (a mesma da variável `PB_ADMIN_PASSWORD` do site na Hostinger) |
 
-## Passo 3: Permissões do Claude no GitHub (1 min)
-Em https://github.com/settings/installations → **Claude** → *Configure*:
-- **Repository access**: confirmar que o `APP-Lava-r-pido-` está marcado (já está, o push funcionou).
-- Se aparecer pedido de **aceitar novas permissões** (Actions / Workflows), aceitar.
-  O Claude precisa disso para enviar os arquivos de `.github/workflows` e disparar o deploy, o backup e a criação de empresa.
+**Aba Variables → New repository variable**
 
-## Passo 4: Avisar o Claude Code
-Mandar na sessão: **"secrets cadastrados"**. O Claude então:
-1. dispara o workflow **Testar e publicar** (primeira publicação, uns 5 min);
-2. confere se `https://dnm-lava-rapido.fly.dev/api/health` está no ar;
-3. roda **Criar lava rápido → demo**;
-4. testa a demo online e manda o link.
+| Nome | Valor |
+|---|---|
+| `APP_URL` | `https://seagreen-cattle-355822.hostingersite.com` (ou o domínio próprio, depois do Passo 3) |
 
-> Se o nome `dnm-lava-rapido` já existir no Fly (é global), o Claude troca a variável `FLY_APP` e repete.
+Depois: **Actions → Backup diário → Run workflow** para testar. Deve aparecer um `.zip` em *Artifacts*.
+
+## Passo 2: Trocar a senha do administrador (recomendado antes de clientes reais)
+A senha atual foi usada durante o desenvolvimento. Para trocar:
+1. hPanel → Sites → `seagreen-cattle-355822.hostingersite.com` → **Node.js** → *Variáveis de ambiente* →
+   mudar `PB_ADMIN_PASSWORD` (16+ caracteres) e salvar/reiniciar. O servidor aplica a senha nova sozinho ao subir.
+   (Ou peça ao Claude: ele troca pela API da Hostinger.)
+2. Atualizar o secret `PB_ADMIN_PASSWORD` no GitHub (Passo 1) e o cofre de senhas da DNM&LTDA.
+
+## Passo 3: Domínio próprio (opcional, ex.: `lavarapido.dnmltda.com.br`)
+1. hPanel → Sites → o site do Lava Rápido → **Domínios** → conectar/trocar o domínio (ou criar o subdomínio
+   e apontar para este site). O SSL é emitido pela Hostinger.
+2. Mudar a variável `APP_URL` no GitHub (Passo 1).
+3. Avisar o Claude: ele confere o app no domínio novo e refaz os cartazes (o QR Code usa o endereço aberto no navegador).
+
+## Passo 4: Permissões do Claude no GitHub (1 min, se pedir)
+https://github.com/settings/installations → **Claude** → *Configure*: o `APP-Lava-r-pido-` marcado e, se aparecer,
+aceitar permissões novas (Actions/Workflows).
 
 ---
 
-## Opcional: domínio próprio (ex.: `lavarapido.dnmltda.com.br`)
-1. Na Hostinger (hPanel → Domínios → DNS do `dnmltda.com.br`): criar **CNAME** `lavarapido` → `dnm-lava-rapido.fly.dev`.
-2. No Fly: `fly certs add lavarapido.dnmltda.com.br -a dnm-lava-rapido` (ou no dashboard, *Certificates*).
-3. No GitHub (Settings → Secrets and variables → Actions → aba **Variables**): criar `APP_URL` = `https://lavarapido.dnmltda.com.br`.
-4. Avisar o Claude.
-
-## Custos esperados
-- Fly.io: 1 máquina shared-cpu 256 MB + volume de 1 GB, por volta de US$ 2–3/mês (ou dentro da franquia, se houver).
-- GitHub Actions: grátis (repositório privado tem 2.000 min/mês; cada deploy usa uns 5 min).
-
-## O que fica automático depois
+## O que fica automático
 | O quê | Como |
 |---|---|
-| Publicar nova versão | push no `main` → testes → deploy (só publica se os testes passarem) |
-| Backup | todo dia às 03:00 → `.zip` guardado 90 dias em Actions → Backup diário |
-| Novo lava rápido | Actions → **Criar lava rápido** → preencher nome, link, cor, WhatsApp, patrão → a senha inicial aparece no resumo |
-| Restaurar backup | baixar o `.zip` em Actions e restaurar pelo painel `https://.../_/` → Settings → Backups |
+| Testes | cada push no `main`: todas as etapas, tabela de permissões, navegador por perfil, backup e auditoria de segurança |
+| Publicar nova versão | o Claude empacota (`scripts/empacotar-hostinger.sh`) e publica pela API da Hostinger |
+| Backup no servidor | todo dia 03:00 (Brasília), 7 últimos — painel `/_/` → Settings → Backups |
+| Backup fora do servidor | todo dia 03:00 → `.zip` em Actions → Backup diário (90 dias) — depois do Passo 1 |
+| Novo lava rápido | Actions → **Criar lava rápido** — depois do Passo 1 (ver `docs/IMPLANTACAO.md`) |
+| Restaurar backup | painel `/_/` → Settings → Backups → *Restore* (ou subir o `.zip` baixado). Testado: `scripts/testar-backup.mjs` |
+
+## Fly.io (alternativa, não usada hoje)
+O `Dockerfile`/`fly.toml` continuam no projeto. Para usar Fly.io no lugar da Hostinger: criar o secret
+`FLY_API_TOKEN` (Org token) — o workflow *Testar e publicar* passa a publicar lá automaticamente.

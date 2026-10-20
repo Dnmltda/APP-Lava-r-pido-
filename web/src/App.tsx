@@ -11,6 +11,8 @@ import { FilaEquipe } from "./paginas/FilaEquipe";
 import { Avaliacoes, Avaliar } from "./paginas/Avaliacoes";
 import { Caixa } from "./paginas/Caixa";
 import { Cameras } from "./paginas/Cameras";
+import { Cartaz } from "./paginas/Cartaz";
+import { Privacidade } from "./paginas/Privacidade";
 import { MinhaArea } from "./paginas/MinhaArea";
 import { Painel } from "./paginas/Painel";
 import { PainelDia } from "./paginas/PainelDia";
@@ -69,6 +71,8 @@ export default function App() {
             <Route path="avaliar/:entrada" element={<Avaliar />} />
             <Route path="avaliacoes" element={<Avaliacoes />} />
             <Route path="cameras" element={<Cameras />} />
+            <Route path="cartaz" element={<Cartaz />} />
+            <Route path="privacidade" element={<Privacidade />} />
             <Route path="configuracoes" element={<Configuracoes />} />
             <Route path="servicos" element={<Servicos />} />
             <Route path="fila" element={<FilaEquipe />} />

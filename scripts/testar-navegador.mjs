@@ -53,10 +53,10 @@ async function api(method, p, { token, body } = {}) {
   return { status: res.status, data };
 }
 
-const MENU = ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Minha área", "Equipe", "Serviços", "Produtos", "Configurações", "Câmeras"];
+const MENU = ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Minha área", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"];
 // O que cada perfil deve ver no menu (tabela 1.3)
 const VE = {
-  patrao: ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Equipe", "Serviços", "Produtos", "Configurações", "Câmeras"],
+  patrao: ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"],
   gerente: ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Minha área"],
   funcionario: ["Fila", "Vendas", "Avaliações", "Minha área"],
   responsavel: ["Fila", "Vendas", "Avaliações", "Minha área"],
@@ -64,7 +64,7 @@ const VE = {
 };
 const ROTA = {
   Fila: "fila", Vendas: "vendas", "Painel do dia": "painel", Caixa: "caixa", Avaliações: "avaliacoes", "Minha área": "minha-area",
-  Equipe: "equipe", Serviços: "servicos", Produtos: "produtos", Configurações: "configuracoes", Câmeras: "cameras",
+  Equipe: "equipe", Serviços: "servicos", Produtos: "produtos", Cartaz: "cartaz", Configurações: "configuracoes", Câmeras: "cameras",
 };
 
 async function main() {
@@ -137,7 +137,8 @@ async function main() {
     for (const [p, rotas] of Object.entries(proibidas)) {
       for (const r of rotas) {
         await paginas[p].goto(`${APP}/${A.slug}/${r}`);
-        await paginas[p].waitForTimeout(1200);
+        // Espera o app conferir o perfil e voltar para o início (até 10 s em rede lenta).
+        await paginas[p].waitForURL((u) => !u.pathname.endsWith("/" + r), { timeout: 10000 }).catch(() => {});
         const url = new URL(paginas[p].url()).pathname;
         const dados = await paginas[p].locator("body").innerText();
         checar(`${p}: /${r} não abre`, url === `/${A.slug}` || url === `/${A.slug}/` || /permiss|não tem acesso|só (o )?patr/i.test(dados), url);
@@ -219,7 +220,13 @@ async function main() {
       }
     }
     await cli.goto(`${APP}/${A.slug}/conta`);
-    await cli.waitForTimeout(800);
+    await cli.getByRole("link", { name: "Política de privacidade" }).click();
+    await cli.getByText("Quem cuida dos seus dados").waitFor({ timeout: 10000 }).catch(() => {});
+    checar("cliente abre a política de privacidade", (await cli.locator("body").innerText()).includes("Lava Teste Navegador"));
+    await paginas.patrao.goto(`${APP}/${A.slug}/cartaz`);
+    await paginas.patrao.locator('[role="img"] svg').waitFor({ timeout: 10000 }).catch(() => {});
+    checar("patrão gera o cartaz com QR Code do lava rápido", (await paginas.patrao.locator('[role="img"] svg').count()) === 1 && (await paginas.patrao.locator("body").innerText()).includes(`/${A.slug}`));
+    await foto("patrao", "cartaz");
     for (const p of Object.keys(pessoas)) checar(`${p}: nenhum erro de JavaScript`, erros[p].length === 0, erros[p]);
   } finally {
     await navegador.close();

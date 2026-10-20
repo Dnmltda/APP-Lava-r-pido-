@@ -164,6 +164,13 @@ export function Cadastro() {
         <Botao type="submit" largo carregando={enviando}>
           Criar cadastro
         </Botao>
+        <p className="text-center text-sm text-tinta-suave">
+          Ao criar o cadastro você concorda com a{" "}
+          <Link to={`/${empresa.slug}/privacidade`} className="font-bold text-marca-forte underline">
+            política de privacidade
+          </Link>
+          .
+        </p>
       </form>
     </Moldura>
   );
