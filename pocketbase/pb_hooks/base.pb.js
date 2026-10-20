@@ -351,7 +351,7 @@ onRecordDeleteRequest((e) => {
   if (!e.hasSuperuserAuth() || e.record.getString("slug").indexOf("teste-") !== 0) return e.next();
   const id = e.record.id;
   e.app.runInTransaction((tx) => {
-    for (const col of ["vendas_itens", "vendas", "itens_pedido", "fila_entradas", "auditoria"]) {
+    for (const col of ["vendas_itens", "vendas", "itens_pedido", "agendamentos", "orcamentos", "fila_entradas", "assinaturas", "auditoria"]) {
       for (const r of tx.findRecordsByFilter(col, "empresa = {:e}", "", 0, 0, { e: id })) tx.delete(r);
     }
   });

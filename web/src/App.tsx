@@ -19,6 +19,10 @@ import { Historico } from "./paginas/Historico";
 import { Clientes } from "./paginas/Clientes";
 import { MinhaArea } from "./paginas/MinhaArea";
 import { ModoTV } from "./paginas/ModoTV";
+import { Planos } from "./paginas/Planos";
+import { Agendar } from "./paginas/Agendar";
+import { Orcamentos } from "./paginas/Orcamentos";
+import { Reativar } from "./paginas/Reativar";
 import { Painel } from "./paginas/Painel";
 import { PainelDia } from "./paginas/PainelDia";
 import { Produtos } from "./paginas/Produtos";
@@ -82,6 +86,10 @@ export default function App() {
             <Route path="cameras" element={<Cameras />} />
             <Route path="cartaz" element={<Cartaz />} />
             <Route path="tv" element={<ModoTV />} />
+            <Route path="planos" element={<Planos />} />
+            <Route path="agendar" element={<Agendar />} />
+            <Route path="orcamentos" element={<Orcamentos />} />
+            <Route path="reativar" element={<Reativar />} />
             <Route path="privacidade" element={<Privacidade />} />
             <Route path="configuracoes" element={<Configuracoes />} />
             <Route path="servicos" element={<Servicos />} />

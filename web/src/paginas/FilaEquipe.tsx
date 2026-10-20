@@ -23,8 +23,14 @@ import { CancelarEntrada, DadosEntrada, NovaReserva, Reposicionar } from "./Fila
 import { pode } from "../lib/permissoes";
 import { Camera } from "lucide-react";
 import { FotosEntrada, useFotosDasEntradas } from "../componentes/Vistoria";
+import { PedidosHorario } from "../componentes/PedidosHorario";
 import { EscolhaTipo, tiposDaEmpresa } from "../componentes/TipoVeiculo";
 import type { Empresa, ItemPedido, Servico, TipoVeiculo, Vinculo } from "../lib/tipos";
+
+interface Beneficio {
+  plano: { nome: string; restantes: number; fim: string; cobre: boolean } | null;
+  fidelidade: { disponiveis: number; meta: number; faltam: number } | null;
+}
 
 type Pedido =
   | { tipo: "recusar" | "cancelar" | "reposicionar" | "dados"; entrada: EntradaFila }
@@ -64,6 +70,77 @@ export function FilaEquipe() {
   const gestao = pode(vinculo, "gerenciar_fila");
   const tipos = tiposDaEmpresa(empresa);
   const { contagem: fotos, recarregar: recarregarFotos } = useFotosDasEntradas((entradas || []).map((x) => x.id));
+  // Plano e prêmio de fidelidade de cada cliente na fila (o servidor calcula).
+  const [beneficios, setBeneficios] = useState<Record<string, Beneficio>>({});
+  const chaveEntradas = (entradas || []).map((x) => `${x.id}:${x.assinatura || ""}:${x.premio_fidelidade ? 1 : 0}`).join(",");
+  useEffect(() => {
+    if (!chaveEntradas) return;
+    pb.send<Record<string, Beneficio>>(`/api/lr/beneficios/${empresa.id}`, { method: "GET" })
+      .then(setBeneficios)
+      .catch(() => {});
+  }, [chaveEntradas, empresa.id]);
+  async function usarBeneficio(e: EntradaFila, tipo: "plano" | "premio", usar: boolean) {
+    setOcupado(e.id);
+    setErroAcao("");
+    try {
+      await pb.send(`/api/lr/beneficio/${e.id}`, { method: "POST", body: { tipo, usar } });
+      recarregar();
+    } catch (err) {
+      setErroAcao(mensagemDeErro(err));
+    } finally {
+      setOcupado("");
+    }
+  }
+
+  const beneficioChips = (e: EntradaFila) => {
+    const b = beneficios[e.id];
+    const chipB = "inline-flex min-h-10 items-center gap-1.5 rounded-full border-2 px-3 text-sm font-bold";
+    const verde = `${chipB} border-green-600 bg-green-50 text-green-900`;
+    const acao = `${chipB} border-marca bg-marca text-sobre-marca disabled:opacity-50`;
+    return (
+      <>
+        {e.assinatura ? (
+          <span className={verde}>
+            Plano usado ✓
+            {gestao && (
+              <button type="button" disabled={!!ocupado} onClick={() => usarBeneficio(e, "plano", false)} className="ml-1 underline">
+                desfazer
+              </button>
+            )}
+          </span>
+        ) : b?.plano ? (
+          gestao && b.plano.cobre ? (
+            <button type="button" disabled={!!ocupado} onClick={() => usarBeneficio(e, "plano", true)} className={acao}>
+              Usar plano {b.plano.nome} ({b.plano.restantes})
+            </button>
+          ) : (
+            <span className={`${chipB} border-linha bg-white text-tinta`}>
+              Tem plano {b.plano.nome}
+              {b.plano.cobre ? "" : " (não cobre este serviço)"}
+            </span>
+          )
+        ) : null}
+        {e.premio_fidelidade ? (
+          <span className={verde}>
+            Prêmio fidelidade ✓
+            {gestao && (
+              <button type="button" disabled={!!ocupado} onClick={() => usarBeneficio(e, "premio", false)} className="ml-1 underline">
+                desfazer
+              </button>
+            )}
+          </span>
+        ) : !e.assinatura && b?.fidelidade && b.fidelidade.disponiveis > 0 ? (
+          gestao ? (
+            <button type="button" disabled={!!ocupado} onClick={() => usarBeneficio(e, "premio", true)} className={acao}>
+              Usar prêmio fidelidade
+            </button>
+          ) : (
+            <span className={`${chipB} border-linha bg-white text-tinta`}>Tem prêmio fidelidade</span>
+          )
+        ) : null}
+      </>
+    );
+  };
 
   // Linha de extras do cartão: tipo do veículo e fotos de antes/depois.
   const extras = (e: EntradaFila) => {
@@ -79,6 +156,7 @@ export function FilaEquipe() {
           ) : (
             e.tipo_veiculo_nome && <span className={`${chip} border-linha bg-white text-tinta`}>{e.tipo_veiculo_nome}</span>
           ))}
+        {beneficioChips(e)}
         {gestao && e.cliente && e.veiculo && !e.tipo_veiculo && !e.expand?.veiculo?.porte && tipos.some((t) => t.vale && t.vale !== "app") && (
           <button
             type="button"
@@ -186,6 +264,7 @@ export function FilaEquipe() {
           </Botao>
         </div>
       )}
+      {gestao && <PedidosHorario onMudou={recarregar} />}
       {sucesso && (
         <div className="mt-4">
           <Aviso tipo="sucesso">{sucesso}</Aviso>

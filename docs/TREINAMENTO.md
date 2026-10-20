@@ -99,6 +99,21 @@ Tudo do gerente, mais:
   Toque em **Tela cheia** e deixe o descanso de tela da TV/tablet desligado.
 - **Avaliações** com o nome do cliente.
 
+## Planos, agendamento, orçamento e clientes sumidos
+- **Planos e fidelidade** (só o dono configura): crie planos (preço, quantas lavagens, validade, serviços incluídos).
+  O cliente vê e **pede** pelo app; o dono **ativa depois de receber no balcão** (o valor entra no Caixa como
+  “Planos”) ou recusa. Cada plano vale para um carro. Na fila aparece **“Usar plano (restantes)”**: quem gere a
+  fila toca e o serviço do dia sai R$ 0 (dá para desfazer; entrada cancelada devolve a lavagem).
+  **Cartão fidelidade** (opcional): a cada N lavagens, um prêmio. Na fila aparece **“Usar prêmio fidelidade”**.
+- **Pedidos de horário**: o cliente pede dia e hora pelo app. Aparecem no topo da **Fila** para quem gere a fila:
+  **Confirmar no horário pedido**, **Confirmar em outro horário**, **Colocar na sequência da fila agora** ou
+  **Recusar** (com motivo). Só vira lugar na fila com a resposta da equipe; o cliente recebe o aviso.
+- **Orçamentos** (dono e gerente): marque **“Sob orçamento”** no serviço (ex.: polimento). O cliente pede com
+  descrição e fotos; vocês respondem valor, tempo e o que inclui; ele aceita ou recusa; aceitando, pede o horário
+  e a fila usa o valor do orçamento.
+- **Reativar clientes** (dono e gerente): quem não volta há 30, 60 ou 90 dias, com mensagem pronta no WhatsApp.
+  O app marca a data do contato.
+
 ## Cliente (o que explicar no balcão)
 1. Ler o QR Code → **Criar cadastro**: nome, celular, senha e o carro (placa, **modelo** e **cor** são obrigatórios).
    Pelo modelo o app já sabe o **tamanho** (HB20 = pequeno, Corolla = médio, Hilux = grande); o cliente **não escolhe

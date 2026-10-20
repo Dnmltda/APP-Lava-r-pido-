@@ -87,7 +87,7 @@ routerAdd("GET", "/api/lr/fechamento-mes/{empresa}", (e) => {
 // descarta o "?token=" — o /api/files/... protegido então nunca abre. Este endereço não
 // termina em extensão e confere o passe e a regra de leitura do próprio registro.
 routerAdd("GET", "/api/lr/arquivo/{colecao}/{id}", (e) => {
-  const CAMPOS = { vistorias: "fotos", fechamentos_dia: "anexos" };
+  const CAMPOS = { vistorias: "fotos", fechamentos_dia: "anexos", orcamentos: "fotos" };
   const colecao = e.request.pathValue("colecao");
   const campo = CAMPOS[colecao];
   const q = e.request.url.query();

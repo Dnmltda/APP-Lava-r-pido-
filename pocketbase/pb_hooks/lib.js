@@ -814,6 +814,12 @@ const TEXTOS_PADRAO = {
   avaliacao: "Como foi sua lavagem no {empresa}? Toque para avaliar.",
 };
 
+// "21/10 14:30" no horário de São Paulo.
+function FMT_DATA_HORA_SP(ms) {
+  const d = new Date(ms - OFFSET_SP);
+  const p2 = (n) => String(n).padStart(2, "0");
+  return p2(d.getUTCDate()) + "/" + p2(d.getUTCMonth() + 1) + " " + p2(d.getUTCHours()) + ":" + p2(d.getUTCMinutes());
+}
 const FMT_HORA_SP = (ms) => {
   const d = new Date(ms - OFFSET_SP);
   return String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0");
@@ -1291,6 +1297,103 @@ function podeDefinirPrecoDoCarro(app, usuarioId, empresaId, tipoNovo, tipoAtual)
   }
   return "";
 }
+// Avisa (push) quem tem um destes papéis na empresa. Ex.: ["patrao","gerente"].
+// Funcionário só recebe se for responsável pela fila (quando "responsavel" está na lista).
+function avisarEquipe(app, empresaId, papeis, msg) {
+  const vs = app.findRecordsByFilter("vinculos", "empresa = {:e} && ativo = true", "", 200, 0, { e: empresaId });
+  for (const v of vs) {
+    const p = v.getString("papel");
+    const ok = papeis.indexOf(p) >= 0 || (p === "funcionario" && v.getBool("responsavel_fila") && papeis.indexOf("responsavel") >= 0);
+    if (ok) notificarUsuario(app, v.getString("usuario"), msg);
+  }
+}
+
+// ------------------------------------------------------------ planos e fidelidade
+// Plano ativo do cliente para este carro hoje (ou null). Vencido = fim < agora.
+function assinaturaDoCarro(app, empresaId, clienteId, veiculoId) {
+  const agora = new Date().toISOString().replace("T", " ");
+  const l = app.findRecordsByFilter(
+    "assinaturas", "empresa = {:e} && cliente = {:c} && veiculo = {:v} && status = 'ativa' && fim > {:a}",
+    "fim", 10, 0, { e: empresaId, c: clienteId, v: veiculoId, a: agora },
+  );
+  for (const a of l) if (a.getInt("lavagens_usadas") < a.getInt("lavagens_total")) return a;
+  return null;
+}
+// O serviço da entrada está no plano? (plano sem serviços marcados = qualquer serviço)
+function planoCobreServico(app, assinatura, servicoId) {
+  try {
+    const plano = app.findRecordById("planos", assinatura.getString("plano"));
+    const lista = plano.get("servicos") || [];
+    return !lista.length || lista.indexOf(servicoId) >= 0;
+  } catch (_) {
+    return false;
+  }
+}
+// Cartão fidelidade: a cada "meta" lavagens finalizadas (sem plano e sem prêmio), 1 prêmio.
+function fidelidadeDoCliente(app, empresa, clienteId) {
+  const meta = empresa.getInt("fidelidade_meta");
+  if (!empresa.getBool("fidelidade_ativa") || meta < 1) return null;
+  const feitas = app.findRecordsByFilter(
+    "fila_entradas", "empresa = {:e} && cliente = {:c} && status = 'finalizado' && assinatura = '' && premio_fidelidade = false",
+    "", 0, 0, { e: empresa.id, c: clienteId },
+  ).length;
+  const usados = app.findRecordsByFilter(
+    "fila_entradas", "empresa = {:e} && cliente = {:c} && premio_fidelidade = true && status != 'cancelado' && status != 'recusado'",
+    "", 0, 0, { e: empresa.id, c: clienteId },
+  ).length;
+  const ganhos = Math.floor(feitas / meta);
+  return {
+    meta: meta, premio: empresa.getString("fidelidade_premio"), feitas: feitas,
+    disponiveis: Math.max(0, ganhos - usados), faltam: meta - (feitas % meta),
+  };
+}
+// Cria a entrada da fila de um cliente com cadastro, já confirmada pela equipe.
+//   horario > 0 → reserva naquele horário (encaixa pela previsão); senão, fim da fila agora.
+//   valor/duracao (do orçamento aceito) substituem o preço e o tempo da tabela.
+function criarEntradaConfirmada(tx, o) {
+  const ativos = "(" + STATUS_ATIVOS.map((s) => "status = '" + s + "'").join(" || ") + ")";
+  const doCliente = tx.findRecordsByFilter("fila_entradas", "empresa = {:e} && cliente = {:c} && " + ativos, "", 0, 0, { e: o.empresa.id, c: o.clienteId });
+  const nomeCarro = o.veiculo.getString("modelo") || "…" + o.veiculo.getString("final_placa");
+  const doCarro = doCliente.filter((x) => x.getString("veiculo") === o.veiculo.id);
+  if (o.horario) {
+    // Reserva para outro dia/horário: só não pode bater com outra vez do mesmo carro (3 h de folga).
+    const JANELA = 3 * 3600000;
+    const bate = doCarro.some((x) => {
+      const h = x.getString("horario_reserva") ? Date.parse(x.getString("horario_reserva").replace(" ", "T")) : Date.now();
+      return Math.abs(h - o.horario) < JANELA;
+    });
+    if (bate) throw new BadRequestError("O carro " + nomeCarro + " já tem vez perto desse horário.");
+  } else {
+    if (doCarro.length) throw new BadRequestError("O carro " + nomeCarro + " já está na fila.");
+    if (doCliente.length >= 3) throw new BadRequestError("O cliente já tem 3 carros na fila.");
+  }
+  const dur = o.duracao || o.servico.getInt("duracao_media_min");
+  const estado = carregarFila(tx, o.empresa);
+  const pos = o.horario ? posicaoReserva(estado, o.horario, dur) : posicaoNovaEntrada(estado, dur);
+  const en = new Record(tx.findCollectionByNameOrId("fila_entradas"));
+  en.set("empresa", o.empresa.id);
+  en.set("cliente", o.clienteId);
+  en.set("veiculo", o.veiculo.id);
+  en.set("servico", o.servico.id);
+  en.set("duracao_min", dur);
+  aplicarTipo(en, o.servico, o.empresa, tipoDoCarro(o.empresa, o.vinculo, o.veiculo));
+  if (typeof o.valor === "number") {
+    en.set("preco_tabela", en.getFloat("preco_servico"));
+    en.set("preco_servico", o.valor);
+  }
+  en.set("origem", o.horario ? "reserva" : "app");
+  en.set("status", "confirmado");
+  en.set("confirmado_por", o.autor);
+  en.set("confirmado_em", agoraISO());
+  if (o.horario) {
+    en.set("horario_reserva", new Date(o.horario).toISOString().replace("T", " "));
+    en.set("previsao_inicio", new Date(pos.previsao).toISOString().replace("T", " "));
+  }
+  en.set("ordem", ordemAntesDe(tx, o.empresa.id, pos.lista, pos.p));
+  en.set("observacao", String(o.observacao || "").slice(0, 300));
+  tx.save(en);
+  return en;
+}
 // Mapa {veiculoId: tipoId} que a equipe/dono definiu para os carros de um cliente nesta empresa.
 function mapaTipos(vinculo) {
   try {
@@ -1470,6 +1573,12 @@ module.exports = {
   tiposDoCorpo,
   contatoLimpo,
   mapaTipos,
+  FMT_DATA_HORA_SP,
+  criarEntradaConfirmada,
+  avisarEquipe,
+  assinaturaDoCarro,
+  planoCobreServico,
+  fidelidadeDoCliente,
   podeDefinirPrecoDoCarro,
   normalizarTipos,
   historicoCliente,
@@ -1493,6 +1602,7 @@ module.exports = {
   textoDoAviso,
   chavesPush,
   notificarUsuario,
+  avisarPatroes,
   notificarEntrada,
   inicioDiaSP,
   inicioMesSP,

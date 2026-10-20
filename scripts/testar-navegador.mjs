@@ -181,7 +181,7 @@ async function main() {
     }
 
     console.log("\nLink direto para tela proibida volta para o início");
-    const proibidas = { gerente: ["equipe", "cameras", "configuracoes", "servicos"], funcionario: ["painel", "caixa", "fechamento", "cameras", "equipe"], cliente: ["fila", "vendas", "painel", "cameras", "avaliacoes"] };
+    const proibidas = { gerente: ["equipe", "cameras", "configuracoes", "servicos", "planos"], funcionario: ["painel", "caixa", "fechamento", "cameras", "equipe", "planos", "orcamentos", "reativar"], cliente: ["fila", "vendas", "painel", "cameras", "avaliacoes"] };
     for (const [p, rotas] of Object.entries(proibidas)) {
       for (const r of rotas) {
         await paginas[p].goto(`${APP}/${A.slug}/${r}`);
@@ -453,6 +453,83 @@ async function main() {
       await paginas.funcionario.getByText("A pagar por este carro").first().waitFor({ timeout: 15000 }).catch(() => {});
       checar("funcionário vê quanto cada carro vai pagar", (await paginas.funcionario.getByText("A pagar por este carro").count()) >= 3);
       await foto("funcionario", "a-pagar");
+    }
+
+    console.log("\nPlanos, agendamento e orçamento pelas telas");
+    {
+      const pat = paginas.patrao;
+      const ger = paginas.gerente;
+      // Dono cria o plano
+      await pat.goto(`${APP}/${A.slug}/planos`);
+      await pat.getByRole("button", { name: "+ Novo plano" }).click();
+      await pat.getByLabel("Nome").fill("Mensal 2 lavagens");
+      await pat.getByLabel("Preço (R$)").fill("70");
+      await pat.getByLabel("Lavagens").fill("2");
+      await pat.getByLabel("Validade (dias)").fill("30");
+      await pat.getByRole("button", { name: "Salvar plano" }).click();
+      await pat.getByText("Mensal 2 lavagens").first().waitFor({ timeout: 10000 }).catch(() => {});
+      const planosA = (await api("GET", `/api/collections/planos/records?filter=${encodeURIComponent(`empresa="${A.id}"`)}`, { token: ADM })).data.items;
+      checar("dono cria o plano pela tela", planosA.length === 1 && planosA[0].preco === 70, planosA);
+      // Cliente vê e pede
+      await cli.goto(`${APP}/${A.slug}/planos`);
+      await cli.getByText("Mensal 2 lavagens").first().waitFor({ timeout: 10000 }).catch(() => {});
+      await cli.getByRole("button", { name: "Quero este plano" }).click();
+      await cli.getByRole("dialog").getByRole("radio").first().click();
+      await cli.getByRole("button", { name: "Pedir este plano" }).click();
+      await cli.getByText("Esperando o lava rápido").waitFor({ timeout: 10000 }).catch(() => {});
+      checar("cliente vê o plano e pede (fica esperando o lava rápido)", await cli.getByText("Esperando o lava rápido").isVisible());
+      // Dono ativa
+      await pat.goto(`${APP}/${A.slug}/planos`);
+      await pat.getByRole("button", { name: "Ativar ou recusar" }).click();
+      await pat.getByRole("radio", { name: "Pix" }).click();
+      await pat.getByRole("button", { name: "Recebi: ativar o plano" }).click();
+      await pat.getByRole("heading", { name: /Planos ativos \(1\)/ }).waitFor({ timeout: 10000 }).catch(() => {});
+      checar("dono ativa depois de receber", (await pat.getByRole("heading", { name: /Planos ativos \(1\)/ }).count()) === 1);
+      await foto("patrao", "planos-dono");
+      // Agendamento pelo cliente
+      await cli.goto(`${APP}/${A.slug}/agendar`);
+      await cli.getByRole("checkbox", { name: /HB20/ }).waitFor({ timeout: 10000 }).catch(() => {});
+      const livre = cli.getByRole("checkbox").first();
+      await livre.click();
+      await cli.getByRole("radio", { name: /Lavagem simples/ }).click();
+      await cli.getByRole("button", { name: "Conferir antes de enviar" }).click();
+      await cli.getByRole("button", { name: "Enviar pedido de horário" }).click();
+      await cli.getByText("Esperando a resposta do lava rápido").waitFor({ timeout: 10000 }).catch(() => {});
+      checar("cliente pede um horário (confere antes de enviar)", await cli.getByText("Esperando a resposta do lava rápido").isVisible());
+      await foto("cliente", "agendar");
+      await ger.goto(`${APP}/${A.slug}/fila`);
+      await ger.getByRole("heading", { name: /Pedidos de horário \(1\)/ }).waitFor({ timeout: 15000 }).catch(() => {});
+      checar("o pedido chega na fila da equipe", (await ger.getByRole("heading", { name: /Pedidos de horário \(1\)/ }).count()) === 1);
+      await ger.getByRole("heading", { name: /Pedidos de horário/ }).locator("xpath=..").getByRole("button").first().click();
+      await ger.getByRole("button", { name: "Confirmar no horário pedido" }).click();
+      await ger.waitForTimeout(1500);
+      const ags = (await api("GET", `/api/collections/agendamentos/records?filter=${encodeURIComponent(`empresa="${A.id}"`)}`, { token: ADM })).data.items;
+      checar("gerente confirma e vira reserva na fila", ags.length === 1 && ags[0].status === "confirmado" && ags[0].entradas.length === 1, ags);
+      // Orçamento
+      await cli.goto(`${APP}/${A.slug}/orcamentos`);
+      await cli.getByRole("button", { name: "Pedir orçamento" }).click();
+      await cli.getByRole("dialog").getByRole("radio").first().click();
+      await cli.getByLabel("O que você quer").fill("Polimento completo, riscos na porta");
+      await cli.getByRole("button", { name: "Enviar pedido de orçamento" }).click();
+      await cli.getByText("Esperando o lava rápido").first().waitFor({ timeout: 10000 }).catch(() => {});
+      checar("cliente pede orçamento", (await cli.getByText("Polimento completo, riscos na porta").count()) > 0);
+      await ger.goto(`${APP}/${A.slug}/orcamentos`);
+      await ger.getByRole("button", { name: "Responder valor" }).click();
+      await ger.getByLabel("Valor (R$)").fill("350");
+      await ger.getByRole("button", { name: "Enviar orçamento ao cliente" }).click();
+      await ger.waitForTimeout(1500);
+      await cli.goto(`${APP}/${A.slug}/orcamentos`);
+      await cli.getByRole("button", { name: "Aceitar" }).waitFor({ timeout: 10000 }).catch(() => {});
+      const txtOrc = await cli.locator("body").innerText();
+      checar("cliente vê o valor respondido pela equipe", /350,00/.test(txtOrc), txtOrc.slice(0, 200));
+      await cli.getByRole("button", { name: "Aceitar" }).click();
+      await cli.getByRole("link", { name: "Pedir o horário" }).waitFor({ timeout: 10000 }).catch(() => {});
+      checar("aceito, o cliente segue para pedir o horário", (await cli.getByRole("link", { name: "Pedir o horário" }).count()) === 1);
+      await foto("cliente", "orcamento");
+      // Reativar (lista abre para gerente)
+      await ger.goto(`${APP}/${A.slug}/reativar`);
+      await ger.getByText(/dias/).first().waitFor({ timeout: 10000 }).catch(() => {});
+      checar("gerente abre a tela de reativar clientes", new URL(ger.url()).pathname.endsWith("/reativar"));
     }
 
     console.log("\nModo TV (sem login, tela grande)");

@@ -46,3 +46,17 @@ export function normalizarPlaca(v: string) {
 export function placaValida(v: string) {
   return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(normalizarPlaca(v));
 }
+
+// "ter., 21/10 às 14:30" (São Paulo). Aceita o formato do PocketBase ("2026-10-21 17:30:00.000Z").
+const FMT_DIA_HORA = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+const FMT_DIA = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo" });
+export function diaHora(iso?: string) {
+  if (!iso) return "";
+  const d = new Date(iso.replace(" ", "T"));
+  return isNaN(d.getTime()) ? "" : FMT_DIA_HORA.format(d).replace(",", "").replace(" ", " ");
+}
+export function dia(iso?: string) {
+  if (!iso) return "";
+  const d = new Date(iso.replace(" ", "T"));
+  return isNaN(d.getTime()) ? "" : FMT_DIA.format(d);
+}

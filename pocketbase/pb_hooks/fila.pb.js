@@ -158,6 +158,7 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
   if (!servico || servico.getString("empresa") !== empresa.id || !servico.getBool("ativo")) {
     throw new BadRequestError("Escolha um serviço.");
   }
+  if (servico.getBool("sob_orcamento")) throw new BadRequestError("Este serviço é sob orçamento: peça o orçamento pelo app.");
   let ids = [];
   try {
     ids = Array.from(body.veiculos || []).map(String);

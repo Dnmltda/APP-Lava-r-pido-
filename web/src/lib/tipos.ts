@@ -30,6 +30,9 @@ export interface Empresa extends Base {
   ativo: boolean;
   tipos_veiculo?: TipoVeiculo[] | null;
   oferece_busca?: boolean;
+  fidelidade_ativa?: boolean;
+  fidelidade_meta?: number;
+  fidelidade_premio?: string;
 }
 
 // Tipos de veículo criados por cada lava rápido (ex.: Pequeno, Grande/SUV, Moto, Motorista de app).
@@ -95,6 +98,8 @@ export interface Servico extends Base {
   ordem_exibicao: number;
   ativo: boolean;
   precos_tipo?: Record<string, number> | null;
+  /** Polimento e afins: o cliente pede orçamento; não entra direto na fila. */
+  sob_orcamento?: boolean;
 }
 
 export interface Veiculo extends Base {
@@ -304,4 +309,71 @@ export interface FechamentoDia extends Base {
   criado_por: string;
   atualizado_por: string;
   expand?: { criado_por?: Usuario; atualizado_por?: Usuario };
+}
+
+export interface Plano extends Base {
+  empresa: string;
+  nome: string;
+  descricao: string;
+  preco: number;
+  validade_dias: number;
+  lavagens: number;
+  servicos: string[];
+  ativo: boolean;
+  ordem: number;
+}
+
+export interface Assinatura extends Base {
+  empresa: string;
+  cliente: string;
+  veiculo: string;
+  plano: string;
+  plano_nome: string;
+  status: "pedido" | "ativa" | "recusada" | "cancelada";
+  lavagens_total: number;
+  lavagens_usadas: number;
+  valor_pago: number;
+  forma_pagamento: string;
+  inicio: string;
+  fim: string;
+  motivo: string;
+  expand?: { cliente?: Usuario; veiculo?: Veiculo };
+}
+
+export interface Fidelidade {
+  meta: number;
+  premio: string;
+  feitas: number;
+  disponiveis: number;
+  faltam: number;
+}
+
+export interface Agendamento extends Base {
+  empresa: string;
+  cliente: string;
+  veiculos: string[];
+  servico: string;
+  orcamento: string;
+  horario_pedido: string;
+  observacao: string;
+  status: "pedido" | "confirmado" | "recusado" | "cancelado";
+  horario_confirmado: string;
+  como: "" | "no_horario" | "outro_horario" | "na_fila";
+  resposta: string;
+  expand?: { cliente?: Usuario; veiculos?: Veiculo[]; servico?: Servico };
+}
+
+export interface Orcamento extends Base {
+  empresa: string;
+  cliente: string;
+  veiculo: string;
+  servico: string;
+  descricao: string;
+  fotos: string[];
+  status: "pedido" | "respondido" | "aceito" | "recusado" | "cancelado";
+  valor: number;
+  duracao_min: number;
+  resposta: string;
+  validade: string;
+  expand?: { cliente?: Usuario; veiculo?: Veiculo; servico?: Servico };
 }

@@ -91,6 +91,7 @@ export function Servicos() {
                   <span className="block text-base text-tinta-suave">
                     {reais(s.preco)}
                     {tipos.some((t) => typeof s.precos_tipo?.[t.id] === "number") && " (varia por tipo)"} · ~{duracao(s.duracao_media_min)}
+                    {s.sob_orcamento && " · sob orçamento"}
                     {!s.ativo && " · pausado (o cliente não vê)"}
                   </span>
                 </span>
@@ -286,6 +287,7 @@ function EditarServico({
   const [dur, setDur] = useState(servico ? String(servico.duracao_media_min) : "30");
   const [ordem, setOrdem] = useState(servico ? String(servico.ordem_exibicao || "") : "");
   const [ativo, setAtivo] = useState(servico ? servico.ativo : true);
+  const [sobOrcamento, setSobOrcamento] = useState(!!servico?.sob_orcamento);
   const [precosTipo, setPrecosTipo] = useState<Record<string, string>>(() =>
     Object.fromEntries(tipos.map((t) => [t.id, typeof servico?.precos_tipo?.[t.id] === "number" ? paraTexto(servico.precos_tipo[t.id]) : ""])),
   );
@@ -317,6 +319,7 @@ function EditarServico({
       ordem_exibicao: parseInt(ordem, 10) || 0,
       ativo,
       precos_tipo,
+      sob_orcamento: sobOrcamento,
     };
     setSalvando(true);
     try {
@@ -359,6 +362,12 @@ function EditarServico({
         )}
         <Campo rotulo="Posição na lista (opcional)" type="number" inputMode="numeric" value={ordem} onChange={(e) => setOrdem(e.target.value)} ajuda="Números menores aparecem primeiro para o cliente." />
         <Interruptor rotulo="Disponível para os clientes" ligado={ativo} onChange={setAtivo} />
+        <Interruptor
+          rotulo="Sob orçamento"
+          descricao="Polimento e afins: o cliente pede orçamento e a equipe responde o valor antes. Não entra direto na fila."
+          ligado={sobOrcamento}
+          onChange={setSobOrcamento}
+        />
         {servico && <p className="text-sm text-tinta-suave">Mudar o preço ou o tempo não altera quem já está na fila.</p>}
         {erro && <Aviso>{erro}</Aviso>}
         <Botao type="submit" largo carregando={salvando}>

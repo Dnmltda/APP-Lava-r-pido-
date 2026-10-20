@@ -19,6 +19,10 @@ import {
   Wallet,
   Receipt,
   Tv,
+  Gift,
+  FileText,
+  HeartHandshake,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -91,6 +95,13 @@ export function Painel() {
               {pode(vinculo, "gerenciar_fila") && <Atalho para={`/${s}/tv`} icone={Tv} titulo="Modo TV" texto="Fila em tela grande na recepção" />}
               <Atalho para={`/${s}/avaliacoes`} icone={Star} titulo="Avaliações" texto="O que os clientes acharam" />
               {vinculo.papel !== "patrao" && <Atalho para={`/${s}/minha-area`} icone={UserRound} titulo="Minha área" texto="Carros, bônus e vales" />}
+              {patrao && <Atalho para={`/${s}/planos`} icone={Gift} titulo="Planos e fidelidade" texto="Pacotes, pedidos e cartão fidelidade" />}
+              {(vinculo.papel === "patrao" || vinculo.papel === "gerente") && (
+                <Atalho para={`/${s}/orcamentos`} icone={FileText} titulo="Orçamentos" texto="Polimento e serviços sob orçamento" />
+              )}
+              {(vinculo.papel === "patrao" || vinculo.papel === "gerente") && (
+                <Atalho para={`/${s}/reativar`} icone={HeartHandshake} titulo="Reativar clientes" texto="Quem não volta há 30 dias" />
+              )}
               {pode(vinculo, "clientes") && <Atalho para={`/${s}/clientes`} icone={Contact} titulo="Clientes" texto="Quem veio, quantas vezes e quanto gastou" />}
               {pode(vinculo, "gerenciar_equipe") && <Atalho para={`/${s}/equipe`} icone={Users} titulo="Equipe" texto="Pessoas, permissões, senhas" />}
               {pode(vinculo, "cameras") && <Atalho para={`/${s}/cameras`} icone={Cctv} titulo="Câmeras" texto="Boxes ao vivo e sensor" />}
@@ -104,6 +115,11 @@ export function Painel() {
         ) : (
           <>
             <FilaCliente />
+            <nav aria-label="Mais para você" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Atalho para={`/${s}/agendar`} icone={CalendarClock} titulo="Agendar horário" texto="Escolha o dia e a hora" />
+              <Atalho para={`/${s}/planos`} icone={Gift} titulo="Planos e fidelidade" texto="Pacotes e prêmios" />
+              <Atalho para={`/${s}/orcamentos`} icone={FileText} titulo="Orçamento" texto="Polimento e outros serviços" />
+            </nav>
             <ResumoCliente />
             <InfoEmpresa empresa={empresa} />
             <Link

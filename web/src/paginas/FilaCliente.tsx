@@ -370,7 +370,7 @@ function EntrarNaFila({
   useEffect(() => {
     pb.collection("servicos")
       .getFullList<Servico>({ filter: pb.filter("empresa = {:e} && ativo = true", { e: empresa.id }), sort: "ordem_exibicao,nome" })
-      .then(setServicos)
+      .then((l) => setServicos(l.filter((x) => !x.sob_orcamento)))
       .catch((err) => setErro(mensagemDeErro(err)));
   }, [empresa.id]);
 
