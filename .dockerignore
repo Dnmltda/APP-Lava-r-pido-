@@ -1,0 +1,8 @@
+**/node_modules
+web/dist
+web/dev-dist
+web/.env*
+pocketbase/pb_data
+pocketbase/bin
+.git
+docs

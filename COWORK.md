@@ -1,47 +1,63 @@
-# Tarefas para o Cowork (o que o Claude Code não tem acesso para fazer)
+# Cowork: deixar o DNM&LTDA Lava Rápido 100% automático
 
-O código está pronto e testado. Estes passos precisam de acesso às contas da DNM&LTDA.
+Mesmo modelo do APP OBRA: **um endereço só no Fly.io** (o PocketBase serve o app e a API, com HTTPS).
+Depois destes passos, o Claude Code trabalha sozinho:
+- Cada push no `main` testa tudo e, se passar, publica.
+- O backup roda todo dia às 03:00.
+- Empresas novas são criadas por um botão no GitHub Actions.
 
-## 1. Criar o repositório no GitHub (obrigatório)
-1. Em github.com, conta **Dnmltda**, criar o repositório **`lava-rapido`**: privado e **vazio**, sem README, sem .gitignore e sem licença.
-2. Avisar o Claude Code na sessão. Ele faz o push do código (o histórico está pronto em `lava-rapido.bundle`).
-   - Alternativa sem o Claude: `git clone lava-rapido.bundle lava-rapido && cd lava-rapido && git remote set-url origin https://github.com/Dnmltda/lava-rapido.git && git push -u origin main`
+Ninguém precisa mandar senha para o Claude: ele usa os secrets guardados no GitHub, sem ver o valor.
 
-## 2. Backend (PocketBase) para a demonstração
-Opção A: **Fly.io** (a conta já existe):
-1. Na pasta `pocketbase/`: `fly launch --no-deploy` (região `gru`, nome sugerido `dnm-lava-rapido-api`).
-2. `fly volumes create pb_data --size 1 --region gru`
-3. No `fly.toml`: `[[mounts]] source="pb_data" destination="/pb/pb_data"`, com `internal_port = 8080`.
-4. `fly deploy`
-5. Criar o admin: `fly ssh console -C "/pb/pocketbase superuser upsert EMAIL SENHA --dir /pb/pb_data"`
-6. Mandar ao Claude: a **URL https** do backend, o **e-mail** e a **senha** do admin (por canal seguro).
+---
 
-Opção B: **Oracle Cloud Always Free** (VM Ubuntu): o mesmo Dockerfile com Docker, ou o binário com systemd, atrás de Caddy (HTTPS automático).
+## Passo 1: Token do Fly.io (2 min)
+1. Entrar em https://fly.io/dashboard com a conta da DNM&LTDA (a mesma do APP OBRA).
+2. Menu **Tokens** (ou *Account → Access Tokens*) → **Create token** → tipo **Org token** da organização `personal`, sem prazo de validade (ou 1 ano).
+   - Pelo terminal: `fly tokens create org personal`
+3. Copiar o token (começa com `FlyV1 ...`).
 
-## 3. Frontend na Hostinger
-1. Escolher o endereço do app, por exemplo `lavarapido.dnmltda.com.br`, e criar o subdomínio.
-2. Com a URL do backend em mãos: `cd web && echo "VITE_PB_URL=https://URL-DO-BACKEND" > .env.local && npm install && npm run build`
-3. Enviar o conteúdo de `web/dist/` para a pasta do subdomínio.
-4. Criar `.htaccess` na pasta (o app tem rotas como `/demo/fila`):
-   ```
-   RewriteEngine On
-   RewriteCond %{REQUEST_FILENAME} !-f
-   RewriteCond %{REQUEST_FILENAME} !-d
-   RewriteRule . /index.html [L]
-   ```
-5. Ativar o SSL (HTTPS) do subdomínio no hPanel. É obrigatório para o PWA e as notificações.
+> Precisa ser **Org token** (não "deploy token"): na primeira publicação, o robô cria sozinho o app `dnm-lava-rapido` e o volume de dados em São Paulo.
 
-## 4. Criar a demo no servidor
-```
-PB_URL=https://URL-DO-BACKEND PB_ADMIN_EMAIL=... PB_ADMIN_PASSWORD=... node scripts/criar-empresa.mjs --demo
-```
-Depois abrir `https://ENDERECO-DO-APP/demo`. Os logins estão no README.
+## Passo 2: Secrets no GitHub (3 min)
+Em https://github.com/Dnmltda/APP-Lava-r-pido-/settings/secrets/actions → **New repository secret**, criar os 3:
 
-## 5. Backup diário (antes do primeiro cliente real)
-Copiar `pb_data` todo dia para fora do servidor (Google Drive, por exemplo). No Fly: `fly ssh sftp get /pb/pb_data/data.db`, agendado. O Claude Code pode montar o script quando o servidor estiver definido.
+| Nome | Valor |
+|---|---|
+| `FLY_API_TOKEN` | o token do Passo 1 (inteiro, com `FlyV1`) |
+| `PB_ADMIN_EMAIL` | e-mail do admin do PocketBase, ex.: `admin@dnmltda.com.br` |
+| `PB_ADMIN_PASSWORD` | senha forte nova (16+ caracteres). Guardar no cofre de senhas da DNM&LTDA |
 
-## Para mandar de volta ao Claude Code
-- URL do repositório criado
-- URL do backend + e-mail/senha do admin do PocketBase
-- Endereço do frontend (subdomínio)
-- Se tiver: dados do primeiro lava rápido real (lista no fim do planejamento)
+## Passo 3: Permissões do Claude no GitHub (1 min)
+Em https://github.com/settings/installations → **Claude** → *Configure*:
+- **Repository access**: confirmar que o `APP-Lava-r-pido-` está marcado (já está, o push funcionou).
+- Se aparecer pedido de **aceitar novas permissões** (Actions / Workflows), aceitar.
+  O Claude precisa disso para enviar os arquivos de `.github/workflows` e disparar o deploy, o backup e a criação de empresa.
+
+## Passo 4: Avisar o Claude Code
+Mandar na sessão: **"secrets cadastrados"**. O Claude então:
+1. dispara o workflow **Testar e publicar** (primeira publicação, uns 5 min);
+2. confere se `https://dnm-lava-rapido.fly.dev/api/health` está no ar;
+3. roda **Criar lava rápido → demo**;
+4. testa a demo online e manda o link.
+
+> Se o nome `dnm-lava-rapido` já existir no Fly (é global), o Claude troca a variável `FLY_APP` e repete.
+
+---
+
+## Opcional: domínio próprio (ex.: `lavarapido.dnmltda.com.br`)
+1. Na Hostinger (hPanel → Domínios → DNS do `dnmltda.com.br`): criar **CNAME** `lavarapido` → `dnm-lava-rapido.fly.dev`.
+2. No Fly: `fly certs add lavarapido.dnmltda.com.br -a dnm-lava-rapido` (ou no dashboard, *Certificates*).
+3. No GitHub (Settings → Secrets and variables → Actions → aba **Variables**): criar `APP_URL` = `https://lavarapido.dnmltda.com.br`.
+4. Avisar o Claude.
+
+## Custos esperados
+- Fly.io: 1 máquina shared-cpu 256 MB + volume de 1 GB, por volta de US$ 2–3/mês (ou dentro da franquia, se houver).
+- GitHub Actions: grátis (repositório privado tem 2.000 min/mês; cada deploy usa uns 5 min).
+
+## O que fica automático depois
+| O quê | Como |
+|---|---|
+| Publicar nova versão | push no `main` → testes → deploy (só publica se os testes passarem) |
+| Backup | todo dia às 03:00 → `.zip` guardado 90 dias em Actions → Backup diário |
+| Novo lava rápido | Actions → **Criar lava rápido** → preencher nome, link, cor, WhatsApp, patrão → a senha inicial aparece no resumo |
+| Restaurar backup | baixar o `.zip` em Actions e restaurar pelo painel `https://.../_/` → Settings → Backups |

@@ -1,0 +1,71 @@
+# Cadastra um lava rápido novo + o patrão, direto no servidor de produção.
+# Rodar em: Actions → "Criar lava rápido" → Run workflow.
+# A senha inicial do patrão é gerada e aparece só no resumo da execução
+# (repositório privado: só quem tem acesso ao repo vê).
+name: Criar lava rápido
+
+on:
+  workflow_dispatch:
+    inputs:
+      demo:
+        description: "Criar a empresa de demonstração (ignora os outros campos)"
+        type: boolean
+        default: false
+      nome:
+        description: "Nome do lava rápido"
+        required: false
+      slug:
+        description: "Endereço do link/QR (ex.: lava-do-ze)"
+        required: false
+      cor:
+        description: "Cor principal (ex.: #0E7490)"
+        required: false
+        default: "#0E7490"
+      whatsapp:
+        description: "WhatsApp do lava rápido (DDD + número)"
+        required: false
+      patrao_nome:
+        description: "Nome do patrão"
+        required: false
+      patrao_celular:
+        description: "Celular do patrão (DDD + número) — é o login"
+        required: false
+
+env:
+  FLY_APP: ${{ vars.FLY_APP || 'dnm-lava-rapido' }}
+
+jobs:
+  criar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar
+        env:
+          PB_URL: ${{ vars.APP_URL || format('https://{0}.fly.dev', env.FLY_APP) }}
+          PB_ADMIN_EMAIL: ${{ secrets.PB_ADMIN_EMAIL }}
+          PB_ADMIN_PASSWORD: ${{ secrets.PB_ADMIN_PASSWORD }}
+          DEMO: ${{ inputs.demo }}
+          NOME: ${{ inputs.nome }}
+          SLUG: ${{ inputs.slug }}
+          COR: ${{ inputs.cor }}
+          WHATSAPP: ${{ inputs.whatsapp }}
+          PATRAO_NOME: ${{ inputs.patrao_nome }}
+          PATRAO_CELULAR: ${{ inputs.patrao_celular }}
+        run: |
+          if [ "$DEMO" = "true" ]; then
+            node scripts/criar-empresa.mjs --demo
+            echo "Demo criada: $PB_URL/demo (senha de todos: demo12345)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          SENHA="$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | head -c 10)"
+          WHATS="$(echo "$WHATSAPP" | tr -dc '0-9')"
+          [ -n "$WHATS" ] && [ "${#WHATS}" -le 11 ] && WHATS="55$WHATS"
+          node scripts/criar-empresa.mjs --nome "$NOME" --slug "$SLUG" --cor "$COR" ${WHATS:+--whatsapp "$WHATS"} \
+            --patrao-nome "$PATRAO_NOME" --patrao-celular "$PATRAO_CELULAR" --patrao-senha "$SENHA"
+          {
+            echo "### Lava rápido criado"
+            echo "- Link (QR Code): $PB_URL/$SLUG"
+            echo "- Login do patrão: celular $PATRAO_CELULAR"
+            echo "- Senha inicial: \`$SENHA\` (peça para trocar em Minha conta)"
+          } >> "$GITHUB_STEP_SUMMARY"

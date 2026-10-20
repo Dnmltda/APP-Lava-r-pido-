@@ -1,0 +1,114 @@
+# A cada push no main: testa tudo (tipos, build, isolamento e fila) e, se passar,
+# publica no Fly.io. Em pull request: só testa.
+name: Testar e publicar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PB_VERSAO: "0.40.4"
+  FLY_APP: ${{ vars.FLY_APP || 'dnm-lava-rapido' }}
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Frontend (tipos + build)
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Subir PocketBase de teste
+        run: |
+          ./scripts/baixar-pocketbase.sh
+          cd pocketbase
+          ./bin/pocketbase superuser upsert ci@teste.local 'SenhaCI-123456' --dir ./pb_data --migrationsDir ./pb_migrations
+          nohup ./bin/pocketbase serve --dir ./pb_data --migrationsDir ./pb_migrations --hooksDir ./pb_hooks --http 127.0.0.1:8090 > pb.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8090/api/health && break; sleep 1; done
+
+      - name: Teste de isolamento (Etapa 1)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-isolamento.mjs
+
+      - name: Teste da fila (Etapa 2)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-fila.mjs
+
+      - name: Log do PocketBase (se falhar)
+        if: failure()
+        run: cat pocketbase/pb.log
+
+  publicar:
+    needs: testes
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Verificar secrets
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          PB_ADMIN_EMAIL: ${{ secrets.PB_ADMIN_EMAIL }}
+          PB_ADMIN_PASSWORD: ${{ secrets.PB_ADMIN_PASSWORD }}
+        run: |
+          faltando=""
+          [ -z "$FLY_API_TOKEN" ] && faltando="$faltando FLY_API_TOKEN"
+          [ -z "$PB_ADMIN_EMAIL" ] && faltando="$faltando PB_ADMIN_EMAIL"
+          [ -z "$PB_ADMIN_PASSWORD" ] && faltando="$faltando PB_ADMIN_PASSWORD"
+          if [ -n "$faltando" ]; then
+            echo "::warning::Publicação pulada. Faltam os secrets:$faltando (ver DEPLOY.md)."
+            echo "PULAR=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Criar app e volume no Fly (só na primeira vez)
+        if: env.PULAR != '1'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if ! flyctl status -a "$FLY_APP" >/dev/null 2>&1; then
+            flyctl apps create "$FLY_APP" --org "${{ vars.FLY_ORG || 'personal' }}"
+          fi
+          if ! flyctl volumes list -a "$FLY_APP" | grep -q pb_data; then
+            flyctl volumes create pb_data --size 1 --region gru -a "$FLY_APP" --yes
+          fi
+
+      - name: Senha do admin no Fly
+        if: env.PULAR != '1'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl secrets set --stage -a "$FLY_APP" \
+            PB_ADMIN_EMAIL="${{ secrets.PB_ADMIN_EMAIL }}" \
+            PB_ADMIN_PASSWORD="${{ secrets.PB_ADMIN_PASSWORD }}"
+
+      - name: Publicar
+        if: env.PULAR != '1'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only -a "$FLY_APP" --ha=false
+
+      - name: Conferir se subiu
+        if: env.PULAR != '1'
+        run: |
+          URL="${{ vars.APP_URL || format('https://{0}.fly.dev', env.FLY_APP) }}"
+          for i in $(seq 1 20); do curl -sf "$URL/api/health" && exit 0; sleep 5; done
+          echo "::error::O app não respondeu em $URL/api/health"; exit 1

@@ -98,9 +98,9 @@ O limite de 5 cadastros por hora vale também para o teste. Se rodar várias vez
 
 ## Publicação
 
-- **Frontend:** `npm run build` gera `web/dist/` (estático). Sobe na Hostinger. Configure o redirecionamento de SPA (todas as rotas → `index.html`).
-- **Backend:** `pocketbase/Dockerfile` (Fly.io, Oracle ou VPS), com volume em `/pb/pb_data`. Defina `VITE_PB_URL` com o endereço HTTPS do backend antes do build.
-- Backup diário de `pb_data`: a definir junto com o servidor (Etapa 8).
+- **Tudo junto no Fly.io:** o `Dockerfile` da raiz compila o app e o coloca dentro do PocketBase (`pb_public`). App e API ficam no mesmo endereço, como no APP OBRA.
+- Para separar o frontend (ex.: Hostinger estática), faça o build com `VITE_PB_URL=https://backend` e configure o redirecionamento de SPA.
+- Backup diário automático (ver Automação).
 
 ## Estrutura
 
@@ -111,3 +111,15 @@ web/src/paginas            telas
 web/src/lib/permissoes.ts  espelho da tabela de permissões (só para a interface)
 scripts/                   criar empresa, testar isolamento, baixar PocketBase
 ```
+
+## Automação (GitHub Actions + Fly.io)
+
+| Workflow | Quando | O que faz |
+|---|---|---|
+| `testar-e-publicar.yml` | push no `main`, PR, manual | build + testes de isolamento e fila; se passar e for `main`, publica no Fly (cria app/volume na 1ª vez) |
+| `backup-diario.yml` | todo dia 03:00 (Brasília), manual | backup completo do PocketBase guardado 90 dias como artefato |
+| `criar-empresa.yml` | manual | cria lava rápido + patrão (senha gerada) ou a demo |
+
+Secrets necessários: `FLY_API_TOKEN` (org token), `PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`.
+Variáveis opcionais: `FLY_APP` (padrão `dnm-lava-rapido`), `FLY_ORG` (padrão `personal`), `APP_URL` (domínio próprio).
+Passo a passo para configurar: [`COWORK.md`](COWORK.md).

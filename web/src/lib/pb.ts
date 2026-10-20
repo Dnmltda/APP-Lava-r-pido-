@@ -1,8 +1,11 @@
 import PocketBase, { ClientResponseError } from "pocketbase";
 
 // Endereço do backend em variável de ambiente: trocar de servidor é só mudar
-// VITE_PB_URL no .env (ver .env.example).
-export const pb = new PocketBase(import.meta.env.VITE_PB_URL || "http://127.0.0.1:8090");
+// VITE_PB_URL no .env (ver .env.example). Vazio em produção = mesmo endereço do
+// app (o PocketBase serve o app e a API juntos).
+const URL_PB =
+  import.meta.env.VITE_PB_URL || (import.meta.env.DEV ? "http://127.0.0.1:8090" : window.location.origin);
+export const pb = new PocketBase(URL_PB);
 pb.autoCancellation(false);
 
 export function mensagemDeErro(err: unknown, padrao = "Algo deu errado. Tente de novo."): string {

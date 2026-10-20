@@ -1,0 +1,30 @@
+# Todo dia às 03:00 (Brasília): gera um backup completo do PocketBase (banco +
+# arquivos) e guarda FORA do servidor, como artefato do GitHub (90 dias).
+name: Backup diário
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+env:
+  FLY_APP: ${{ vars.FLY_APP || 'dnm-lava-rapido' }}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gerar e baixar backup
+        env:
+          PB_URL: ${{ vars.APP_URL || format('https://{0}.fly.dev', env.FLY_APP) }}
+          PB_ADMIN_EMAIL: ${{ secrets.PB_ADMIN_EMAIL }}
+          PB_ADMIN_PASSWORD: ${{ secrets.PB_ADMIN_PASSWORD }}
+        run: node scripts/backup.mjs backups
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.run_id }}
+          path: backups/*.zip
+          retention-days: 90
+          if-no-files-found: error
