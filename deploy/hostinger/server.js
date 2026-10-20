@@ -25,7 +25,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
-const { spawnSync } = require('child_process');
+const { execFile } = require('child_process');
 
 const PORT = process.env.PORT || 8080;
 const ROOT = __dirname;
@@ -37,42 +37,21 @@ process.on('uncaughtException', (err) => console.error('[server.js] erro:', err 
 
 // 1) Abre a porta na hora (exigência da Hostinger).
 const provisorio = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '3' });
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '3', Connection: 'close' });
   res.end('DNM&LTDA Lava Rápido está iniciando. Recarregue em alguns segundos.');
 });
 
 provisorio.listen(PORT, '0.0.0.0', () => {
   console.log(`[server.js] porta ${PORT} aberta (pid ${process.pid})`);
 
-  // 2) Prepara binário, pasta de dados e admin.
+  // 2) Prepara binário, pasta de dados e admin, SEM travar o Node: a Hostinger
+  //    testa o app durante a inicialização e reinicia se ele não responder.
   try {
     fs.chmodSync(PB_BINARY, 0o755);
   } catch (err) {
     console.error('[server.js] chmod falhou (seguindo):', err.message);
   }
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (process.env.PB_ADMIN_EMAIL && process.env.PB_ADMIN_PASSWORD) {
-    const r = spawnSync(
-      PB_BINARY,
-      ['superuser', 'upsert', process.env.PB_ADMIN_EMAIL, process.env.PB_ADMIN_PASSWORD, `--dir=${DATA_DIR}`, `--migrationsDir=${path.join(ROOT, 'pb_migrations')}`],
-      { cwd: ROOT, encoding: 'utf8', timeout: 20000 },
-    );
-    console.log(r.status === 0 ? '[server.js] admin ok' : `[server.js] admin falhou: ${r.stderr || r.stdout || r.error}`);
-  }
-
-  // Diagnóstico: roda o PocketBase por alguns segundos numa porta interna e
-  // registra a saída (depois do execve a Hostinger não mostra o que ele imprime).
-  if (process.env.PB_DIAGNOSTICO !== '0') {
-    const d = spawnSync(
-      PB_BINARY,
-      ['serve', '--http=127.0.0.1:28091', `--dir=${DATA_DIR}`, `--migrationsDir=${path.join(ROOT, 'pb_migrations')}`,
-        `--hooksDir=${path.join(ROOT, 'pb_hooks')}`, '--hooksWatch=false', `--publicDir=${path.join(ROOT, 'pb_public')}`],
-      { cwd: ROOT, encoding: 'utf8', timeout: 2500, killSignal: 'SIGTERM' },
-    );
-    const saida = `${d.stdout || ''}${d.stderr || ''}`.split('\n').filter((l) => l.trim()).slice(-15);
-    console.log(`[server.js] diagnóstico: status=${d.status} sinal=${d.signal} erro=${d.error ? d.error.code : ''}`);
-    for (const l of saida) console.log(`[pocketbase] ${l.slice(0, 400)}`);
-  }
 
   let execve;
   try {
@@ -82,25 +61,42 @@ provisorio.listen(PORT, '0.0.0.0', () => {
     process.exit(1);
   }
 
-  // 3) Fecha a porta provisória e vira o PocketBase (mesmo processo).
-  setTimeout(() => {
-    provisorio.close(() => {
-      console.log(`[server.js] virando PocketBase (dados em ${DATA_DIR})`);
-      try {
-        execve(PB_BINARY, [
-          PB_BINARY,
-          'serve',
-          `--http=0.0.0.0:${PORT}`,
-          `--dir=${DATA_DIR}`,
-          `--migrationsDir=${path.join(ROOT, 'pb_migrations')}`,
-          `--hooksDir=${path.join(ROOT, 'pb_hooks')}`,
-          '--hooksWatch=false',
-          `--publicDir=${path.join(ROOT, 'pb_public')}`,
-        ]);
-      } catch (err) {
-        console.error('[server.js] FATAL: execve falhou:', err.message);
-      }
-      process.exit(1);
-    });
-  }, ESPERA_MS);
+  const virarPocketBase = () => {
+    // 3) Fecha a porta provisória e vira o PocketBase (mesmo processo).
+    setTimeout(() => {
+      provisorio.closeAllConnections();
+      provisorio.close(() => {
+        console.log(`[server.js] virando PocketBase (dados em ${DATA_DIR})`);
+        try {
+          execve(PB_BINARY, [
+            PB_BINARY,
+            'serve',
+            `--http=0.0.0.0:${PORT}`,
+            `--dir=${DATA_DIR}`,
+            `--migrationsDir=${path.join(ROOT, 'pb_migrations')}`,
+            `--hooksDir=${path.join(ROOT, 'pb_hooks')}`,
+            '--hooksWatch=false',
+            `--publicDir=${path.join(ROOT, 'pb_public')}`,
+          ]);
+        } catch (err) {
+          console.error('[server.js] FATAL: execve falhou:', err.message);
+        }
+        process.exit(1);
+      });
+    }, ESPERA_MS);
+  };
+
+  if (process.env.PB_ADMIN_EMAIL && process.env.PB_ADMIN_PASSWORD) {
+    execFile(
+      PB_BINARY,
+      ['superuser', 'upsert', process.env.PB_ADMIN_EMAIL, process.env.PB_ADMIN_PASSWORD, `--dir=${DATA_DIR}`, `--migrationsDir=${path.join(ROOT, 'pb_migrations')}`],
+      { cwd: ROOT, timeout: 20000 },
+      (err, stdout, stderr) => {
+        console.log(err ? `[server.js] admin falhou: ${stderr || stdout || err.message}` : '[server.js] admin ok');
+        virarPocketBase();
+      },
+    );
+  } else {
+    virarPocketBase();
+  }
 });
