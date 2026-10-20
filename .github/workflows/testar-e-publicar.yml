@@ -85,6 +85,10 @@ jobs:
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
         run: node scripts/testar-permissoes.mjs
 
+      - name: Novidades (produtos durante a fila, dashboard, login lembrado, tempo real)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-novidades.mjs
+
       - name: Navegador (Etapa 8 — fluxo completo com um celular por perfil)
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456, APP_URL: "http://127.0.0.1:8090" }
         run: |

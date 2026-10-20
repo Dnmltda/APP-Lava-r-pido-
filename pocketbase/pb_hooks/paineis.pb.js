@@ -20,6 +20,26 @@ routerAdd("GET", "/api/lr/painel/{empresa}", (e) => {
   return e.json(200, lib.painelDaEmpresa(e.app, empresa, de, ate));
 }, $apis.requireAuth("usuarios"));
 
+// ------------------------------------------------- relatório / dashboard
+// GET /api/lr/relatorio/{empresa}?de=ISO&ate=ISO   (padrão: últimos 7 dias)
+// Patrão e gerente: gráficos por dia e por horário, serviços, tempos, clientes,
+// avaliações e comparação com o período anterior de mesmo tamanho.
+routerAdd("GET", "/api/lr/relatorio/{empresa}", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const empresaId = e.request.pathValue("empresa");
+  const v = lib.vinculoEquipe(e.app, e.auth.id, empresaId);
+  if (!v || ["patrao", "gerente"].indexOf(v.getString("papel")) < 0) throw new ForbiddenError("Só patrão e gerente veem os relatórios.");
+  const empresa = e.app.findRecordById("empresas", empresaId);
+  const agora = Date.now();
+  let de = Date.parse(e.request.url.query().get("de") || "");
+  let ate = Date.parse(e.request.url.query().get("ate") || "");
+  if (isNaN(ate)) ate = lib.inicioDiaSP(agora) + 86400000;
+  if (isNaN(de)) de = ate - 7 * 86400000;
+  if (ate <= de) throw new BadRequestError("Período inválido.");
+  if (ate - de > 400 * 86400000) throw new BadRequestError("Período máximo: 400 dias.");
+  return e.json(200, lib.relatorioDaEmpresa(e.app, empresa, de, ate));
+}, $apis.requireAuth("usuarios"));
+
 // ----------------------------------------------------------- minha área
 // GET /api/lr/minha-area/{empresa}?mes=2026-10&funcionario=ID
 // Cada pessoa da equipe vê a própria; só o patrão vê a de outra pessoa.

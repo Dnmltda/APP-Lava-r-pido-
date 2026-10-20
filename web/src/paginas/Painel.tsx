@@ -1,12 +1,34 @@
+import {
+  Car,
+  Cctv,
+  ChartColumn,
+  ChevronRight,
+  CircleUserRound,
+  Gauge,
+  ListOrdered,
+  Package,
+  QrCode,
+  Settings,
+  ShoppingBag,
+  Sparkles,
+  Star,
+  UserRound,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
 import { Aviso, Botao, Cartao } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
 import { FilaCliente } from "./FilaCliente";
-import { DIAS_SEMANA, linkWhatsApp, primeiroNome } from "../lib/formato";
+import { DIAS_SEMANA, linkWhatsApp, primeiroNome, reais } from "../lib/formato";
+import { useFilaAoVivo } from "../lib/fila";
+import { pb } from "../lib/pb";
 import { pode } from "../lib/permissoes";
-import { NOME_PAPEL, type Empresa } from "../lib/tipos";
+import { NOME_PAPEL, type DadosPainel, type Empresa } from "../lib/tipos";
 
 export function Painel() {
   const { empresa, vinculo, erroVinculo } = useEmpresa();
@@ -26,65 +48,184 @@ export function Painel() {
   }
 
   const ehEquipe = vinculo.papel !== "cliente";
+  const s = empresa.slug;
+  const valores = pode(vinculo, "ver_valores");
+  const patrao = pode(vinculo, "configurar_empresa");
 
   return (
     <Moldura>
-      <p className="text-base text-tinta-suave">Olá,</p>
-      <h1 className="text-2xl font-extrabold text-tinta">{primeiroNome(usuario.nome)}</h1>
-      {ehEquipe && (
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Chip>{NOME_PAPEL[vinculo.papel]}</Chip>
-          {vinculo.papel === "funcionario" && vinculo.responsavel_fila && <Chip>Responsável pela fila</Chip>}
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-base text-tinta-suave">{saudacao()},</p>
+          <h1 className="truncate text-2xl font-extrabold text-tinta">{primeiroNome(usuario.nome)}</h1>
         </div>
-      )}
+        {ehEquipe && (
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            <Chip>{NOME_PAPEL[vinculo.papel]}</Chip>
+            {vinculo.papel === "funcionario" && vinculo.responsavel_fila && <Chip>Resp. fila</Chip>}
+          </div>
+        )}
+      </div>
 
-      <div className="mt-6 flex flex-col gap-3">
+      <div className="mt-5 flex flex-col gap-4">
         {ehEquipe ? (
           <>
-            <Atalho para={`/${empresa.slug}/fila`} titulo="Fila" texto="Confirmar, avisar, lavar e dar baixa" destaque />
-            <Atalho
-              para={`/${empresa.slug}/vendas`}
-              titulo="Vendas"
-              texto={pode(vinculo, "ver_valores") ? "Registrar e ver as vendas do dia" : "Registrar e ver as minhas vendas"}
-            />
-            {pode(vinculo, "ver_valores") && (
-              <Atalho para={`/${empresa.slug}/painel`} titulo="Painel do dia" texto="Faturamento, metas, ranking, estoque e atrasos" />
-            )}
-            {pode(vinculo, "ver_valores") && (
-              <Atalho para={`/${empresa.slug}/caixa`} titulo="Caixa" texto="Gastos e entradas do mês" />
-            )}
-            <Atalho para={`/${empresa.slug}/avaliacoes`} titulo="Avaliações" texto="O que os clientes acharam" />
-            {vinculo.papel !== "patrao" && (
-              <Atalho para={`/${empresa.slug}/minha-area`} titulo="Minha área" texto="Carros lavados, bônus, vales e holerites" />
-            )}
-            {pode(vinculo, "cameras") && (
-              <Atalho para={`/${empresa.slug}/cameras`} titulo="Câmeras" texto="Ver os boxes ao vivo" />
-            )}
-            {pode(vinculo, "gerenciar_equipe") && (
-              <Atalho para={`/${empresa.slug}/equipe`} titulo="Equipe" texto="Cadastrar, permissões, senhas" />
-            )}
-            {pode(vinculo, "configurar_empresa") && (
-              <Atalho para={`/${empresa.slug}/servicos`} titulo="Serviços" texto="Preços e tempo médio de cada serviço" />
-            )}
-            {pode(vinculo, "configurar_empresa") && (
-              <Atalho para={`/${empresa.slug}/produtos`} titulo="Produtos" texto="Preço, estoque e comissão" />
-            )}
-            {pode(vinculo, "configurar_empresa") && (
-              <Atalho para={`/${empresa.slug}/cartaz`} titulo="Cartaz do balcão" texto="QR Code para os clientes entrarem na fila" />
-            )}
-            {pode(vinculo, "configurar_empresa") && (
-              <Atalho para={`/${empresa.slug}/configuracoes`} titulo="Configurações" texto="Logo, cor, fila, avisos e horários" />
-            )}
+            {/* A fila sempre em destaque */}
+            <FilaAgora />
+            {valores && <HojeResumo />}
+
+            <nav aria-label="Atalhos" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Atalho para={`/${s}/vendas`} icone={ShoppingBag} titulo="Vendas" texto={valores ? "Registrar e ver as vendas" : "Registrar e ver as minhas"} />
+              {valores && <Atalho para={`/${s}/dashboard`} icone={ChartColumn} titulo="Dashboard" texto="Gráficos e relatórios" />}
+              {valores && <Atalho para={`/${s}/painel`} icone={Gauge} titulo="Painel do dia" texto="Metas, estoque e atrasos" />}
+              {valores && <Atalho para={`/${s}/caixa`} icone={Wallet} titulo="Caixa" texto="Gastos e entradas" />}
+              <Atalho para={`/${s}/avaliacoes`} icone={Star} titulo="Avaliações" texto="O que os clientes acharam" />
+              {vinculo.papel !== "patrao" && <Atalho para={`/${s}/minha-area`} icone={UserRound} titulo="Minha área" texto="Carros, bônus e vales" />}
+              {pode(vinculo, "gerenciar_equipe") && <Atalho para={`/${s}/equipe`} icone={Users} titulo="Equipe" texto="Pessoas, permissões, senhas" />}
+              {pode(vinculo, "cameras") && <Atalho para={`/${s}/cameras`} icone={Cctv} titulo="Câmeras" texto="Boxes ao vivo e sensor" />}
+              {patrao && <Atalho para={`/${s}/servicos`} icone={Sparkles} titulo="Serviços" texto="Preço e tempo médio" />}
+              {patrao && <Atalho para={`/${s}/produtos`} icone={Package} titulo="Produtos" texto="Preço, estoque, comissão" />}
+              {patrao && <Atalho para={`/${s}/cartaz`} icone={QrCode} titulo="Cartaz do balcão" texto="QR Code para os clientes" />}
+              {patrao && <Atalho para={`/${s}/configuracoes`} icone={Settings} titulo="Configurações" texto="Logo, cor, fila, horários" />}
+              <Atalho para={`/${s}/conta`} icone={CircleUserRound} titulo="Minha conta" texto="Nome, senha, sair" />
+            </nav>
           </>
         ) : (
           <>
             <FilaCliente />
             <InfoEmpresa empresa={empresa} />
+            <Link
+              to={`/${s}/conta`}
+              className="flex min-h-14 items-center justify-between gap-3 rounded-2xl border border-linha bg-white px-4 py-3 shadow-sm hover:border-marca"
+            >
+              <span className="flex items-center gap-3">
+                <CircleUserRound className="h-6 w-6 text-marca-forte" aria-hidden="true" />
+                <span className="text-base font-bold text-tinta">Minha conta</span>
+              </span>
+              <ChevronRight className="h-5 w-5 text-tinta-suave" aria-hidden="true" />
+            </Link>
           </>
         )}
-        <Atalho para={`/${empresa.slug}/conta`} titulo="Minha conta" texto="Nome, senha, promoções" />
       </div>
     </Moldura>
+  );
+}
+
+function saudacao() {
+  const h = Number(new Intl.DateTimeFormat("pt-BR", { hour: "numeric", hourCycle: "h23", timeZone: "America/Sao_Paulo" }).format(new Date()));
+  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+}
+
+// Cartão grande da fila ao vivo para a equipe: números do momento + próximo carro.
+function FilaAgora() {
+  const { empresa, vinculo } = useEmpresa();
+  const { publica, erro } = useFilaAoVivo(empresa.slug, empresa.id);
+  const pendentes = publica?.fila.filter((i) => i.status === "pendente").length ?? 0;
+  const naFila = publica ? publica.fila.length - pendentes : 0;
+  const proximo = publica?.fila.find((i) => i.status !== "pendente");
+  const gestao = pode(vinculo, "gerenciar_fila");
+  return (
+    <Link
+      to={`/${empresa.slug}/fila`}
+      className="block rounded-3xl bg-marca p-5 text-sobre-marca shadow-lg transition-transform active:scale-[0.99]"
+      aria-label="Abrir a fila"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-lg font-extrabold">
+          <ListOrdered className="h-6 w-6" aria-hidden="true" /> Fila agora
+        </span>
+        <span className="flex items-center gap-1.5 text-sm font-semibold opacity-90">
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" aria-hidden="true" /> ao vivo
+        </span>
+      </div>
+      {!publica ? (
+        <p className="mt-4 text-base opacity-90">{erro || "Carregando…"}</p>
+      ) : (
+        <>
+          <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+            <Numero valor={pendentes} rotulo="a confirmar" alerta={gestao && pendentes > 0} />
+            <Numero valor={naFila} rotulo="na fila" />
+            <Numero valor={publica.lavando.length} rotulo="lavando" />
+            <Numero valor={publica.prontos.length} rotulo="prontos" />
+          </div>
+          <p className="mt-4 flex items-center gap-2 rounded-xl bg-black/15 px-3 py-2 text-base">
+            <Car className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0 truncate">
+              {proximo ? (
+                <>
+                  Próximo: <strong>{proximo.nome}</strong> · …{proximo.final_placa} · {proximo.servico}
+                </>
+              ) : (
+                "Ninguém esperando agora"
+              )}
+            </span>
+          </p>
+          <span className="mt-4 flex min-h-12 items-center justify-center gap-1 rounded-xl bg-white text-base font-extrabold text-marca-forte">
+            Abrir a fila <ChevronRight className="h-5 w-5" aria-hidden="true" />
+          </span>
+        </>
+      )}
+    </Link>
+  );
+}
+
+function Numero({ valor, rotulo, alerta }: { valor: number; rotulo: string; alerta?: boolean }) {
+  return (
+    <div className={`rounded-2xl px-1 py-2 ${alerta ? "bg-white text-tinta" : "bg-black/10"}`}>
+      <p className="text-3xl font-black leading-none">{valor}</p>
+      <p className="mt-1 text-xs font-semibold leading-tight opacity-90">{rotulo}</p>
+    </div>
+  );
+}
+
+// Patrão e gerente: o dia em dois números, com atalho para o dashboard.
+function HojeResumo() {
+  const { empresa } = useEmpresa();
+  const [dados, setDados] = useState<DadosPainel | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    const carregar = () =>
+      pb
+        .send<DadosPainel>(`/api/lr/painel/${empresa.id}`, { method: "GET" })
+        .then((d) => vivo && setDados(d))
+        .catch(() => {});
+    carregar();
+    const t = window.setInterval(carregar, 60_000);
+    return () => {
+      vivo = false;
+      window.clearInterval(t);
+    };
+  }, [empresa.id]);
+  const metaDia = dados?.metas.dia || 0;
+  return (
+    <Link to={`/${empresa.slug}/dashboard`} className="block rounded-3xl border border-linha bg-white p-4 shadow-sm hover:border-marca">
+      <div className="flex items-center justify-between">
+        <span className="text-base font-extrabold text-tinta">Hoje</span>
+        <span className="flex items-center text-sm font-bold text-marca-forte">
+          Dashboard <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-sm text-tinta-suave">Faturamento</p>
+          <p className="text-2xl font-extrabold text-tinta">{dados ? reais(dados.faturamento.total) : "—"}</p>
+        </div>
+        <div>
+          <p className="text-sm text-tinta-suave">Carros lavados</p>
+          <p className="text-2xl font-extrabold text-tinta">{dados ? dados.carros_lavados : "—"}</p>
+        </div>
+      </div>
+      {dados && metaDia > 0 && (
+        <div className="mt-3">
+          <div className="h-2 overflow-hidden rounded-full bg-marca-suave" role="progressbar" aria-label="Meta do dia" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round((dados.metas.realizado_dia / metaDia) * 100))}>
+            <div className="h-full rounded-full bg-marca" style={{ width: `${Math.min(100, (dados.metas.realizado_dia / metaDia) * 100)}%` }} />
+          </div>
+          <p className="mt-1 text-sm text-tinta-suave">
+            {Math.round((dados.metas.realizado_dia / metaDia) * 100)}% da meta do dia ({reais(metaDia)})
+          </p>
+        </div>
+      )}
+    </Link>
   );
 }
 
@@ -96,33 +237,19 @@ function Chip({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Atalho({
-  para,
-  titulo,
-  texto,
-  desativado,
-  destaque,
-}: {
-  para?: string;
-  titulo: string;
-  texto: string;
-  desativado?: boolean;
-  destaque?: boolean;
-}) {
-  const conteudo = (
-    <>
-      <span className="min-w-0">
-        <span className="block text-lg font-bold text-tinta">{titulo}</span>
-        <span className="block text-base text-tinta-suave">{texto}</span>
-      </span>
-      {!desativado && <span className="text-2xl text-marca" aria-hidden="true">›</span>}
-    </>
-  );
-  const classe = `flex min-h-16 items-center justify-between gap-3 rounded-2xl border px-4 py-3 shadow-sm ${destaque ? "border-2 border-marca bg-marca-suave" : "border-linha bg-white"}`;
-  if (desativado || !para) return <div className={`${classe} opacity-60`}>{conteudo}</div>;
+function Atalho({ para, titulo, texto, icone: Icone }: { para: string; titulo: string; texto: string; icone: LucideIcon }) {
   return (
-    <Link to={para} className={`${classe} hover:border-marca`}>
-      {conteudo}
+    <Link
+      to={para}
+      className="flex min-h-28 flex-col gap-3 rounded-2xl border border-linha bg-white p-4 shadow-sm transition-colors hover:border-marca active:bg-marca-suave"
+    >
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-marca-suave text-marca-forte">
+        <Icone className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-base font-extrabold leading-tight text-tinta">{titulo}</span>
+        <span className="mt-0.5 block text-sm leading-snug text-tinta-suave">{texto}</span>
+      </span>
     </Link>
   );
 }

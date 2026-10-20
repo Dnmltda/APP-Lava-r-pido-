@@ -8,12 +8,40 @@ import { useSessao } from "../contexto/Sessao";
 import { celularValido, mascaraCelular, somenteDigitos } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
 
+const CHAVE_CELULAR = "lr_ultimo_celular";
+function lerUltimoCelular() {
+  try {
+    return localStorage.getItem(CHAVE_CELULAR) || "";
+  } catch {
+    return "";
+  }
+}
+function guardarUltimoCelular(c: string) {
+  try {
+    localStorage.setItem(CHAVE_CELULAR, c);
+  } catch {
+    // modo privado: só não lembra
+  }
+}
+// Chrome/Android: pede para o gerenciador de senhas do celular salvar o login
+// (num app de uma página só o navegador nem sempre percebe o login sozinho).
+async function oferecerSalvarSenha(id: string, password: string) {
+  try {
+    const W = window as unknown as { PasswordCredential?: new (d: { id: string; password: string }) => Credential };
+    if (W.PasswordCredential && navigator.credentials?.store) await navigator.credentials.store(new W.PasswordCredential({ id, password }));
+  } catch {
+    // sem suporte: o navegador ainda pode oferecer pelo formulário
+  }
+}
+
 export function Entrar() {
   const { empresa } = useEmpresa();
   const { usuario, entrar } = useSessao();
   const navegar = useNavigate();
-  const [celular, setCelular] = useState("");
+  // Lembra o último celular usado neste aparelho (só o número, nunca a senha).
+  const [celular, setCelular] = useState(() => mascaraCelular(lerUltimoCelular()));
   const [senha, setSenha] = useState("");
+  const [verSenha, setVerSenha] = useState(false);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -27,6 +55,8 @@ export function Entrar() {
     setEnviando(true);
     try {
       await entrar(celular, senha);
+      guardarUltimoCelular(somenteDigitos(celular));
+      await oferecerSalvarSenha(somenteDigitos(celular), senha);
       navegar(`/${empresa.slug}`, { replace: true });
     } catch (err) {
       const status = (err as { status?: number })?.status;
@@ -44,19 +74,33 @@ export function Entrar() {
         <Campo
           rotulo="Celular"
           type="tel"
+          name="username"
           inputMode="numeric"
-          autoComplete="tel-national"
+          autoComplete="username"
           placeholder="(11) 98765-4321"
           value={celular}
           onChange={(e) => setCelular(mascaraCelular(e.target.value))}
         />
-        <Campo
-          rotulo="Senha"
-          type="password"
-          autoComplete="current-password"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-        />
+        <div className="relative">
+          <Campo
+            rotulo="Senha"
+            type={verSenha ? "text" : "password"}
+            name="password"
+            autoComplete="current-password"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+            className="pr-24"
+          />
+          <button
+            type="button"
+            onClick={() => setVerSenha((v) => !v)}
+            className="absolute right-1 bottom-1 flex min-h-10 items-center rounded-lg px-3 text-sm font-bold text-marca-forte hover:bg-marca-suave"
+            aria-pressed={verSenha}
+          >
+            {verSenha ? "Esconder" : "Mostrar"}
+          </button>
+        </div>
+        <p className="-mt-2 text-sm text-tinta-suave">O app fica conectado neste celular. O celular também oferece salvar a senha.</p>
         {erro && <Aviso>{erro}</Aviso>}
         <Botao type="submit" largo carregando={enviando}>
           Entrar
@@ -117,6 +161,8 @@ export function Cadastro() {
         },
       });
       await entrar(celular, senha);
+      guardarUltimoCelular(somenteDigitos(celular));
+      await oferecerSalvarSenha(somenteDigitos(celular), senha);
       navegar(`/${empresa.slug}`, { replace: true });
     } catch (err) {
       setErro(mensagemDeErro(err));

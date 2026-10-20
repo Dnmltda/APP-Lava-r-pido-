@@ -611,11 +611,5 @@ routerAdd("POST", "/api/lr/fila/{id}/substituir", (e) => {
   return e.json(201, { id: nova.id, substituida: entrada.id });
 }, $apis.requireAuth("usuarios"));
 
-// ------------------------------------------------- tempo real atrás de proxy
-// Hostinger (LiteSpeed/CDN) segura a resposta em buffer; estes cabeçalhos pedem
-// para os eventos do tempo real passarem na hora.
-onRealtimeConnectRequest((e) => {
-  e.response.header().set("X-Accel-Buffering", "no");
-  e.response.header().set("Cache-Control", "no-cache, no-transform");
-  e.next();
-});
+// Tempo real: o próprio PocketBase já manda "X-Accel-Buffering: no" e "Cache-Control: no-store"
+// na conexão. (Um hook antigo aqui quebrava a conexão; o app seguia pela consulta a cada 10 s.)

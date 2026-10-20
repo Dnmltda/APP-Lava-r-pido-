@@ -48,6 +48,73 @@ routerAdd("GET", "/api/lr/catalogo/{slug}", (e) => {
   })));
 });
 
+// ------------------------------------- cliente reserva produtos na fila
+// O cliente pode reservar produtos a qualquer momento enquanto o carro está na fila
+// (ou lavando), sem precisar escolher tudo antes de entrar. Sem pagamento: paga no local.
+// POST /api/lr/fila/{id}/produtos { itens: [{produto, quantidade}] }  (só o cliente do carro)
+routerAdd("POST", "/api/lr/fila/{id}/produtos", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const body = new DynamicModel({ itens: [] });
+  e.bindBody(body);
+  let entrada;
+  try {
+    entrada = e.app.findRecordById("fila_entradas", e.request.pathValue("id"));
+  } catch (_) {}
+  if (!entrada || entrada.getString("cliente") !== e.auth.id) throw new NotFoundError("Você não está nesta fila.");
+  if (["pendente", "confirmado", "avisado", "no_local", "lavando"].indexOf(entrada.getString("status")) < 0) {
+    throw new BadRequestError("Seu carro já saiu da fila. Peça os produtos no balcão.");
+  }
+  const empresaId = entrada.getString("empresa");
+  const novos = lib.validarItens(e.app, empresaId, body.itens, 20);
+  if (!novos.length) throw new BadRequestError("Escolha pelo menos um produto.");
+  e.app.runInTransaction((tx) => {
+    const atuais = Array.from(tx.findRecordsByFilter("itens_pedido", "entrada = {:e}", "", 0, 0, { e: entrada.id }));
+    let linhas = atuais.length;
+    const col = tx.findCollectionByNameOrId("itens_pedido");
+    for (const it of novos) {
+      // Mesmo produto ainda não separado: só soma a quantidade.
+      const igual = atuais.find((r) => r.getString("produto") === it.produto.id && r.getString("status") === "pendente");
+      if (igual) {
+        const qtd = igual.getInt("quantidade") + it.quantidade;
+        if (qtd > 20) throw new BadRequestError("Máximo de 20 unidades de " + it.produto.getString("nome") + ".");
+        igual.set("quantidade", qtd);
+        tx.save(igual);
+        continue;
+      }
+      if (++linhas > 30) throw new BadRequestError("Produtos demais neste pedido.");
+      const ip = new Record(col);
+      ip.set("empresa", empresaId);
+      ip.set("entrada", entrada.id);
+      ip.set("produto", it.produto.id);
+      ip.set("produto_nome", it.produto.getString("nome"));
+      ip.set("quantidade", it.quantidade);
+      ip.set("preco_unitario", it.produto.getFloat("preco"));
+      ip.set("status", "pendente");
+      tx.save(ip);
+    }
+  });
+  lib.sinalizarFila(e.app, empresaId);
+  return e.json(200, { ok: true });
+}, $apis.requireAuth("usuarios"));
+
+// POST /api/lr/itens/{id}/remover  — o cliente tira um produto que a equipe ainda não separou.
+routerAdd("POST", "/api/lr/itens/{id}/remover", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  let item, entrada;
+  try {
+    item = e.app.findRecordById("itens_pedido", e.request.pathValue("id"));
+    entrada = e.app.findRecordById("fila_entradas", item.getString("entrada"));
+  } catch (_) {}
+  if (!item || !entrada || entrada.getString("cliente") !== e.auth.id) throw new NotFoundError("Item não encontrado.");
+  if (["pendente", "confirmado", "avisado", "no_local", "lavando"].indexOf(entrada.getString("status")) < 0) {
+    throw new BadRequestError("Seu carro já saiu da fila.");
+  }
+  if (item.getString("status") !== "pendente") throw new BadRequestError("A equipe já separou este produto. Fale no balcão.");
+  e.app.delete(item);
+  lib.sinalizarFila(e.app, entrada.getString("empresa"));
+  return e.noContent(204);
+}, $apis.requireAuth("usuarios"));
+
 // --------------------------------------------------- OS: produtos a separar
 // POST /api/lr/itens/{id}/status { status: separado | em_falta | pendente }
 routerAdd("POST", "/api/lr/itens/{id}/status", (e) => {

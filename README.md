@@ -23,6 +23,22 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 | 7b. Sensor de movimento | ✅ concluída | `testar-sensor.mjs`: 41/41 (DVRs Intelbras e Hikvision falsos com login Digest + gateway) |
 | 8. Testes e publicação final | ✅ concluída | `testar-permissoes.mjs` 163/163 · `testar-navegador.mjs` 63/63 · `testar-backup.mjs` 8/8 · `auditar-seguranca.mjs` 124/124 (produção) |
 
+### Melhorias pedidas pelo Diego (depois da Etapa 8)
+Teste: `scripts/testar-novidades.mjs` (39) + `testar-navegador.mjs` (68).
+- **Login lembrado**: o app fica conectado por 60 dias (renova sozinho a cada uso), lembra o último celular
+  e oferece salvar a senha no gerenciador do celular; botão "Mostrar" senha.
+- **Dashboard** (patrão e gerente, `/:slug/dashboard`): filtro de período (hoje, 7 e 30 dias, mês, mês passado,
+  datas), faturamento com comparação ao período anterior, carros, ticket médio, tempo de espera e de lavagem,
+  gráficos por dia, horário de movimento, dia da semana, serviços, produtos, formas de pagamento, equipe,
+  fila, clientes, avaliações e caixa. Todo gráfico tem "Ver tabela". **Baixar planilha (CSV)** e **Imprimir/PDF**.
+- **Início modernizado**: a fila ao vivo em destaque para toda a equipe (a confirmar, na fila, lavando, prontos
+  e o próximo carro), resumo de hoje para patrão/gerente e atalhos em grade com ícones.
+- **Vitrine de produtos para o cliente**: vê os produtos com foto e preço e **reserva antes ou durante a fila**
+  (enquanto o carro espera ou está sendo lavado). Pode tirar o que a equipe ainda não separou.
+- Corrigido: o tempo real estava desligado por um ajuste antigo; agora a fila atualiza na hora
+  (a consulta a cada 10 s continua como rede de segurança).
+- `scripts/popular-demo.mjs`: 30 dias de movimento fictício só na empresa **demo** (para ver o dashboard).
+
 ### Etapa 8: Testes e publicação
 Checklist completo com as evidências: [`docs/CHECKLIST-PRONTO.md`](docs/CHECKLIST-PRONTO.md).
 - **Tabela de permissões 1.3 inteira** testada pela API com os 5 perfis (163 verificações).

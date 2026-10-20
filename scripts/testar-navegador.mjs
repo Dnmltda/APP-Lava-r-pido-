@@ -53,17 +53,17 @@ async function api(method, p, { token, body } = {}) {
   return { status: res.status, data };
 }
 
-const MENU = ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Minha área", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"];
+const MENU = ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Minha área", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"];
 // O que cada perfil deve ver no menu (tabela 1.3)
 const VE = {
-  patrao: ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"],
-  gerente: ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Minha área"],
+  patrao: ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"],
+  gerente: ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Minha área"],
   funcionario: ["Fila", "Vendas", "Avaliações", "Minha área"],
   responsavel: ["Fila", "Vendas", "Avaliações", "Minha área"],
   cliente: [],
 };
 const ROTA = {
-  Fila: "fila", Vendas: "vendas", "Painel do dia": "painel", Caixa: "caixa", Avaliações: "avaliacoes", "Minha área": "minha-area",
+  Fila: "fila", Vendas: "vendas", Dashboard: "dashboard", "Painel do dia": "painel", Caixa: "caixa", Avaliações: "avaliacoes", "Minha área": "minha-area",
   Equipe: "equipe", Serviços: "servicos", Produtos: "produtos", Cartaz: "cartaz", Configurações: "configuracoes", Câmeras: "cameras",
 };
 
@@ -112,6 +112,8 @@ async function main() {
       erros[p] = [];
       page.on("pageerror", (e) => erros[p].push(String(e)));
       page.on("console", (m) => m.type() === "error" && !/Failed to load resource|ERR_|favicon/.test(m.text()) && erros[p].push(m.text()));
+      // Tempo real e servidor: nenhuma resposta de erro inesperada.
+      page.on("response", (r) => (r.status() >= 500 || (r.url().includes("/api/realtime") && r.status() >= 400)) && erros[p].push(`${r.status()} ${r.url()}`));
       await page.goto(`${APP}/${A.slug}/entrar`);
       await page.fill('input[type="tel"]', pessoas[p].celular);
       await page.fill('input[type="password"]', "senha12345");
@@ -148,6 +150,11 @@ async function main() {
     console.log("\nFluxo completo: fila → confirmar → lavar → baixa → avaliar");
     const cli = paginas.cliente;
     await cli.goto(`${APP}/${A.slug}`);
+    // Vitrine: separa um produto antes de entrar na fila (vai junto)
+    await cli.getByRole("heading", { name: "Produtos" }).waitFor({ timeout: 15000 });
+    await cli.getByRole("listitem").filter({ hasText: "Cheirinho" }).getByRole("button", { name: "Reservar" }).click();
+    await cli.getByRole("button", { name: /Pôr no carrinho/ }).click();
+    checar("cliente vê a vitrine e põe produto no carrinho antes de entrar", await cli.getByText(/1 produto/).isVisible());
     await cli.getByRole("button", { name: "Entrar na fila" }).click();
     await cli.getByText("Lavagem simples").first().click();
     await cli.getByRole("button", { name: "Confirmar e entrar na fila" }).click();
@@ -156,6 +163,14 @@ async function main() {
     const naFila = await api("GET", `/api/collections/fila_entradas/records?filter=${encodeURIComponent(`empresa="${A.id}" && cliente="${pessoas.cliente.id}"`)}`, { token: ADM });
     const entrada = naFila.data.items[0];
     checar("cliente entra na fila pelo app (pendente)", entrada && entrada.status === "pendente", entrada && entrada.status);
+    const itensDe = async () => (await api("GET", `/api/collections/itens_pedido/records?filter=${encodeURIComponent(`entrada="${entrada.id}"`)}`, { token: ADM })).data.items;
+    checar("o produto do carrinho foi junto para o pedido", (await itensDe()).length === 1);
+    // Já na fila, reserva mais um pela vitrine
+    await cli.getByRole("listitem").filter({ hasText: "Cheirinho" }).getByRole("button", { name: "Reservar" }).click();
+    await cli.getByRole("button", { name: /^Reservar/ }).last().click();
+    await cli.waitForTimeout(1200);
+    const qtdCheirinho = (await itensDe()).reduce((t, i) => t + i.quantidade, 0);
+    checar("já na fila, reserva mais produto pela vitrine", qtdCheirinho === 2, qtdCheirinho);
 
     const resp = paginas.responsavel;
     await resp.goto(`${APP}/${A.slug}/fila`);

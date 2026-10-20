@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AtivarAvisos } from "../componentes/Avisos";
+import { Quantidade } from "../componentes/Quantidade";
 import { ListaFilaPublica, IconeBusca } from "../componentes/fila";
 import { descricaoVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
-import { Quantidade } from "../componentes/Quantidade";
 import { Aviso, Botao, Carregando, Cartao, Confirmar, EstadoErro, Folha, Interruptor } from "../componentes/ui";
+import { guardarCarrinho, itensDoCarrinho, lerCarrinho, useCatalogo, Vitrine, type Carrinho } from "../componentes/Vitrine";
 import { useEmpresa } from "../contexto/Empresa";
 import { acaoFila, emQuanto, hora, useFilaAoVivo, type ItemPublico } from "../lib/fila";
 import { duracao, linkWhatsApp, reais } from "../lib/formato";
 import { mensagemDeErro, pb, urlArquivo } from "../lib/pb";
 import type { ItemPedido, ProdutoCatalogo, Servico, StatusFila } from "../lib/tipos";
+
+// Enquanto o carro está na fila (ou lavando), o cliente ainda pode reservar produtos.
+const PODE_RESERVAR: StatusFila[] = ["pendente", "confirmado", "avisado", "no_local", "lavando"];
 
 const MENSAGEM_STATUS: Partial<Record<StatusFila, { titulo: string; texto: string }>> = {
   pendente: { titulo: "Aguardando confirmação", texto: "O lava rápido vai confirmar sua vez. Você não perde o lugar enquanto isso." },
@@ -29,6 +33,13 @@ export function FilaCliente() {
   const [erroAcao, setErroAcao] = useState("");
   const [itens, setItens] = useState<Record<string, ItemPedido[]>>({});
   const [avaliar, setAvaliar] = useState("");
+  const [versaoItens, setVersaoItens] = useState(0);
+  const catalogo = useCatalogo(empresa.slug);
+  const [carrinho, setCarrinhoEstado] = useState<Carrinho>(() => lerCarrinho(empresa.slug));
+  const setCarrinho = (c: Carrinho) => {
+    setCarrinhoEstado(c);
+    guardarCarrinho(empresa.slug, c);
+  };
 
   // Última lavagem ainda sem avaliação (até 3 dias).
   useEffect(() => {
@@ -45,7 +56,7 @@ export function FilaCliente() {
       .getFullList<ItemPedido>({ filter: pb.filter("entrada = {:e}", { e: idMinha }) })
       .then((l) => setItens((x) => ({ ...x, [idMinha]: l })))
       .catch(() => {});
-  }, [idMinha, publica]);
+  }, [idMinha, publica, versaoItens]);
 
   if (erro && !publica) return <EstadoErro texto={erro} tentar={recarregar} />;
   if (!publica) return <Carregando texto="Carregando a fila…" />;
@@ -53,6 +64,17 @@ export function FilaCliente() {
   const minha: ItemPublico | undefined = [...publica.lavando, ...publica.fila, ...publica.prontos].find((i) => i.minha);
   const info = minha && MENSAGEM_STATUS[minha.status];
   const meusItens = minha ? (itens[minha.id] ?? null) : null;
+  const podeReservar = !!minha && PODE_RESERVAR.includes(minha.status);
+
+  async function removerItem(id: string) {
+    setErroAcao("");
+    try {
+      await pb.send(`/api/lr/itens/${id}/remover`, { method: "POST" });
+      setVersaoItens((v) => v + 1);
+    } catch (err) {
+      setErroAcao(mensagemDeErro(err));
+    }
+  }
 
   async function cancelar() {
     if (!minha) return;
@@ -113,16 +135,36 @@ export function FilaCliente() {
           {meusItens && meusItens.length > 0 && (
             <ul className="mt-3 rounded-xl bg-black/10 px-3 py-2 text-base">
               {meusItens.map((i) => (
-                <li key={i.id} className="flex justify-between gap-2">
+                <li key={i.id} className="flex min-h-10 items-center justify-between gap-2">
                   <span>
                     {i.quantidade}× {i.produto_nome || i.expand?.produto?.nome || "Produto"}
                   </span>
-                  <span className="text-sm font-bold opacity-90">
-                    {i.status === "separado" ? "separado ✓" : i.status === "em_falta" ? "em falta" : ""}
-                  </span>
+                  {i.status === "pendente" && podeReservar ? (
+                    <button
+                      type="button"
+                      onClick={() => removerItem(i.id)}
+                      aria-label={`Tirar ${i.produto_nome}`}
+                      className="min-h-10 rounded-lg px-2 text-sm font-bold underline opacity-90 hover:bg-black/10"
+                    >
+                      tirar
+                    </button>
+                  ) : (
+                    <span className="text-sm font-bold opacity-90">
+                      {i.status === "separado" ? "separado ✓" : i.status === "em_falta" ? "em falta" : ""}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
+          )}
+          {podeReservar && catalogo && catalogo.length > 0 && (
+            <button
+              type="button"
+              onClick={() => document.getElementById("titulo-produtos")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="mt-3 min-h-12 w-full rounded-xl bg-white/95 px-4 text-base font-bold text-marca-forte"
+            >
+              + Reservar produtos
+            </button>
           )}
           {minha.posicao !== undefined && (
             <button
@@ -148,6 +190,15 @@ export function FilaCliente() {
       )}
       {erroAcao && <Aviso>{erroAcao}</Aviso>}
       {erro && <Aviso>{erro}</Aviso>}
+      {catalogo && (!minha || podeReservar) && (
+        <Vitrine
+          catalogo={catalogo}
+          carrinho={carrinho}
+          onCarrinho={setCarrinho}
+          entradaId={podeReservar ? minha?.id : undefined}
+          onReservado={() => setVersaoItens((v) => v + 1)}
+        />
+      )}
       {avaliar && !minha && (
         <Link
           to={`/${empresa.slug}/avaliar/${avaliar}`}
@@ -174,8 +225,12 @@ export function FilaCliente() {
 
       {entrando && (
         <EntrarNaFila
+          catalogo={catalogo || []}
+          carrinho={carrinho}
+          onCarrinho={setCarrinho}
           onFechar={() => setEntrando(false)}
           onEntrou={() => {
+            setCarrinho({});
             setEntrando(false);
             recarregar();
             window.scrollTo({ top: 0, behavior: "smooth" });
@@ -196,7 +251,19 @@ export function FilaCliente() {
   );
 }
 
-function EntrarNaFila({ onFechar, onEntrou }: { onFechar: () => void; onEntrou: () => void }) {
+function EntrarNaFila({
+  catalogo,
+  carrinho,
+  onCarrinho,
+  onFechar,
+  onEntrou,
+}: {
+  catalogo: ProdutoCatalogo[];
+  carrinho: Carrinho;
+  onCarrinho: (c: Carrinho) => void;
+  onFechar: () => void;
+  onEntrou: () => void;
+}) {
   const { empresa } = useEmpresa();
   const { veiculos, recarregar } = useMeusVeiculos();
   const [servicos, setServicos] = useState<Servico[] | null>(null);
@@ -205,8 +272,6 @@ function EntrarNaFila({ onFechar, onEntrou }: { onFechar: () => void; onEntrou: 
   const [busca, setBusca] = useState(false);
   const [obs, setObs] = useState("");
   const [novoVeiculo, setNovoVeiculo] = useState(false);
-  const [catalogo, setCatalogo] = useState<ProdutoCatalogo[]>([]);
-  const [carrinho, setCarrinho] = useState<Record<string, number>>({});
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -215,14 +280,9 @@ function EntrarNaFila({ onFechar, onEntrou }: { onFechar: () => void; onEntrou: 
       .getFullList<Servico>({ filter: pb.filter("empresa = {:e} && ativo = true", { e: empresa.id }), sort: "ordem_exibicao,nome" })
       .then(setServicos)
       .catch((err) => setErro(mensagemDeErro(err)));
-    pb.send<ProdutoCatalogo[]>(`/api/lr/catalogo/${encodeURIComponent(empresa.slug)}`, { method: "GET" })
-      .then(setCatalogo)
-      .catch(() => setCatalogo([]));
-  }, [empresa.id, empresa.slug]);
+  }, [empresa.id]);
 
-  const itensCarrinho = Object.entries(carrinho)
-    .filter(([, q]) => q > 0)
-    .map(([produto, quantidade]) => ({ produto, quantidade }));
+  const itensCarrinho = itensDoCarrinho(carrinho);
   const totalCarrinho = itensCarrinho.reduce((s, it) => s + (catalogo.find((p) => p.id === it.produto)?.preco || 0) * it.quantidade, 0);
 
   const veiculoEscolhido = veiculo || (veiculos?.length === 1 ? veiculos[0].id : "");
@@ -316,7 +376,7 @@ function EntrarNaFila({ onFechar, onEntrou }: { onFechar: () => void; onEntrou: 
                     <span className="block text-sm text-tinta-suave">{p.disponivel ? reais(p.preco) : "Em falta no momento"}</span>
                   </span>
                   {p.disponivel && (
-                    <Quantidade rotulo={p.nome} max={20} valor={carrinho[p.id] || 0} onChange={(v) => setCarrinho((c) => ({ ...c, [p.id]: v }))} />
+                    <Quantidade rotulo={p.nome} max={20} valor={carrinho[p.id] || 0} onChange={(v) => onCarrinho({ ...carrinho, [p.id]: v })} />
                   )}
                 </div>
               ))}

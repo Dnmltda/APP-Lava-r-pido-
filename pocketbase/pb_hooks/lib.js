@@ -587,6 +587,161 @@ function painelDaEmpresa(app, empresa, de, ate) {
 }
 
 // Área de uma pessoa da equipe num mês: carros, vendas, comissão, bônus estimado e vales.
+// Relatório / dashboard (patrão e gerente): séries por dia, horário de pico, serviços,
+// tempos de espera e de lavagem, clientes, avaliações e comparação com o período anterior.
+function relatorioDaEmpresa(app, empresa, de, ate) {
+  const eid = empresa.id;
+  const p = { e: eid, de: dataPB(de), ate: dataPB(ate) };
+  const f = faturamento(app, eid, de, ate);
+  const ant = faturamento(app, eid, de - (ate - de), de);
+  const carrosAnt = ant.carros.length;
+
+  // Por dia (dias de São Paulo)
+  const dias = [];
+  const idx = {};
+  for (let t = inicioDiaSP(de); t < ate; t += DIA) {
+    const d = new Date(t - OFFSET_SP);
+    const chave = d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+    idx[chave] = dias.length;
+    dias.push({ dia: chave, carros: 0, servicos: 0, produtos: 0, total: 0 });
+  }
+  const diaDe = (ms) => {
+    const d = new Date(ms - OFFSET_SP);
+    return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
+  };
+  const horas = [];
+  for (let h = 0; h < 24; h++) horas.push({ hora: h, carros: 0 });
+  const semana = [0, 0, 0, 0, 0, 0, 0];
+  const porServico = {};
+  const nomesServico = {};
+  let somaEspera = 0, nEspera = 0, somaLavagem = 0, nLavagem = 0;
+  const porCliente = {};
+
+  for (const c of f.carros) {
+    const fim = dataMs(c, "finalizado_em");
+    const ini = dataMs(c, "inicio_em");
+    const i = idx[diaDe(fim)];
+    if (i !== undefined) {
+      dias[i].carros++;
+      dias[i].servicos = arred(dias[i].servicos + c.getFloat("preco_servico"));
+    }
+    const ref = new Date((ini || fim) - OFFSET_SP);
+    horas[ref.getUTCHours()].carros++;
+    semana[ref.getUTCDay()]++;
+    const sid = c.getString("servico");
+    if (!(sid in nomesServico)) {
+      try {
+        nomesServico[sid] = app.findRecordById("servicos", sid).getString("nome");
+      } catch (_) {
+        nomesServico[sid] = "Serviço";
+      }
+    }
+    const sv = (porServico[sid] = porServico[sid] || { nome: nomesServico[sid], quantidade: 0, total: 0 });
+    sv.quantidade++;
+    sv.total = arred(sv.total + c.getFloat("preco_servico"));
+    // Espera: do pedido até começar a lavar (reservas não contam: o horário é combinado).
+    if (ini && c.getString("origem") !== "reserva") {
+      const criado = dataMs(c, "created");
+      if (criado && ini > criado) {
+        somaEspera += ini - criado;
+        nEspera++;
+      }
+    }
+    const pronto = dataMs(c, "pronto_em") || fim;
+    if (ini && pronto > ini) {
+      somaLavagem += pronto - ini;
+      nLavagem++;
+    }
+    if (c.getString("cliente")) porCliente[c.getString("cliente")] = (porCliente[c.getString("cliente")] || 0) + 1;
+  }
+  for (const v of f.vendas) {
+    const i = idx[diaDe(dataMs(v, "fechada_em"))];
+    if (i !== undefined) dias[i].produtos = arred(dias[i].produtos + v.getFloat("total"));
+  }
+  for (const d of dias) d.total = arred(d.servicos + d.produtos);
+
+  // Formas de pagamento (produtos)
+  const porForma = { cartao: 0, dinheiro: 0, pix: 0 };
+  for (const v of f.vendas) porForma[v.getString("forma_pagamento")] = arred((porForma[v.getString("forma_pagamento")] || 0) + v.getFloat("total"));
+
+  // Equipe: carros e vendas por pessoa
+  const rank = {};
+  const linha = (id) => (rank[id] = rank[id] || { usuario: id, carros: 0, vendas_total: 0, vendas_qtd: 0 });
+  for (const c of f.carros) if (c.getString("lavado_por")) linha(c.getString("lavado_por")).carros++;
+  for (const v of f.vendas) {
+    const r = linha(v.getString("funcionario"));
+    r.vendas_total = arred(r.vendas_total + v.getFloat("total"));
+    r.vendas_qtd++;
+  }
+  const nomes = nomesDeUsuarios(app, Object.keys(rank));
+  const equipe = Object.values(rank)
+    .map((r) => Object.assign(r, { nome: nomes[r.usuario] || "—" }))
+    .sort((a, b) => b.carros - a.carros || b.vendas_total - a.vendas_total);
+
+  // Produtos mais vendidos
+  const porProduto = {};
+  for (const v of f.vendas) {
+    for (const it of buscar(app, "vendas_itens", "venda = {:v}", { v: v.id })) {
+      const nome = it.getString("produto_nome");
+      const r = (porProduto[nome] = porProduto[nome] || { nome: nome, quantidade: 0, total: 0 });
+      r.quantidade += it.getInt("quantidade");
+      r.total = arred(r.total + it.getInt("quantidade") * it.getFloat("preco_unitario"));
+    }
+  }
+
+  // Fila: o que entrou no período e como terminou
+  const entradas = buscar(app, "fila_entradas", "empresa = {:e} && created >= {:de} && created < {:ate}", p);
+  const fila = { total: entradas.length, app: 0, balcao: 0, reserva: 0, cancelados: 0, recusados: 0, finalizados: 0 };
+  for (const r of entradas) {
+    const o = r.getString("origem");
+    if (o in fila) fila[o]++;
+    const st = r.getString("status");
+    if (st === "cancelado" || st === "substituido") fila.cancelados++;
+    if (st === "recusado") fila.recusados++;
+    if (st === "finalizado") fila.finalizados++;
+  }
+
+  // Clientes
+  const novos = buscar(app, "vinculos", "empresa = {:e} && papel = 'cliente' && created >= {:de} && created < {:ate}", p).length;
+  const atendidos = Object.keys(porCliente).length;
+  const recorrentes = Object.values(porCliente).filter((n) => n >= 2).length;
+
+  // Avaliações
+  const avs = buscar(app, "avaliacoes", "empresa = {:e} && created >= {:de} && created < {:ate}", p);
+  const media = (c) => (avs.length ? Math.round((avs.reduce((s, r) => s + r.getInt(c), 0) / avs.length) * 10) / 10 : 0);
+  const notas = { funcionario: media("nota_funcionario"), atendimento: media("nota_atendimento"), ambiente: media("nota_ambiente") };
+
+  // Caixa
+  const lanc = buscar(app, "lancamentos_caixa", "empresa = {:e} && cancelado = false && data >= {:de} && data < {:ate}", p);
+  const entradasCaixa = somar(lanc.filter((l) => l.getString("tipo") === "entrada"), (l) => l.getFloat("valor"));
+  const saidasCaixa = somar(lanc.filter((l) => l.getString("tipo") === "saida"), (l) => l.getFloat("valor"));
+
+  return {
+    periodo: { de: new Date(de).toISOString(), ate: new Date(ate).toISOString() },
+    resumo: {
+      carros: f.carros.length,
+      servicos: f.servicos,
+      produtos: f.produtos,
+      total: f.total,
+      ticket_medio: f.carros.length ? arred(f.total / f.carros.length) : 0,
+      espera_media_min: nEspera ? Math.round(somaEspera / nEspera / MIN) : 0,
+      lavagem_media_min: nLavagem ? Math.round(somaLavagem / nLavagem / MIN) : 0,
+    },
+    anterior: { carros: carrosAnt, servicos: ant.servicos, produtos: ant.produtos, total: ant.total, ticket_medio: carrosAnt ? arred(ant.total / carrosAnt) : 0 },
+    dias: dias,
+    horas: horas,
+    dias_semana: semana,
+    servicos: Object.values(porServico).sort((a, b) => b.quantidade - a.quantidade),
+    produtos: Object.values(porProduto).sort((a, b) => b.total - a.total),
+    por_forma_pagamento: porForma,
+    equipe: equipe,
+    fila: fila,
+    clientes: { novos: novos, atendidos: atendidos, recorrentes: recorrentes },
+    avaliacoes: { total: avs.length, notas: notas, geral: avs.length ? Math.round(((notas.funcionario + notas.atendimento + notas.ambiente) / 3) * 10) / 10 : 0 },
+    caixa: { entradas: entradasCaixa, saidas: saidasCaixa, saldo: arred(f.total + entradasCaixa - saidasCaixa) },
+  };
+}
+
 function areaDoFuncionario(app, empresa, usuarioId, mesIni, mesFim) {
   const agora = Date.now();
   const contar = (de, ate) =>
@@ -935,6 +1090,7 @@ function verificarSensores(app, agora) {
 }
 
 module.exports = {
+  relatorioDaEmpresa,
   CAMPOS_SENSOR,
   funcionamentoAgora,
   registrarSensor,
