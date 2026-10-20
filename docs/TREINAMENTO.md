@@ -69,9 +69,12 @@ Tudo do gerente, mais:
 - **Clientes**: quem veio, quantas vezes, última visita, quanto gastou e o histórico de cada um (com WhatsApp). Em cada pessoa: área, **Lançar vale** (com comprovante) e holerites.
 - **Vendas**: **Corrigir venda** fechada (pede o motivo; fica no histórico).
 - **Serviços** e **Produtos**: preço, tempo médio, estoque, estoque mínimo e comissão.
-  Em **Serviços → Tipos de veículo e convênios** crie os tipos (pequeno, grande, moto, Uber, empresa conveniada…).
-  Marque “Só a equipe define” nos que o cliente não pode escolher sozinho (Uber, convênio). Depois, em cada serviço,
-  coloque o preço de cada tipo (em branco = preço padrão).
+  Em **Serviços → Tipos de veículo e convênios** crie os tipos e diga para qual carro cada um **entra sozinho**
+  (carro pequeno, médio, grande, moto ou motorista de app). Convênio/empresa parceira: “Só a equipe marca”.
+  Depois, em cada serviço, coloque o preço de cada tipo (em branco = preço padrão).
+  Botão **Pausar** em cada serviço: some da tela do cliente sem apagar nada; **Ativar** traz de volta.
+- **Produtos**: sugestões prontas (cheirinho, pretinho, flanela, água…). Toque, coloque o seu preço e o estoque.
+- **Configurações → Buscamos o carro do cliente**: liga a opção de busca (o app avisa que tem taxa adicional).
 - **Caixa → + Gasto fixo**: aluguel, luz, internet, contador… com o dia do vencimento. Entra sozinho no caixa todo mês.
 - **Configurações**: logo, cor, quantos carros lava ao mesmo tempo, tolerância de atraso, antecedência do aviso,
   textos das notificações, horário de funcionamento, comissão ligada/desligada. Metas e bônus por carro.
@@ -84,8 +87,9 @@ Tudo do gerente, mais:
 - **Avaliações** com o nome do cliente.
 
 ## Cliente (o que explicar no balcão)
-1. Ler o QR Code → **Criar cadastro** (nome, celular, senha, carro).
-2. **Entrar na fila** → tipo do veículo (se o lava rápido usar) → serviço → produtos (opcional) → “quero que busquem meu carro” (opcional) → **Confirmar e entrar na fila**.
+1. Ler o QR Code → **Criar cadastro** (nome, celular, senha, carro). O app sugere o **tamanho do carro** pelo modelo
+   (ex.: HB20 = pequeno) e pergunta se trabalha com **aplicativo** (Uber, 99). Com isso o preço sai sozinho na fila.
+2. **Entrar na fila** → veículo → serviço (o preço já é o do tamanho do carro) → produtos (opcional) → “quero que busquem meu carro” (opcional) → **Confirmar e entrar na fila**.
 3. Acompanhar a posição e a previsão. Se a equipe tirar fotos, aparece **Ver fotos do seu carro**. Botão **Falar no WhatsApp** direto com o lava rápido. Ligar os **avisos** para receber “vez confirmada”, “já pode vir” e “carro pronto”.
 4. Depois da lavagem: avaliar com estrelas.
 5. Pagamento: sempre no lava rápido, na hora.

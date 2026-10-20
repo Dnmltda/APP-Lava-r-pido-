@@ -66,7 +66,7 @@ async function main() {
 
   try {
     console.log("Preparando dados de teste…");
-    const A = await criar("empresas", { nome: "Teste Fila A", slug: "teste-fa-" + sufixo, ativo: true, capacidade_simultanea: 2 });
+    const A = await criar("empresas", { nome: "Teste Fila A", slug: "teste-fa-" + sufixo, ativo: true, capacidade_simultanea: 2, oferece_busca: true });
     const B = await criar("empresas", { nome: "Teste Fila B", slug: "teste-fb-" + sufixo, ativo: true });
     const patraoA = await pessoa("Patrão A", A, "patrao");
     const gerenteA = await pessoa("Gerente A", A, "gerente");

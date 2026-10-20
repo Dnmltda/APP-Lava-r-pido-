@@ -73,7 +73,9 @@ export function Vitrine({
             Produtos
           </h2>
           <p className="text-sm text-tinta-suave">
-            {entradaId ? "Reserve agora: a equipe separa para o seu carro." : "Reserve e eles vão junto quando você entrar na fila."}
+            {entradaId
+              ? "Pode pôr mais a qualquer hora, sem sair da fila. Você paga e retira tudo no fim, junto com a lavagem."
+              : "Reserve e eles vão junto quando você entrar na fila. Paga e retira no fim."}
           </p>
         </div>
       </div>
@@ -196,7 +198,7 @@ function Reservar({
         </div>
         <p className="text-sm text-tinta-suave">
           {entradaId ? "A equipe separa para o seu carro. " : "Fica guardado aqui e vai junto quando você entrar na fila. "}
-          Pagamento só no lava rápido.
+          Você paga e retira no fim, junto com a lavagem.
         </p>
         {erro && <Aviso>{erro}</Aviso>}
         <Botao largo carregando={enviando} disabled={entradaId ? qtd === 0 : false} onClick={confirmar}>

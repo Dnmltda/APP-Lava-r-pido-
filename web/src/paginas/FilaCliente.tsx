@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AtivarAvisos } from "../componentes/Avisos";
 import { Quantidade } from "../componentes/Quantidade";
-import { EscolhaTipo, precoPara, tiposDaEmpresa } from "../componentes/TipoVeiculo";
+import { precoPara, tiposDaEmpresa } from "../componentes/TipoVeiculo";
+import { TamanhoVeiculo } from "../componentes/CamposVeiculo";
+import { tipoDoCarro } from "../lib/porteVeiculo";
 import { FotosEntrada, useFotosDasEntradas } from "../componentes/Vistoria";
 import { ListaFilaPublica, IconeBusca } from "../componentes/fila";
-import { descricaoVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
+import { descricaoVeiculo, detalheVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
 import { Aviso, Botao, Carregando, Cartao, Confirmar, EstadoErro, Folha, Interruptor } from "../componentes/ui";
 import { guardarCarrinho, itensDoCarrinho, lerCarrinho, useCatalogo, Vitrine, type Carrinho } from "../componentes/Vitrine";
 import { useEmpresa } from "../contexto/Empresa";
@@ -137,7 +139,10 @@ export function FilaCliente() {
             {minha.quer_busca && <IconeBusca />}
           </div>
           {meusItens && meusItens.length > 0 && (
-            <ul className="mt-3 rounded-xl bg-black/10 px-3 py-2 text-base">
+            <p className="mt-3 text-sm font-semibold opacity-90">Seus produtos (paga e retira no fim, junto com a lavagem):</p>
+          )}
+          {meusItens && meusItens.length > 0 && (
+            <ul className="mt-1 rounded-xl bg-black/10 px-3 py-2 text-base">
               {meusItens.map((i) => (
                 <li key={i.id} className="flex min-h-10 items-center justify-between gap-2">
                   <span>
@@ -167,7 +172,7 @@ export function FilaCliente() {
               onClick={() => document.getElementById("titulo-produtos")?.scrollIntoView({ behavior: "smooth", block: "start" })}
               className="mt-3 min-h-12 w-full rounded-xl bg-white/95 px-4 text-base font-bold text-marca-forte"
             >
-              + Reservar produtos
+              + Pôr mais produtos
             </button>
           )}
           {!!fotos[minha.id] && (
@@ -299,7 +304,6 @@ function EntrarNaFila({
 }) {
   const { empresa, vinculo } = useEmpresa();
   const { veiculos, recarregar } = useMeusVeiculos();
-  const [tipo, setTipo] = useState("");
   const [servicos, setServicos] = useState<Servico[] | null>(null);
   const [servico, setServico] = useState("");
   const [veiculo, setVeiculo] = useState("");
@@ -320,20 +324,37 @@ function EntrarNaFila({
   const totalCarrinho = itensCarrinho.reduce((s, it) => s + (catalogo.find((p) => p.id === it.produto)?.preco || 0) * it.quantidade, 0);
 
   const veiculoEscolhido = veiculo || (veiculos?.length === 1 ? veiculos[0].id : "");
-  // Tipo que a equipe já definiu para este carro vale sempre; senão o cliente escolhe (menos os restritos).
+  // O preço sai do cadastro do carro (tamanho / motorista de app) ou do que a equipe definiu.
   const tipos = tiposDaEmpresa(empresa);
-  const tipoDaEquipe = tipos.find((t) => t.id === vinculo?.tipos_veiculos?.[veiculoEscolhido]);
-  const tipoEfetivo = tipoDaEquipe?.id || tipo;
+  const carro = veiculos?.find((v) => v.id === veiculoEscolhido);
+  const { tipo: tipoCarro, motivo } = tipoDoCarro(tipos, vinculo, carro);
+  const tipoEfetivo = tipoCarro?.id || "";
+  const usaPorte = tipos.some((t) => t.vale && t.vale !== "app");
+  const faltaPorte = !!carro && !carro.porte && usaPorte && !tipoCarro;
+  const [salvandoPorte, setSalvandoPorte] = useState(false);
+  async function definirPorte(porte: string) {
+    if (!carro) return;
+    setSalvandoPorte(true);
+    try {
+      await pb.collection("veiculos").update(carro.id, { porte });
+      await recarregar();
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setSalvandoPorte(false);
+    }
+  }
 
   async function confirmar() {
     setErro("");
     if (!servico) return setErro("Escolha o serviço.");
     if (!veiculoEscolhido) return setErro("Escolha o veículo.");
+    if (faltaPorte) return setErro("Informe o tamanho do veículo para ver o preço certo.");
     setEnviando(true);
     try {
       await pb.send("/api/lr/fila/entrar", {
         method: "POST",
-        body: { slug: empresa.slug, servico, veiculo: veiculoEscolhido, tipo_veiculo: tipoEfetivo, quer_busca: busca, observacao: obs.trim(), itens: itensCarrinho },
+        body: { slug: empresa.slug, servico, veiculo: veiculoEscolhido, quer_busca: !!empresa.oferece_busca && busca, observacao: obs.trim(), itens: itensCarrinho },
       });
       onEntrou();
     } catch (err) {
@@ -359,13 +380,32 @@ function EntrarNaFila({
   return (
     <Folha titulo="Entrar na fila" onFechar={onFechar}>
       <div className="flex flex-col gap-5">
-        {tipoDaEquipe ? (
-          <p className="rounded-xl bg-marca-suave px-4 py-3 text-base text-tinta">
-            Tipo do veículo: <strong>{tipoDaEquipe.nome}</strong>
-          </p>
-        ) : (
-          <EscolhaTipo tipos={tipos.filter((t) => !t.restrito)} valor={tipo} onChange={setTipo} />
-        )}
+        <fieldset>
+          <legend className="mb-2 text-base font-bold text-tinta">Veículo</legend>
+          <div className="flex flex-col gap-2">
+            {veiculos?.map((v) => (
+              <Opcao key={v.id} marcada={veiculoEscolhido === v.id} onClick={() => setVeiculo(v.id)}>
+                <span className="block text-base font-bold text-tinta">{descricaoVeiculo(v)}</span>
+                {usaPorte && <span className={`block text-sm ${v.porte ? "text-tinta-suave" : "font-bold text-amber-700"}`}>{detalheVeiculo(v)}</span>}
+              </Opcao>
+            ))}
+            <button type="button" onClick={() => setNovoVeiculo(true)} className="min-h-12 self-start rounded-xl px-2 text-base font-bold text-marca-forte">
+              + Outro veículo
+            </button>
+          </div>
+          {faltaPorte && (
+            <div className="mt-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
+              <TamanhoVeiculo valor="" onChange={definirPorte} />
+              {salvandoPorte && <p className="mt-1 text-sm text-tinta-suave">Salvando…</p>}
+            </div>
+          )}
+          {tipoCarro && (
+            <p className="mt-3 rounded-xl bg-marca-suave px-4 py-3 text-base text-tinta">
+              Preço para <strong>{tipoCarro.nome}</strong> <span className="text-sm text-tinta-suave">({motivo})</span>
+            </p>
+          )}
+        </fieldset>
+
         <fieldset>
           <legend className="mb-2 text-base font-bold text-tinta">Serviço</legend>
           {servicos === null ? (
@@ -390,24 +430,13 @@ function EntrarNaFila({
           )}
         </fieldset>
 
-        <fieldset>
-          <legend className="mb-2 text-base font-bold text-tinta">Veículo</legend>
-          <div className="flex flex-col gap-2">
-            {veiculos?.map((v) => (
-              <Opcao key={v.id} marcada={veiculoEscolhido === v.id} onClick={() => setVeiculo(v.id)}>
-                <span className="text-base font-bold text-tinta">{descricaoVeiculo(v)}</span>
-              </Opcao>
-            ))}
-            <button type="button" onClick={() => setNovoVeiculo(true)} className="min-h-12 self-start rounded-xl px-2 text-base font-bold text-marca-forte">
-              + Outro veículo
-            </button>
-          </div>
-        </fieldset>
 
         {catalogo.length > 0 && (
           <fieldset>
             <legend className="mb-1 text-base font-bold text-tinta">Produtos (opcional)</legend>
-            <p className="mb-2 text-sm text-tinta-suave">A equipe já separa para você. Paga no lava rápido.</p>
+            <p className="mb-2 text-sm text-tinta-suave">
+              A equipe separa para o seu carro. Você paga e retira tudo no fim, junto com a lavagem. Dá para pôr mais depois, sem sair da fila.
+            </p>
             <div className="flex flex-col gap-2">
               {catalogo.map((p) => (
                 <div key={p.id} className={`flex min-h-16 items-center gap-3 rounded-2xl border border-linha bg-white px-3 py-2 ${p.disponivel ? "" : "opacity-60"}`}>
@@ -430,12 +459,14 @@ function EntrarNaFila({
           </fieldset>
         )}
 
-        <Interruptor
-          rotulo="Quero que busquem meu carro"
-          descricao="O lava rápido chama você no WhatsApp para combinar local e taxa."
-          ligado={busca}
-          onChange={setBusca}
-        />
+        {empresa.oferece_busca && (
+          <Interruptor
+            rotulo="Quero que busquem meu carro (taxa adicional)"
+            descricao="A busca tem taxa adicional, cobrada à parte do serviço. O lava rápido chama você no WhatsApp para combinar o local e o valor."
+            ligado={busca}
+            onChange={setBusca}
+          />
+        )}
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="obs" className="text-base font-semibold text-tinta">
@@ -451,7 +482,7 @@ function EntrarNaFila({
           />
         </div>
 
-        <p className="text-sm text-tinta-suave">O pagamento é feito no lava rápido, na hora.</p>
+        <p className="text-sm text-tinta-suave">Você paga tudo (serviço e produtos) no lava rápido, quando o carro ficar pronto.</p>
         {erro && <Aviso>{erro}</Aviso>}
         <Botao largo carregando={enviando} onClick={confirmar}>
           Confirmar e entrar na fila

@@ -671,7 +671,7 @@ function DefinirTipo({ entrada, tipos, onFechar, onSalvo }: { entrada: EntradaFi
     <Folha titulo={`Tipo do veículo · ${nomeDaEntrada(entrada)}`} onFechar={onFechar}>
       <div className="flex flex-col gap-4">
         <EscolhaTipo tipos={tipos} valor={tipo} onChange={setTipo} rotulo="Escolha o tipo" semTipo="Padrão" />
-        <p className="text-sm text-tinta-suave">O preço do serviço muda conforme o tipo. Tipos marcados como restritos (ex.: motorista de app, convênio) só a equipe escolhe.</p>
+        <p className="text-sm text-tinta-suave">O preço do serviço muda conforme o tipo. O cliente informa o tamanho e se é motorista de app no cadastro do carro; aqui a equipe corrige ou marca convênio.</p>
         {entrada.cliente && (
           <label className="flex min-h-12 items-center gap-3 rounded-xl border-2 border-linha bg-white px-4">
             <input type="checkbox" className="h-5 w-5 accent-[var(--marca)]" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} />

@@ -89,11 +89,18 @@ async function main() {
     console.log("\nTipos de veículo e preço por tipo");
     let r = await api("PATCH", `/api/collections/empresas/records/${A.id}`, {
       token: patrao.token,
-      body: { tipos_veiculo: [{ nome: " Pequeno " }, { nome: "Grande / SUV" }, { nome: "Motorista de app", restrito: true }] },
+      body: {
+        tipos_veiculo: [
+          { nome: " Pequeno ", vale: "pequeno" }, { nome: "Grande / SUV", vale: "grande" }, { nome: "Motorista de app", vale: "app" },
+          { nome: "Convênio Padaria", vale: "", restrito: true }, { nome: "Outro grande", vale: "grande" }, { nome: "Esquisito", vale: "xpto" },
+        ],
+      },
     });
     const tipos = r.data && r.data.tipos_veiculo;
-    checar("dono cria os tipos de veículo da empresa", r.status === 200 && tipos.length === 3 && tipos.every((t) => t.id) && tipos[0].nome === "Pequeno", r.data);
+    checar("dono cria os tipos de veículo da empresa", r.status === 200 && tipos.length === 6 && tipos.every((t) => t.id) && tipos[0].nome === "Pequeno", r.data);
     const [tPeq, tGrande, tApp] = tipos;
+    checar("cada tipo diz para qual carro vale sozinho", tPeq.vale === "pequeno" && tGrande.vale === "grande" && tApp.vale === "app" && tipos[3].vale === "", tipos);
+    checar("um porte só tem um tipo (o repetido vira 'só a equipe') e valor estranho é ignorado", tipos[4].vale === "" && tipos[5].vale === "", tipos);
     r = await api("PATCH", `/api/collections/empresas/records/${A.id}`, { token: gerente.token, body: { tipos_veiculo: [] } });
     checar("gerente não mexe nos tipos (configuração do dono)", negado(r), r.status);
     r = await api("PATCH", `/api/collections/empresas/records/${A.id}`, { token: patrao.token, body: { tipos_veiculo: [{ nome: "X" }] } });
@@ -103,21 +110,36 @@ async function main() {
     r = await api("PATCH", `/api/collections/servicos/records/${servico.id}`, { token: patrao.token, body: { precos_tipo: { x: -5 } } });
     checar("preço negativo é recusado", r.status === 400, r.status);
 
-    r = await api("POST", "/api/lr/fila/entrar", { token: c1.token, body: { slug: A.slug, servico: servico.id, veiculo: v1.id, tipo_veiculo: tGrande.id } });
-    let e1 = (await api("GET", `/api/collections/fila_entradas/records/${r.data.id}`, { token: ADM })).data;
-    checar("cliente escolhe 'Grande': preço do grande", e1.preco_servico === 80 && e1.tipo_veiculo_nome === "Grande / SUV", e1);
-    await api("POST", `/api/lr/fila/${e1.id}/cancelar`, { token: c1.token, body: { motivo: "teste" } });
-    r = await api("POST", "/api/lr/fila/entrar", { token: c1.token, body: { slug: A.slug, servico: servico.id, veiculo: v1.id, tipo_veiculo: tApp.id } });
-    e1 = (await api("GET", `/api/collections/fila_entradas/records/${r.data.id}`, { token: ADM })).data;
-    checar("cliente NÃO consegue se colocar como 'Motorista de app' (restrito)", e1.preco_servico === 50 && !e1.tipo_veiculo, e1);
-    r = await api("POST", `/api/lr/fila/${e1.id}/tipo`, { token: func.token, body: { tipo: tApp.id } });
+    const entrar = async (extra = {}) => {
+      const rr = await api("POST", "/api/lr/fila/entrar", { token: c1.token, body: { slug: A.slug, servico: servico.id, veiculo: v1.id, ...extra } });
+      return (await api("GET", `/api/collections/fila_entradas/records/${rr.data.id}`, { token: ADM })).data;
+    };
+    const sair = (x) => api("POST", `/api/lr/fila/${x.id}/cancelar`, { token: c1.token, body: { motivo: "teste" } });
+    let e1 = await entrar();
+    checar("carro sem tamanho no cadastro: preço normal", e1.preco_servico === 50 && !e1.tipo_veiculo, e1);
+    await sair(e1);
+    r = await api("PATCH", `/api/collections/veiculos/records/${v1.id}`, { token: c1.token, body: { porte: "grande" } });
+    checar("cliente informa o tamanho no cadastro do carro", r.status === 200 && r.data.porte === "grande", r.status);
+    e1 = await entrar({ tipo_veiculo: tPeq.id });
+    checar("o tamanho do carro define o preço sozinho (Grande)", e1.preco_servico === 80 && e1.tipo_veiculo === tGrande.id, e1);
+    checar("o cliente não escolhe o tipo pela fila (pedido de 'Pequeno' ignorado)", e1.tipo_veiculo !== tPeq.id);
+    await sair(e1);
+    await api("PATCH", `/api/collections/veiculos/records/${v1.id}`, { token: c1.token, body: { app_motorista: true } });
+    e1 = await entrar();
+    checar("motorista de app (marcado no carro) paga o preço de app", e1.preco_servico === 35 && e1.tipo_veiculo === tApp.id, e1);
+    r = await api("POST", `/api/lr/fila/${e1.id}/tipo`, { token: func.token, body: { tipo: tPeq.id } });
     checar("funcionário comum não muda o tipo", negado(r), r.status);
-    r = await api("POST", `/api/lr/fila/${e1.id}/tipo`, { token: resp.token, body: { tipo: tApp.id, lembrar: true } });
-    checar("responsável pela fila define 'Motorista de app' e o preço cai", r.status === 200 && r.data.preco_servico === 35, r.data);
-    await api("POST", `/api/lr/fila/${e1.id}/cancelar`, { token: c1.token, body: { motivo: "teste" } });
-    r = await api("POST", "/api/lr/fila/entrar", { token: c1.token, body: { slug: A.slug, servico: servico.id, veiculo: v1.id, tipo_veiculo: tPeq.id } });
-    e1 = (await api("GET", `/api/collections/fila_entradas/records/${r.data.id}`, { token: ADM })).data;
-    checar("na próxima vez o carro já entra como 'Motorista de app' (a equipe lembrou)", e1.preco_servico === 35 && e1.tipo_veiculo === tApp.id, e1);
+    r = await api("POST", `/api/lr/fila/${e1.id}/tipo`, { token: resp.token, body: { tipo: tGrande.id, lembrar: true } });
+    checar("responsável pela fila corrige o tipo e o preço muda", r.status === 200 && r.data.preco_servico === 80, r.data);
+    await sair(e1);
+    await api("PATCH", `/api/collections/veiculos/records/${v1.id}`, { token: c1.token, body: { app_motorista: true, porte: "pequeno" } });
+    e1 = await entrar();
+    checar("o que a equipe definiu vale mais que o cadastro do cliente", e1.preco_servico === 80 && e1.tipo_veiculo === tGrande.id, e1);
+    checar("busca do carro: empresa que não oferece não recebe pedido de busca", (await (async () => { await sair(e1); e1 = await entrar({ quer_busca: true }); return !e1.quer_busca; })()));
+    await sair(e1);
+    await api("PATCH", `/api/collections/empresas/records/${A.id}`, { token: patrao.token, body: { oferece_busca: true } });
+    e1 = await entrar({ quer_busca: true });
+    checar("com a busca ligada nas configurações, o pedido de busca chega", e1.quer_busca === true);
     r = await api("POST", "/api/lr/fila/balcao", { token: gerente.token, body: { empresa: A.id, servico: servico.id, nome: "Balcão Grande", final_placa: "BG1", tipo_veiculo: tGrande.id } });
     const balcao = (await api("GET", `/api/collections/fila_entradas/records/${r.data.id}`, { token: ADM })).data;
     checar("cliente de balcão com tipo: preço certo", balcao.preco_servico === 80, balcao.preco_servico);

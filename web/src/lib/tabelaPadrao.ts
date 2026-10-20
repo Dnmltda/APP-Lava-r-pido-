@@ -6,9 +6,9 @@
 // Moto fica de fora: nenhuma fonte confiável de preço.
 
 export const TIPOS_PADRAO = [
-  { nome: "Carro pequeno (hatch)", restrito: false },
-  { nome: "Sedan / SUV", restrito: false },
-  { nome: "Caminhonete / Van", restrito: false },
+  { nome: "Carro pequeno (hatch)", restrito: false, vale: "pequeno" },
+  { nome: "Sedan / SUV", restrito: false, vale: "medio" },
+  { nome: "Caminhonete / Van", restrito: false, vale: "grande" },
 ] as const;
 
 // precos = [pequeno, sedan/SUV, caminhonete/van]; o preço padrão do serviço é o do carro pequeno.

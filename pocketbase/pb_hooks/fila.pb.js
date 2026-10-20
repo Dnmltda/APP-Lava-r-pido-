@@ -131,7 +131,7 @@ routerAdd("GET", "/api/lr/fila-publica/{slug}", (e) => {
 // POST /api/lr/fila/entrar { slug, servico, veiculo, quer_busca, observacao }
 routerAdd("POST", "/api/lr/fila/entrar", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const body = new DynamicModel({ slug: "", servico: "", veiculo: "", quer_busca: false, observacao: "", itens: [], tipo_veiculo: "" });
+  const body = new DynamicModel({ slug: "", servico: "", veiculo: "", quer_busca: false, observacao: "", itens: [] });
   e.bindBody(body);
 
   const empresa = lib.acharEmpresaAtivaPorSlug(e.app, body.slug);
@@ -173,22 +173,13 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
     entrada.set("veiculo", veiculo.id);
     entrada.set("servico", servico.id);
     entrada.set("duracao_min", servico.getInt("duracao_media_min"));
-    // Tipo do veículo: o que a equipe já definiu para este carro vale mais que a escolha do cliente;
-    // o cliente não pode escolher tipo restrito (ex.: motorista de app, convênio).
-    let tipoId = "";
-    try {
-      const mapa = JSON.parse(vinculo.getString("tipos_veiculos") || "{}");
-      if (mapa && mapa[veiculo.id]) tipoId = mapa[veiculo.id];
-    } catch (_) {}
-    if (!lib.acharTipo(empresa, tipoId)) {
-      const escolhido = lib.acharTipo(empresa, String(body.tipo_veiculo || ""));
-      tipoId = escolhido && !escolhido.restrito ? escolhido.id : "";
-    }
+    // Tipo do veículo: sai do cadastro do carro (porte / motorista de app) ou do que a equipe definiu.
+    const tipoId = lib.tipoDoCarro(empresa, vinculo, veiculo);
     lib.aplicarTipo(entrada, servico, empresa, tipoId);
     entrada.set("origem", "app");
     entrada.set("status", "pendente");
     entrada.set("ordem", lib.ordemAntesDe(tx, empresa.id, pos.lista, pos.p));
-    entrada.set("quer_busca", !!body.quer_busca);
+    entrada.set("quer_busca", !!body.quer_busca && empresa.getBool("oferece_busca"));
     entrada.set("observacao", String(body.observacao || "").trim().slice(0, 300));
     tx.save(entrada);
 

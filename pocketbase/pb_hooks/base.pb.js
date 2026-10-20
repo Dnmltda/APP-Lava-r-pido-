@@ -39,7 +39,7 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const body = new DynamicModel({
     slug: "", nome: "", celular: "", senha: "", aceite_marketing: false,
-    placa: "", final_placa: "", modelo: "", cor: "",
+    placa: "", final_placa: "", modelo: "", cor: "", porte: "", app_motorista: false,
   });
   e.bindBody(body);
 
@@ -85,6 +85,8 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
     veiculo.set("final_placa", finalPlaca);
     veiculo.set("modelo", String(body.modelo || "").trim().slice(0, 60));
     veiculo.set("cor", String(body.cor || "").trim().slice(0, 30));
+    if (["pequeno", "medio", "grande", "moto"].indexOf(String(body.porte || "")) >= 0) veiculo.set("porte", body.porte);
+    veiculo.set("app_motorista", !!body.app_motorista);
     tx.save(veiculo);
   });
 

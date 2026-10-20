@@ -23,6 +23,7 @@ export function Produtos() {
   const [lista, setLista] = useState<Produto[] | null>(null);
   const [erro, setErro] = useState("");
   const [editando, setEditando] = useState<Produto | "novo" | null>(null);
+  const [sugestao, setSugestao] = useState<{ nome: string; descricao: string } | null>(null);
   const [salvandoComissao, setSalvandoComissao] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -61,7 +62,13 @@ export function Produtos() {
 
   return (
     <Moldura voltarPara={`/${empresa.slug}`} titulo="Produtos">
-      <Botao largo onClick={() => setEditando("novo")}>
+      <Botao
+        largo
+        onClick={() => {
+          setSugestao(null);
+          setEditando("novo");
+        }}
+      >
         + Novo produto
       </Botao>
       <div className="mt-4">
@@ -73,6 +80,27 @@ export function Produtos() {
           onChange={alternarComissao}
         />
       </div>
+      {lista && SUGESTOES.some((x) => !lista.some((p) => p.nome.toLowerCase() === x.nome.toLowerCase())) && (
+        <div className="mt-4 rounded-2xl border border-linha bg-white p-4">
+          <p className="text-base font-bold text-tinta">Produtos que lava rápido costuma vender</p>
+          <p className="mt-1 text-sm text-tinta-suave">Toque para cadastrar. Você só coloca o seu preço e o estoque.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {SUGESTOES.filter((x) => !lista.some((p) => p.nome.toLowerCase() === x.nome.toLowerCase())).map((x) => (
+              <button
+                key={x.nome}
+                type="button"
+                onClick={() => {
+                  setSugestao(x);
+                  setEditando("novo");
+                }}
+                className="min-h-11 rounded-full border-2 border-marca/40 bg-white px-4 text-sm font-bold text-marca-forte"
+              >
+                + {x.nome}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {baixos.length > 0 && (
         <div className="mt-4">
           <Aviso>
@@ -115,10 +143,15 @@ export function Produtos() {
       {editando && (
         <EditarProduto
           produto={editando === "novo" ? null : editando}
+          sugestao={editando === "novo" ? sugestao : null}
           empresaId={empresa.id}
-          onFechar={() => setEditando(null)}
+          onFechar={() => {
+            setEditando(null);
+            setSugestao(null);
+          }}
           onSalvo={() => {
             setEditando(null);
+            setSugestao(null);
             carregar();
           }}
         />
@@ -131,9 +164,33 @@ function numero(v: string) {
   return Number(v.replace(/\./g, "").replace(",", "."));
 }
 
-function EditarProduto({ produto, empresaId, onFechar, onSalvo }: { produto: Produto | null; empresaId: string; onFechar: () => void; onSalvo: () => void }) {
-  const [nome, setNome] = useState(produto?.nome || "");
-  const [descricao, setDescricao] = useState(produto?.descricao || "");
+// Sugestões de nome (o preço é sempre do dono: não há referência confiável de preço de revenda).
+const SUGESTOES = [
+  { nome: "Cheirinho (aromatizante)", descricao: "Aromatizante para o carro" },
+  { nome: "Aromatizante em spray", descricao: "Perfume para o interior do carro" },
+  { nome: "Pretinho para pneus", descricao: "Deixa os pneus pretos e brilhando" },
+  { nome: "Flanela de microfibra", descricao: "Para limpar o painel e os vidros" },
+  { nome: "Limpa-vidros", descricao: "Para os vidros e espelhos" },
+  { nome: "Água mineral", descricao: "Garrafa 500 ml" },
+  { nome: "Refrigerante lata", descricao: "350 ml" },
+  { nome: "Café", descricao: "Para quem espera" },
+];
+
+function EditarProduto({
+  produto,
+  sugestao,
+  empresaId,
+  onFechar,
+  onSalvo,
+}: {
+  produto: Produto | null;
+  sugestao?: { nome: string; descricao: string } | null;
+  empresaId: string;
+  onFechar: () => void;
+  onSalvo: () => void;
+}) {
+  const [nome, setNome] = useState(produto?.nome || sugestao?.nome || "");
+  const [descricao, setDescricao] = useState(produto?.descricao || sugestao?.descricao || "");
   const [preco, setPreco] = useState(produto ? String(produto.preco).replace(".", ",") : "");
   const [estoque, setEstoque] = useState(produto ? String(produto.estoque) : "0");
   const [minimo, setMinimo] = useState(produto ? String(produto.estoque_minimo) : "2");

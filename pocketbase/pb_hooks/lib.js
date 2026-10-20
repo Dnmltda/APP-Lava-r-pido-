@@ -1253,6 +1253,23 @@ function precoDoServico(servico, tipoId) {
   }
   return servico.getFloat("preco");
 }
+const VALES_TIPO = ["pequeno", "medio", "grande", "moto", "app"];
+// Tipo do carro do cliente nesta empresa, sem o cliente escolher nada:
+//  1. o que a equipe já definiu para este carro;  2. motorista de app (declarado no carro);
+//  3. o porte do cadastro do carro.  Sem nada disso: preço padrão do serviço.
+function tipoDoCarro(empresa, vinculo, veiculo) {
+  try {
+    const mapa = JSON.parse(vinculo.getString("tipos_veiculos") || "{}");
+    const daEquipe = mapa && acharTipo(empresa, mapa[veiculo.id]);
+    if (daEquipe) return daEquipe.id;
+  } catch (_) {}
+  const tipos = tiposVeiculo(empresa);
+  const porVale = (v) => tipos.find((t) => t.vale === v);
+  if (veiculo.getBool("app_motorista") && porVale("app")) return porVale("app").id;
+  const porte = veiculo.getString("porte");
+  if (porte && porVale(porte)) return porVale(porte).id;
+  return "";
+}
 // Grava tipo + preço na entrada. tipoId inválido → sem tipo (preço normal).
 function aplicarTipo(entrada, servico, empresa, tipoId) {
   const t = acharTipo(empresa, tipoId);
@@ -1265,13 +1282,18 @@ function normalizarTipos(lista) {
   if (!Array.isArray(lista)) throw new BadRequestError("Lista de tipos inválida.");
   if (lista.length > 12) throw new BadRequestError("No máximo 12 tipos de veículo.");
   const vistos = {};
+  const valesUsados = {};
   return lista.map((t, i) => {
     const nome = String((t && t.nome) || "").trim().replace(/\s+/g, " ").slice(0, 40);
     if (nome.length < 2) throw new BadRequestError("Dê um nome para cada tipo de veículo.");
     let id = String((t && t.id) || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 20);
     if (!id || vistos[id]) id = "t" + $security.randomStringWithAlphabet(7, "abcdefghijklmnopqrstuvwxyz0123456789");
     vistos[id] = true;
-    return { id: id, nome: nome, restrito: !!(t && t.restrito) };
+    // "vale": para qual carro o tipo entra sozinho (porte do cadastro ou motorista de app).
+    let vale = VALES_TIPO.indexOf(String((t && t.vale) || "")) >= 0 ? String(t.vale) : "";
+    if (vale && valesUsados[vale]) vale = "";
+    if (vale) valesUsados[vale] = true;
+    return { id: id, nome: nome, restrito: !!(t && t.restrito), vale: vale };
   });
 }
 
@@ -1399,6 +1421,7 @@ module.exports = {
   acharTipo,
   precoDoServico,
   aplicarTipo,
+  tipoDoCarro,
   normalizarTipos,
   historicoCliente,
   listaClientes,

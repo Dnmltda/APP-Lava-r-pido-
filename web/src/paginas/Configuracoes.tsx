@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
-import { Aviso, Botao, Campo } from "../componentes/ui";
+import { Aviso, Botao, Campo, Interruptor } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { DIAS_SEMANA, mascaraCelular, somenteDigitos } from "../lib/formato";
 import { mensagemDeErro, pb, urlArquivo } from "../lib/pb";
@@ -42,6 +42,7 @@ export function Configuracoes() {
   const [capacidade, setCapacidade] = useState(String(empresa.capacidade_simultanea || 2));
   const [tolerancia, setTolerancia] = useState(String(empresa.tolerancia_min ?? 10));
   const [aviso, setAviso] = useState(String(empresa.aviso_min ?? 15));
+  const [busca, setBusca] = useState(!!empresa.oferece_busca);
   const [textos, setTextos] = useState<Record<ChaveTexto, string>>(() => {
     const salvos = (empresa.textos_aviso || {}) as Partial<Record<ChaveTexto, string>>;
     return {
@@ -92,6 +93,7 @@ export function Configuracoes() {
     dados.append("whatsapp", zap ? "55" + zap : "");
     dados.append("endereco", endereco.trim());
     dados.append("capacidade_simultanea", capacidade);
+    dados.append("oferece_busca", String(busca));
     dados.append("tolerancia_min", tolerancia);
     dados.append("aviso_min", aviso);
     const limpos = Object.fromEntries(Object.entries(textos).map(([k, v]) => [k, v.trim() || TEXTOS_PADRAO[k as ChaveTexto]]));
@@ -190,6 +192,12 @@ export function Configuracoes() {
             value={tolerancia}
             onChange={(e) => setTolerancia(e.target.value)}
             ajuda="Passou disso, o próximo que estiver no local sobe."
+          />
+          <Interruptor
+            rotulo="Buscamos o carro do cliente"
+            descricao="O cliente pode pedir a busca ao entrar na fila. O app avisa que tem taxa adicional; local e valor vocês combinam no WhatsApp."
+            ligado={busca}
+            onChange={setBusca}
           />
         </Secao>
 

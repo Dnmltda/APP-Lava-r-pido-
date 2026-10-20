@@ -9,7 +9,7 @@ import { pode } from "../lib/permissoes";
 import { tiposDaEmpresa } from "../componentes/TipoVeiculo";
 import { SERVICOS_PADRAO, TIPOS_PADRAO } from "../lib/tabelaPadrao";
 import type { Empresa } from "../lib/tipos";
-import type { Servico, TipoVeiculo } from "../lib/tipos";
+import type { Servico, TipoVeiculo, ValeTipo } from "../lib/tipos";
 
 const paraNumero = (t: string) => Number(t.replace(/\./g, "").replace(",", "."));
 const paraTexto = (n: number) => String(n).replace(".", ",");
@@ -18,6 +18,19 @@ export function Servicos() {
   const { empresa, vinculo } = useEmpresa();
   const [lista, setLista] = useState<Servico[] | null>(null);
   const [editandoTipos, setEditandoTipos] = useState(false);
+  const [alternando, setAlternando] = useState("");
+  // Pausar tira o serviço da tela do cliente sem apagar nada (preço e histórico continuam).
+  async function alternar(s: Servico) {
+    setAlternando(s.id);
+    try {
+      await pb.collection("servicos").update(s.id, { ativo: !s.ativo });
+      await carregar();
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setAlternando("");
+    }
+  }
   const tipos = tiposDaEmpresa(empresa);
   const [erro, setErro] = useState("");
   const [editando, setEditando] = useState<Servico | "novo" | null>(null);
@@ -71,21 +84,27 @@ export function Servicos() {
           </>
         ) : (
           lista.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => setEditando(s)}
-              className={`flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-linha bg-white px-4 py-3 text-left shadow-sm hover:border-marca ${s.ativo ? "" : "opacity-60"}`}
-            >
-              <span className="min-w-0">
-                <span className="block text-lg font-bold text-tinta">{s.nome}</span>
-                <span className="block text-base text-tinta-suave">
-                  {reais(s.preco)}
-                  {tipos.some((t) => typeof s.precos_tipo?.[t.id] === "number") && " (varia por tipo)"} · ~{duracao(s.duracao_media_min)}
-                  {!s.ativo && " · desativado"}
+            <div key={s.id} className={`flex items-stretch gap-2 rounded-2xl border border-linha bg-white shadow-sm ${s.ativo ? "" : "bg-fundo"}`}>
+              <button onClick={() => setEditando(s)} className="flex min-h-16 min-w-0 flex-1 items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left hover:bg-fundo">
+                <span className="min-w-0">
+                  <span className={`block text-lg font-bold ${s.ativo ? "text-tinta" : "text-tinta-suave line-through"}`}>{s.nome}</span>
+                  <span className="block text-base text-tinta-suave">
+                    {reais(s.preco)}
+                    {tipos.some((t) => typeof s.precos_tipo?.[t.id] === "number") && " (varia por tipo)"} · ~{duracao(s.duracao_media_min)}
+                    {!s.ativo && " · pausado (o cliente não vê)"}
+                  </span>
                 </span>
-              </span>
-              <span className="text-2xl text-marca" aria-hidden="true">›</span>
-            </button>
+                <span className="text-2xl text-marca" aria-hidden="true">›</span>
+              </button>
+              <button
+                onClick={() => alternar(s)}
+                disabled={alternando === s.id}
+                aria-label={`${s.ativo ? "Pausar" : "Voltar a oferecer"} ${s.nome}`}
+                className={`my-2 mr-2 min-h-12 shrink-0 rounded-xl px-3 text-sm font-bold disabled:opacity-50 ${s.ativo ? "text-red-700 hover:bg-red-50" : "bg-marca text-sobre-marca"}`}
+              >
+                {s.ativo ? "Pausar" : "Ativar"}
+              </button>
+            </div>
           ))
         )}
       </div>
@@ -157,6 +176,15 @@ function TabelaPadrao({ onPronto }: { onPronto: () => void }) {
   );
 }
 
+const VALES: { id: ValeTipo; nome: string }[] = [
+  { id: "pequeno", nome: "Carro pequeno" },
+  { id: "medio", nome: "Carro médio" },
+  { id: "grande", nome: "Carro grande" },
+  { id: "moto", nome: "Moto" },
+  { id: "app", nome: "Motorista de app" },
+  { id: "", nome: "Só a equipe marca" },
+];
+
 function EditarTipos({ onFechar }: { onFechar: () => void }) {
   const { empresa, recarregarEmpresa } = useEmpresa();
   const [lista, setLista] = useState<TipoVeiculo[]>(() => tiposDaEmpresa(empresa).map((t) => ({ ...t })));
@@ -184,7 +212,7 @@ function EditarTipos({ onFechar }: { onFechar: () => void }) {
     <Folha titulo="Tipos de veículo e convênios" onFechar={onFechar}>
       <div className="flex flex-col gap-4">
         <p className="text-base text-tinta-suave">
-          Crie os tipos que mudam o preço: porte (pequeno, grande, moto), motorista de app ou empresas com convênio. Depois, em cada serviço, coloque o preço de cada tipo.
+          Crie os tipos que mudam o preço. O cliente informa o tamanho do carro e se é motorista de app no cadastro do carro, e o tipo entra sozinho na fila. Convênio ou empresa parceira: “Só a equipe marca”. Depois, em cada serviço, coloque o preço de cada tipo.
         </p>
         {lista.map((t, i) => (
           <div key={t.id || `novo-${i}`} className="flex flex-col gap-3 rounded-2xl border border-linha bg-white p-3">
@@ -201,16 +229,31 @@ function EditarTipos({ onFechar }: { onFechar: () => void }) {
                 Tirar
               </button>
             </div>
-            <Interruptor
-              rotulo="Só a equipe define (convênio, Uber…)"
-              descricao="O cliente não escolhe este tipo sozinho. A equipe marca na fila e o app lembra nas próximas vezes."
-              ligado={t.restrito}
-              onChange={(v) => mudar(i, { restrito: v })}
-            />
+            <fieldset>
+              <legend className="mb-2 text-sm font-bold text-tinta">Entra sozinho para</legend>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`Entra sozinho para: ${t.nome || "tipo"}`}>
+                {VALES.map((v) => {
+                  const ocupado = !!v.id && lista.some((o, j) => j !== i && o.vale === v.id);
+                  return (
+                    <button
+                      key={v.id || "equipe"}
+                      type="button"
+                      role="radio"
+                      aria-checked={(t.vale || "") === v.id}
+                      disabled={ocupado}
+                      onClick={() => mudar(i, { vale: v.id, restrito: !v.id })}
+                      className={`min-h-11 rounded-full border-2 px-3 text-sm font-bold disabled:opacity-40 ${(t.vale || "") === v.id ? "border-marca bg-marca text-sobre-marca" : "border-linha bg-white text-tinta"}`}
+                    >
+                      {v.nome}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
           </div>
         ))}
         {lista.length < 12 && (
-          <Botao variante="secundario" largo onClick={() => setLista((l) => [...l, { id: "", nome: "", restrito: false }])}>
+          <Botao variante="secundario" largo onClick={() => setLista((l) => [...l, { id: "", nome: "", restrito: true, vale: "" }])}>
             + Adicionar tipo
           </Botao>
         )}
