@@ -47,8 +47,9 @@ Tudo do funcionário, mais:
 - **Motorista de app** (Uber, 99): o cliente marca no carro, mas a 1ª lavagem de cada carro sai pelo preço normal.
   No cartão aparece **“Diz ser motorista de app: conferir”**: confira na hora (app de motorista aberto) e, se estiver
   certo, escolha o tipo de app — o desconto vale **só nesta lavagem**. Quem aprova o carro para as próximas vezes é o dono.
-- **Tipo do veículo**: no cartão, **Definir tipo do veículo** (ex.: carro grande, moto, Uber, convênio). O preço muda
-  sozinho. Com “Lembrar para as próximas vezes”, o carro já entra com esse tipo da próxima vez.
+- **Tamanho do carro**: sai sozinho do modelo (o cliente não escolhe). Modelo fora da lista: no cartão aparece
+  **“Modelo fora da lista: conferir tamanho”**. Quem gere a fila muda o tipo **nesta lavagem**; **“Cobrar sempre
+  assim este carro”** (gravar para as próximas vezes) só o **dono ou o gerente**.
 - **WhatsApp**: “Mandar confirmação no WhatsApp”, “Falar no WhatsApp” e “Avisar: pronto” abrem a conversa com a mensagem pronta.
 
 Tudo isso fica registrado (quem fez e quando).
@@ -78,6 +79,9 @@ Tudo do gerente, mais:
   Botão **Pausar** em cada serviço: some da tela do cliente sem apagar nada; **Ativar** traz de volta.
 - **Produtos**: sugestões prontas (cheirinho, pretinho, flanela, água…). Toque, coloque o seu preço e o estoque.
 - **Configurações → Buscamos o carro do cliente**: liga a opção de busca (o app avisa que tem taxa adicional).
+- **Cobrar como** (privilégio do cliente): em **Clientes**, em cada carro, o dono (ou o gerente) escolhe como cobrar
+  aquele carro — ex.: um carro grande cobrado como médio para um cliente fiel. Vale sozinho nas próximas vezes;
+  “Pelo tamanho” volta ao normal. Fica registrado quem mudou.
 - **Motorista de app para aprovar** (tela inicial): carros que a equipe conferiu na fila. **Aprovar** = desconto
   automático nas próximas vezes, só para aquele carro e só neste lava rápido. **Recusar** = preço pelo tamanho.
   Um carro cadastrado não troca de placa nem de modelo (para ninguém passar outro carro como o aprovado).
@@ -94,7 +98,8 @@ Tudo do gerente, mais:
 
 ## Cliente (o que explicar no balcão)
 1. Ler o QR Code → **Criar cadastro**: nome, celular, senha e o carro (placa, **modelo** e **cor** são obrigatórios).
-   Pelo modelo o app já sabe o **tamanho** (HB20 = pequeno, Corolla = médio, Hilux = grande) e pergunta se trabalha
+   Pelo modelo o app já sabe o **tamanho** (HB20 = pequeno, Corolla = médio, Hilux = grande); o cliente **não escolhe
+   nem muda** o tamanho. Pergunta só se trabalha
    com **aplicativo** (Uber, 99). E-mail e rede social são **opcionais** (para divulgação; só o dono vê).
 2. **Entrar na fila** → veículo → serviço (o preço já é o do tamanho do carro) → produtos (opcional) → “quero que busquem meu carro” (opcional) → **Confirmar e entrar na fila**.
 3. Acompanhar a posição e a previsão. Se a equipe tirar fotos, aparece **Ver fotos do seu carro**. Botão **Falar no WhatsApp** direto com o lava rápido. Ligar os **avisos** para receber “vez confirmada”, “já pode vir” e “carro pronto”.

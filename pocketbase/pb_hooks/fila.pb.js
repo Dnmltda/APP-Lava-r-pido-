@@ -176,7 +176,9 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
     // Tipo do veículo: sai do cadastro do carro (porte / motorista de app) ou do que a equipe definiu.
     const tipoId = lib.tipoDoCarro(empresa, vinculo, veiculo);
     const temApp = lib.tiposVeiculo(empresa).some((t) => t.vale === "app");
-    entrada.set("app_conferir", veiculo.getBool("app_motorista") && temApp && !lib.mapaTipos(vinculo)[veiculo.id]);
+    const appTipo = lib.tiposVeiculo(empresa).find((t) => t.vale === "app");
+    const decidido = lib.mapaTipos(vinculo)[veiculo.id];
+    entrada.set("app_conferir", veiculo.getBool("app_motorista") && temApp && decidido !== (appTipo && appTipo.id) && decidido !== "recusado");
     lib.aplicarTipo(entrada, servico, empresa, tipoId);
     entrada.set("origem", "app");
     entrada.set("status", "pendente");
@@ -642,15 +644,13 @@ routerAdd("POST", "/api/lr/fila/{id}/tipo", (e) => {
   if (tipo && !lib.acharTipo(empresa, tipo)) throw new BadRequestError("Tipo de veículo não encontrado.");
   const servico = e.app.findRecordById("servicos", entrada.getString("servico"));
   const antes = { tipo: entrada.getString("tipo_veiculo_nome"), preco: entrada.getFloat("preco_servico") };
-  // Motorista de app: a equipe pode dar o desconto nesta lavagem, mas guardar para as próximas
-  // vezes (ou tirar uma aprovação) é só com o dono.
-  if (body.lembrar && entrada.getString("cliente") && entrada.getString("veiculo") && !lib.ehPatraoAtivo(e.app, e.auth.id, empresaId)) {
+  // Nesta lavagem quem gere a fila muda; deixar gravado para o carro é com o dono ou o gerente
+  // (motorista de app: só o dono).
+  if (body.lembrar && entrada.getString("cliente") && entrada.getString("veiculo")) {
     const vc = lib.acharVinculo(e.app, entrada.getString("cliente"), empresaId);
     const atual = vc ? lib.acharTipo(empresa, lib.mapaTipos(vc)[entrada.getString("veiculo")]) : null;
-    const novo = lib.acharTipo(empresa, tipo);
-    if ((novo && novo.vale === "app") || (atual && atual.vale === "app")) {
-      throw new ForbiddenError("Motorista de app: o desconto vale nesta lavagem. Para as próximas vezes, quem aprova o carro é o dono.");
-    }
+    const motivo = lib.podeDefinirPrecoDoCarro(e.app, e.auth.id, empresaId, lib.acharTipo(empresa, tipo), atual);
+    if (motivo) throw new ForbiddenError(motivo);
   }
   e.app.runInTransaction((tx) => {
     lib.aplicarTipo(entrada, servico, empresa, tipo);
@@ -701,7 +701,8 @@ routerAdd("GET", "/api/lr/app-pendentes/{empresa}", (e) => {
       continue;
     }
     const vc = lib.acharVinculo(e.app, en.getString("cliente"), empresaId);
-    if (!vc || lib.mapaTipos(vc)[vid]) continue; // já aprovado ou recusado
+    const decidido = vc && lib.mapaTipos(vc)[vid];
+    if (!vc || decidido === app.id || decidido === "recusado") continue; // dono já aprovou ou recusou
     let v, u;
     try {
       v = e.app.findRecordById("veiculos", vid);
@@ -744,6 +745,41 @@ routerAdd("POST", "/api/lr/app-aprovar", (e) => {
   lib.auditar(e.app, {
     empresa: empresaId, usuario: e.auth.id, acao: body.aprovar ? "app_aprovado" : "app_recusado", entidade: "veiculos", entidade_id: v.id,
     depois: { placa: v.getString("placa") || v.getString("final_placa"), modelo: v.getString("modelo") },
+  });
+  return e.json(200, { ok: true });
+}, $apis.requireAuth("usuarios"));
+
+// ------------------------------------------------ "cobrar como" por carro
+// POST /api/lr/cliente-tipo { empresa, veiculo, tipo }  (tipo "" = volta ao tamanho do modelo)
+// Dono ou gerente gravam como cobrar um carro de um cliente (ex.: grande cobrado como médio).
+routerAdd("POST", "/api/lr/cliente-tipo", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const body = new DynamicModel({ empresa: "", veiculo: "", tipo: "" });
+  e.bindBody(body);
+  const empresaId = String(body.empresa || "");
+  let empresa, v;
+  try {
+    empresa = e.app.findRecordById("empresas", empresaId);
+    v = e.app.findRecordById("veiculos", String(body.veiculo || ""));
+  } catch (_) {
+    throw new NotFoundError("Carro não encontrado.");
+  }
+  const vc = lib.acharVinculo(e.app, v.getString("cliente"), empresaId);
+  if (!vc || vc.getString("papel") !== "cliente") throw new NotFoundError("Carro não encontrado.");
+  const tipo = String(body.tipo || "");
+  const novo = lib.acharTipo(empresa, tipo);
+  if (tipo && !novo) throw new BadRequestError("Tipo de veículo não encontrado.");
+  const mapa = lib.mapaTipos(vc);
+  const motivo = lib.podeDefinirPrecoDoCarro(e.app, e.auth.id, empresaId, novo, lib.acharTipo(empresa, mapa[v.id]));
+  if (motivo) throw new ForbiddenError(motivo);
+  const antes = mapa[v.id] || "";
+  if (tipo) mapa[v.id] = tipo;
+  else delete mapa[v.id];
+  vc.set("tipos_veiculos", mapa);
+  e.app.unsafeWithoutHooks().save(vc);
+  lib.auditar(e.app, {
+    empresa: empresaId, usuario: e.auth.id, acao: "cliente_cobrar_como", entidade: "veiculos", entidade_id: v.id,
+    antes: { tipo: antes }, depois: { tipo: tipo, nome: novo ? novo.nome : "pelo tamanho do modelo" },
   });
   return e.json(200, { ok: true });
 }, $apis.requireAuth("usuarios"));

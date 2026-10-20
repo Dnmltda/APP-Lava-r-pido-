@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { AppMotorista, CamposVeiculo, corpoVeiculo, TamanhoVeiculo, validarVeiculo, VEICULO_VAZIO } from "./CamposVeiculo";
-import { nomePorte } from "../lib/porteVeiculo";
-import type { Porte } from "../lib/tipos";
+import { AppMotorista, CamposVeiculo, corpoVeiculo, validarVeiculo, VEICULO_VAZIO } from "./CamposVeiculo";
+import { textoPorte } from "../lib/porteVeiculo";
 import { Aviso, Botao, Carregando, Confirmar, EstadoErro, Folha } from "./ui";
 import { useSessao } from "../contexto/Sessao";
 import { mensagemDeErro, pb } from "../lib/pb";
@@ -36,23 +35,20 @@ export function descricaoVeiculo(v: Veiculo) {
 }
 
 export function detalheVeiculo(v: Veiculo) {
-  if (!v.porte) return "Falta informar o tamanho";
-  const tamanho = v.porte === "moto" ? "Moto" : `Carro ${nomePorte(v.porte).toLowerCase()}`;
+  const tamanho = v.porte ? textoPorte(v.porte) : "Tamanho: o lava rápido confere";
   return `${tamanho}${v.app_motorista ? " · motorista de app" : ""}`;
 }
 
-// Tamanho e uso em aplicativo de um carro já cadastrado.
+// Carro já cadastrado: o cliente só muda se trabalha com aplicativo (o tamanho vem do modelo).
 export function EditarVeiculo({ veiculo, onFechar, onSalvo }: { veiculo: Veiculo; onFechar: () => void; onSalvo: (v: Veiculo) => void }) {
-  const [porte, setPorte] = useState<Porte | "">(veiculo.porte || "");
   const [app, setApp] = useState(!!veiculo.app_motorista);
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   async function salvar() {
-    if (!porte) return setErro("Escolha o tamanho do veículo.");
     setSalvando(true);
     setErro("");
     try {
-      onSalvo(await pb.collection("veiculos").update<Veiculo>(veiculo.id, { porte, app_motorista: porte !== "moto" && app }));
+      onSalvo(await pb.collection("veiculos").update<Veiculo>(veiculo.id, { app_motorista: app }));
     } catch (err) {
       setErro(mensagemDeErro(err));
     } finally {
@@ -62,8 +58,11 @@ export function EditarVeiculo({ veiculo, onFechar, onSalvo }: { veiculo: Veiculo
   return (
     <Folha titulo={descricaoVeiculo(veiculo)} onFechar={onFechar}>
       <div className="flex flex-col gap-4">
-        <TamanhoVeiculo valor={porte} onChange={setPorte} />
-        {porte !== "moto" && <AppMotorista valor={app} onChange={setApp} />}
+        <p className="rounded-xl bg-fundo px-4 py-3 text-base text-tinta">
+          {veiculo.porte ? `${textoPorte(veiculo.porte)} (pelo modelo)` : "Tamanho: o lava rápido confere na primeira lavagem."}
+        </p>
+        {veiculo.porte !== "moto" && <AppMotorista valor={app} onChange={setApp} />}
+        <p className="text-sm text-tinta-suave">Placa e modelo não mudam depois do cadastro. Se estiver errado, remova e cadastre de novo.</p>
         {erro && <Aviso>{erro}</Aviso>}
         <Botao largo carregando={salvando} onClick={salvar}>
           Salvar
@@ -147,7 +146,7 @@ export function MeusVeiculos() {
           <div key={v.id} className="flex min-h-14 items-center justify-between gap-2 rounded-2xl border border-linha bg-white px-4 py-2">
             <span className="min-w-0">
               <span className="block text-base font-semibold text-tinta">{descricaoVeiculo(v)}</span>
-              <span className={`block text-sm ${v.porte ? "text-tinta-suave" : "font-bold text-amber-700"}`}>{detalheVeiculo(v)}</span>
+              <span className="block text-sm text-tinta-suave">{detalheVeiculo(v)}</span>
             </span>
             <span className="flex shrink-0">
               <button onClick={() => setEditando(v)} className="min-h-12 rounded-xl px-3 text-base font-bold text-marca-forte hover:bg-fundo">

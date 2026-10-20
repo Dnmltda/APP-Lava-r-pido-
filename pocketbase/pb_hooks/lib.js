@@ -1279,6 +1279,18 @@ function aplicarTipo(entrada, servico, empresa, tipoId) {
   entrada.set("tipo_veiculo_nome", t ? t.nome : "");
   entrada.set("preco_servico", precoDoServico(servico, t ? t.id : ""));
 }
+// Quem pode deixar um "cobrar como" gravado para um carro (privilégio do cliente): dono ou gerente.
+// Motorista de app: só o dono.
+function podeDefinirPrecoDoCarro(app, usuarioId, empresaId, tipoNovo, tipoAtual) {
+  const v = vinculoEquipe(app, usuarioId, empresaId);
+  if (!v) return "Só o dono ou o gerente definem como cobrar um carro.";
+  const papel = v.getString("papel");
+  if (papel !== "patrao" && papel !== "gerente") return "Só o dono ou o gerente deixam gravado como cobrar este carro. Nesta lavagem você pode mudar.";
+  if (papel !== "patrao" && ((tipoNovo && tipoNovo.vale === "app") || (tipoAtual && tipoAtual.vale === "app"))) {
+    return "Motorista de app: o desconto vale nesta lavagem. Para as próximas vezes, quem aprova o carro é o dono.";
+  }
+  return "";
+}
 // Mapa {veiculoId: tipoId} que a equipe/dono definiu para os carros de um cliente nesta empresa.
 function mapaTipos(vinculo) {
   try {
@@ -1458,6 +1470,7 @@ module.exports = {
   tiposDoCorpo,
   contatoLimpo,
   mapaTipos,
+  podeDefinirPrecoDoCarro,
   normalizarTipos,
   historicoCliente,
   listaClientes,

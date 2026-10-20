@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { Campo } from "./ui";
 import { normalizarPlaca } from "../lib/formato";
-import { acharModelo, MODELOS_CONHECIDOS, nomePorte, PORTES } from "../lib/porteVeiculo";
-import type { Porte } from "../lib/tipos";
+import { acharModelo, textoPorte, useModelos } from "../lib/porteVeiculo";
 
 export interface DadosVeiculo {
   semPlaca: boolean; // true = só os 3 últimos caracteres
@@ -10,12 +8,10 @@ export interface DadosVeiculo {
   final_placa: string;
   modelo: string;
   cor: string;
-  porte: Porte | "";
-  porteManual: boolean; // o cliente escolheu: o modelo não muda mais a sugestão
   app_motorista: boolean;
 }
 
-export const VEICULO_VAZIO: DadosVeiculo = { semPlaca: false, placa: "", final_placa: "", modelo: "", cor: "", porte: "", porteManual: false, app_motorista: false };
+export const VEICULO_VAZIO: DadosVeiculo = { semPlaca: false, placa: "", final_placa: "", modelo: "", cor: "", app_motorista: false };
 
 export function validarVeiculo(v: DadosVeiculo): Record<string, string> {
   const erros: Record<string, string> = {};
@@ -25,13 +21,13 @@ export function validarVeiculo(v: DadosVeiculo): Record<string, string> {
     erros.placa = "Placa inválida. Ex.: ABC1D23 ou ABC1234.";
   }
   if (v.modelo.trim().length < 2) erros.modelo = "Digite o modelo do carro (ex.: HB20).";
-  else if (!v.porte) erros.porte = "Escolha o tamanho do veículo.";
   if (v.cor.trim().length < 2) erros.cor = "Digite a cor do carro (ex.: Prata).";
   return erros;
 }
 
 export function corpoVeiculo(v: DadosVeiculo) {
-  const extra = { modelo: v.modelo.trim(), cor: v.cor.trim(), porte: v.porte, app_motorista: v.porte !== "moto" && v.app_motorista };
+  // O tamanho não vai: o servidor grava pelo modelo.
+  const extra = { modelo: v.modelo.trim(), cor: v.cor.trim(), app_motorista: v.app_motorista };
   return v.semPlaca ? { placa: "", final_placa: v.final_placa, ...extra } : { placa: v.placa, final_placa: v.placa.slice(-3), ...extra };
 }
 
@@ -45,6 +41,7 @@ export function CamposVeiculo({
   erros?: Record<string, string>;
 }) {
   const mudar = (p: Partial<DadosVeiculo>) => onChange({ ...valor, ...p });
+  const modelos = useModelos();
   return (
     <div className="flex flex-col gap-4">
       {valor.semPlaca ? (
@@ -83,45 +80,17 @@ export function CamposVeiculo({
         autoComplete="off"
         value={valor.modelo}
         erro={erros.modelo}
-        onChange={(e) => {
-          const achado = acharModelo(e.target.value);
-          mudar({ modelo: e.target.value, porte: achado ? achado.porte : "", porteManual: false });
-        }}
+        onChange={(e) => mudar({ modelo: e.target.value })}
       />
       <datalist id="lr-modelos">
-        {MODELOS_CONHECIDOS.map((m) => (
+        {modelos.map((m) => (
           <option key={m.nome} value={m.nome} />
         ))}
       </datalist>
-      <TamanhoPeloModelo valor={valor} onChange={(porte) => mudar({ porte, porteManual: true })} erro={erros.porte} />
+      <TamanhoPeloModelo modelo={valor.modelo} />
       <Campo rotulo="Cor do carro" placeholder="Ex.: Prata" maxLength={30} value={valor.cor} erro={erros.cor} onChange={(e) => mudar({ cor: e.target.value })} ajuda="A equipe usa para achar o seu carro." />
-      {valor.porte && valor.porte !== "moto" && <AppMotorista valor={valor.app_motorista} onChange={(app_motorista) => mudar({ app_motorista })} />}
+      {acharModelo(modelos, valor.modelo)?.porte !== "moto" && <AppMotorista valor={valor.app_motorista} onChange={(app_motorista) => mudar({ app_motorista })} />}
     </div>
-  );
-}
-
-export function TamanhoVeiculo({ valor, onChange, erro }: { valor: Porte | ""; onChange: (p: Porte) => void; erro?: string }) {
-  return (
-    <fieldset>
-      <legend className="mb-1 text-base font-bold text-tinta">Tamanho do veículo</legend>
-      <p className="mb-2 text-sm text-tinta-suave">O preço do serviço sai por aqui. Já sugerimos pelo modelo; confira.</p>
-      <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Tamanho do veículo">
-        {PORTES.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            role="radio"
-            aria-checked={valor === p.id}
-            onClick={() => onChange(p.id)}
-            className={`min-h-14 rounded-xl border-2 px-3 py-1 text-left ${valor === p.id ? "border-marca bg-marca-suave" : "border-linha bg-white"}`}
-          >
-            <span className="block text-base font-bold text-tinta">{p.nome}</span>
-            {p.exemplos && <span className="block text-xs text-tinta-suave">{p.exemplos}</span>}
-          </button>
-        ))}
-      </div>
-      {erro && <p className="mt-1 text-sm font-semibold text-red-700">{erro}</p>}
-    </fieldset>
   );
 }
 
@@ -140,27 +109,16 @@ export function AppMotorista({ valor, onChange }: { valor: boolean; onChange: (v
   );
 }
 
-// Modelo conhecido: o tamanho vem sozinho e só aparece para conferir. Modelo fora da lista: o cliente escolhe.
-function TamanhoPeloModelo({ valor, onChange, erro }: { valor: DadosVeiculo; onChange: (p: Porte) => void; erro?: string }) {
-  const [trocar, setTrocar] = useState(false);
-  const achado = acharModelo(valor.modelo);
-  if (valor.modelo.trim().length < 2) return null;
-  if (achado && !trocar && !valor.porteManual) {
-    return (
-      <div className="-mt-2 flex items-center justify-between gap-3 rounded-xl bg-green-50 px-4 py-3 ring-1 ring-green-200">
-        <span className="text-base text-tinta">
-          <strong>{achado.nome}</strong> · {achado.porte === "moto" ? "Moto" : `Carro ${nomePorte(achado.porte).toLowerCase()}`} ✓
-        </span>
-        <button type="button" onClick={() => setTrocar(true)} className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-semibold text-marca-forte underline">
-          Não é esse tamanho
-        </button>
-      </div>
-    );
-  }
-  return (
-    <div className="-mt-2 flex flex-col gap-2">
-      {!achado && <p className="text-sm text-tinta-suave">Não achamos esse modelo na nossa lista. Escolha o tamanho:</p>}
-      <TamanhoVeiculo valor={valor.porte} onChange={onChange} erro={erro} />
-    </div>
+// O tamanho sai do modelo (o cliente não escolhe). Fora da lista: a equipe confere na 1ª lavagem.
+function TamanhoPeloModelo({ modelo }: { modelo: string }) {
+  const modelos = useModelos();
+  if (modelo.trim().length < 2 || !modelos.length) return null;
+  const achado = acharModelo(modelos, modelo);
+  return achado ? (
+    <p className="-mt-2 rounded-xl bg-green-50 px-4 py-3 text-base text-tinta ring-1 ring-green-200">
+      <strong>{achado.nome}</strong> · {textoPorte(achado.porte)} ✓
+    </p>
+  ) : (
+    <p className="-mt-2 rounded-xl bg-fundo px-4 py-3 text-sm text-tinta">Modelo fora da nossa lista: o lava rápido confere o tamanho na primeira lavagem.</p>
   );
 }

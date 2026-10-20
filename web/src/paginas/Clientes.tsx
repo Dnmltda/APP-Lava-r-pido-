@@ -2,11 +2,13 @@ import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
-import { Carregando, EstadoErro, EstadoVazio, Folha } from "../componentes/ui";
+import { EscolhaTipo, tiposDaEmpresa } from "../componentes/TipoVeiculo";
+import { Aviso, Carregando, EstadoErro, EstadoVazio, Folha } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { linkWhatsApp, mascaraCelular, reais } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
 import { pode } from "../lib/permissoes";
+import { textoPorte } from "../lib/porteVeiculo";
 import { tempoDeCliente, vezes, type DadosHistorico } from "./Historico";
 
 // Lista de clientes: só o dono, ou quem o dono liberar em Equipe → "Lista de clientes".
@@ -23,13 +25,24 @@ interface ClienteLista {
   gasto_total: number;
 }
 
+interface VeiculoCliente {
+  id: string;
+  placa: string;
+  final_placa: string;
+  modelo: string;
+  cor: string;
+  porte: string;
+  app_motorista: boolean;
+  cobrar_como: string;
+}
+
 interface DetalheCliente extends DadosHistorico {
   nome: string;
   celular: string;
   aceita_promocoes: boolean;
   email?: string;
   rede_social?: string;
-  veiculos: { placa: string; final_placa: string; modelo: string; cor: string }[];
+  veiculos: VeiculoCliente[];
   gasto: { servicos: number; produtos: number; total: number };
   visitas: (DadosHistorico["visitas"][number] & { valor?: number })[];
 }
@@ -155,6 +168,50 @@ export function Clientes() {
   );
 }
 
+// Carro do cliente: tamanho pelo modelo e, para dono/gerente, "cobrar como" (privilégio do cliente).
+function CobrarComo({ empresaId, veiculo }: { empresaId: string; veiculo: VeiculoCliente }) {
+  const { empresa, vinculo } = useEmpresa();
+  const tipos = tiposDaEmpresa(empresa);
+  const [tipo, setTipo] = useState(veiculo.cobrar_como === "recusado" ? "" : veiculo.cobrar_como);
+  const [salvo, setSalvo] = useState(tipo);
+  const [erro, setErro] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const pode = vinculo?.papel === "patrao" || vinculo?.papel === "gerente";
+  const opcoes = tipos.filter((t) => vinculo?.papel === "patrao" || t.vale !== "app" || t.id === salvo);
+  async function salvar(novo: string) {
+    setTipo(novo);
+    setErro("");
+    setSalvando(true);
+    try {
+      await pb.send("/api/lr/cliente-tipo", { method: "POST", body: { empresa: empresaId, veiculo: veiculo.id, tipo: novo } });
+      setSalvo(novo);
+    } catch (err) {
+      setTipo(salvo);
+      setErro(mensagemDeErro(err));
+    } finally {
+      setSalvando(false);
+    }
+  }
+  const nomeSalvo = tipos.find((t) => t.id === salvo)?.nome;
+  return (
+    <div className="rounded-2xl border border-linha bg-white p-3">
+      <p className="text-base font-bold text-tinta">{[veiculo.modelo, veiculo.cor, veiculo.placa || `…${veiculo.final_placa}`].filter(Boolean).join(" · ")}</p>
+      <p className="text-sm text-tinta-suave">
+        {veiculo.porte ? `${textoPorte(veiculo.porte)} (pelo modelo)` : "Modelo fora da lista: tamanho a definir"}
+        {veiculo.app_motorista ? " · diz ser motorista de app" : ""}
+        {nomeSalvo ? ` · cobrando como ${nomeSalvo}` : ""}
+      </p>
+      {pode && tipos.length > 0 && (
+        <div className="mt-2">
+          <EscolhaTipo tipos={opcoes} valor={tipo} onChange={salvar} rotulo="Cobrar como" semTipo="Pelo tamanho" />
+          {salvando && <p className="mt-1 text-sm text-tinta-suave">Salvando…</p>}
+          {erro && <Aviso>{erro}</Aviso>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Detalhe({ empresaId, cliente, onFechar }: { empresaId: string; cliente: ClienteLista; onFechar: () => void }) {
   const [d, setD] = useState<DetalheCliente | null>(null);
   const [erro, setErro] = useState("");
@@ -199,9 +256,10 @@ function Detalhe({ empresaId, cliente, onFechar }: { empresaId: string; cliente:
           </div>
           <p className="text-sm text-tinta-suave">
             Cliente {tempoDeCliente(d.cliente_desde)}
-            {d.veiculos.length > 0 &&
-              ` · ${d.veiculos.map((v) => [v.modelo, v.cor, v.placa || `…${v.final_placa}`].filter(Boolean).join(" ")).join(", ")}`}
           </p>
+          {d.veiculos.map((v) => (
+            <CobrarComo key={v.id} empresaId={empresaId} veiculo={v} />
+          ))}
           {d.por_servico.length > 0 && (
             <section>
               <h3 className="mb-1 text-base font-extrabold text-tinta">Serviços</h3>

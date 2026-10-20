@@ -326,22 +326,28 @@ async function main() {
 
       await cli.goto(`${APP}/${A.slug}`);
       await cli.getByRole("button", { name: "Entrar na fila" }).click();
-      await cli.getByText("Falta informar o tamanho").first().waitFor({ timeout: 10000 }).catch(() => {});
-      checar("cliente não escolhe tipo na fila: o app pede o tamanho do carro uma vez", (await cli.getByRole("radio", { name: "Uber" }).count()) === 0 && (await cli.getByText("Falta informar o tamanho").count()) > 0);
+      await cli.getByText(/confere o tamanho deste carro/).first().waitFor({ timeout: 10000 }).catch(() => {});
+      checar("cliente não escolhe tamanho nem tipo: modelo fora da lista fica para a equipe conferir", (await cli.getByRole("radio", { name: /^Grande|Uber/ }).count()) === 0 && (await cli.getByText(/confere o tamanho deste carro/).count()) > 0);
       checar("sem busca de carro quando a empresa não oferece", (await cli.getByText(/busquem meu carro/).count()) === 0);
-      await cli.getByRole("radio", { name: /^Grande/ }).click();
-      await cli.getByText(/Preço para Carro grande/).waitFor({ timeout: 10000 }).catch(() => {});
-      checar("tamanho salvo no carro e o preço muda sozinho", (await cli.getByText(/Preço para Carro grande/).count()) === 1 && (await cli.getByText("R$ 60,00").count()) > 0);
       await cli.getByText("Lavagem simples").first().click();
       await cli.getByRole("button", { name: "Confirmar e entrar na fila" }).click();
       await cli.waitForTimeout(1500);
       const filtroCli = encodeURIComponent(`empresa="${A.id}" && cliente="${pessoas.cliente.id}" && status="pendente"`);
       const nova = (await api("GET", `/api/collections/fila_entradas/records?filter=${filtroCli}`, { token: ADM })).data.items[0];
-      checar("entrada grava o tipo e o preço do tipo", nova?.tipo_veiculo_nome === "Carro grande" && nova?.preco_servico === 60, nova && [nova.tipo_veiculo_nome, nova.preco_servico]);
+      checar("até a equipe conferir, preço padrão", nova && !nova.tipo_veiculo && nova.preco_servico === 40, nova && [nova.tipo_veiculo_nome, nova.preco_servico]);
 
       const ger = paginas.gerente;
       await ger.goto(`${APP}/${A.slug}/fila`);
       await ger.getByText("Carla").first().waitFor({ timeout: 15000 });
+      await ger.getByRole("button", { name: "Modelo fora da lista: conferir tamanho" }).first().click();
+      await ger.getByRole("radio", { name: "Carro grande" }).click();
+      await ger.getByRole("checkbox", { name: /Cobrar sempre assim/ }).check();
+      await ger.getByRole("button", { name: "Salvar", exact: true }).click();
+      await ger.waitForTimeout(1500);
+      let conferida = (await api("GET", `/api/collections/fila_entradas/records/${nova.id}`, { token: ADM })).data;
+      checar("gerente confere o tamanho e o preço muda", conferida.tipo_veiculo_nome === "Carro grande" && conferida.preco_servico === 60, [conferida.tipo_veiculo_nome, conferida.preco_servico]);
+      const vincGrav = (await api("GET", `/api/collections/vinculos/records?filter=${encodeURIComponent(`usuario="${pessoas.cliente.id}"`)}`, { token: ADM })).data.items[0];
+      checar("e grava para as próximas vezes deste carro", Object.values(vincGrav.tipos_veiculos || {}).includes(grande?.id), vincGrav.tipos_veiculos);
       await ger.getByRole("button", { name: "Tipo: Carro grande" }).first().click();
       await ger.getByRole("radio", { name: "Uber" }).click();
       await ger.getByRole("button", { name: "Salvar", exact: true }).click();

@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import { AtivarAvisos } from "../componentes/Avisos";
 import { Quantidade } from "../componentes/Quantidade";
 import { precoPara, tiposDaEmpresa } from "../componentes/TipoVeiculo";
-import { TamanhoVeiculo } from "../componentes/CamposVeiculo";
-import { sugerirPorte, tipoDoCarro } from "../lib/porteVeiculo";
+import { tipoDoCarro } from "../lib/porteVeiculo";
 import { FotosEntrada, useFotosDasEntradas } from "../componentes/Vistoria";
 import { ListaFilaPublica, IconeBusca } from "../componentes/fila";
 import { descricaoVeiculo, detalheVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
@@ -331,31 +330,11 @@ function EntrarNaFila({
   const tipoEfetivo = tipoCarro?.id || "";
   const usaPorte = tipos.some((t) => t.vale && t.vale !== "app");
   const faltaPorte = !!carro && !carro.porte && usaPorte && !tipoCarro;
-  const [salvandoPorte, setSalvandoPorte] = useState(false);
-  // Carro antigo sem tamanho, mas com modelo conhecido: o app preenche sozinho.
-  const porteDoModelo = faltaPorte && carro ? sugerirPorte(carro.modelo) : "";
-  useEffect(() => {
-    if (porteDoModelo) definirPorte(porteDoModelo);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [porteDoModelo, carro?.id]);
-  async function definirPorte(porte: string) {
-    if (!carro) return;
-    setSalvandoPorte(true);
-    try {
-      await pb.collection("veiculos").update(carro.id, { porte });
-      await recarregar();
-    } catch (err) {
-      setErro(mensagemDeErro(err));
-    } finally {
-      setSalvandoPorte(false);
-    }
-  }
 
   async function confirmar() {
     setErro("");
     if (!servico) return setErro("Escolha o serviço.");
     if (!veiculoEscolhido) return setErro("Escolha o veículo.");
-    if (faltaPorte) return setErro("Informe o tamanho do veículo para ver o preço certo.");
     setEnviando(true);
     try {
       await pb.send("/api/lr/fila/entrar", {
@@ -392,18 +371,17 @@ function EntrarNaFila({
             {veiculos?.map((v) => (
               <Opcao key={v.id} marcada={veiculoEscolhido === v.id} onClick={() => setVeiculo(v.id)}>
                 <span className="block text-base font-bold text-tinta">{descricaoVeiculo(v)}</span>
-                {usaPorte && <span className={`block text-sm ${v.porte ? "text-tinta-suave" : "font-bold text-amber-700"}`}>{detalheVeiculo(v)}</span>}
+                {usaPorte && <span className="block text-sm text-tinta-suave">{detalheVeiculo(v)}</span>}
               </Opcao>
             ))}
             <button type="button" onClick={() => setNovoVeiculo(true)} className="min-h-12 self-start rounded-xl px-2 text-base font-bold text-marca-forte">
               + Outro veículo
             </button>
           </div>
-          {faltaPorte && !porteDoModelo && (
-            <div className="mt-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-3">
-              <TamanhoVeiculo valor="" onChange={definirPorte} />
-              {salvandoPorte && <p className="mt-1 text-sm text-tinta-suave">Salvando…</p>}
-            </div>
+          {faltaPorte && (
+            <p className="mt-3 rounded-xl bg-fundo px-4 py-3 text-sm text-tinta">
+              O lava rápido confere o tamanho deste carro na primeira lavagem. Até lá aparece o preço padrão.
+            </p>
           )}
           {appPendente && (
             <p className="mt-3 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-base text-tinta">

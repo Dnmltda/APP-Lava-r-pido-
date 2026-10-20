@@ -92,13 +92,35 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
     veiculo.set("final_placa", finalPlaca);
     veiculo.set("modelo", modelo);
     veiculo.set("cor", cor);
-    if (["pequeno", "medio", "grande", "moto"].indexOf(String(body.porte || "")) >= 0) veiculo.set("porte", body.porte);
+    // Tamanho: sempre pelo modelo (o cliente não escolhe). Modelo fora da lista: a equipe define.
+    const achado = require(`${__hooks}/modelos.js`).acharModelo(modelo);
+    veiculo.set("porte", achado ? achado.porte : "");
     veiculo.set("app_motorista", !!body.app_motorista);
     tx.save(veiculo);
   });
 
   return e.json(201, { ok: true, celular });
 });
+
+// ------------------------------------------------- tamanho do carro pelo modelo
+// GET /api/lr/modelos: lista de modelos e tamanhos (o app mostra enquanto o cliente digita).
+routerAdd("GET", "/api/lr/modelos", (e) => {
+  e.response.header().set("Cache-Control", "public, max-age=3600");
+  return e.json(200, require(`${__hooks}/modelos.js`).LISTA);
+});
+// O tamanho do carro é sempre o do modelo: o cliente não escolhe nem muda (só o administrador
+// do sistema). Como cobrar um carro diferente do tamanho é com o dono/gerente ("cobrar como").
+onRecordCreateRequest((e) => {
+  if (!e.hasSuperuserAuth()) {
+    const achado = require(`${__hooks}/modelos.js`).acharModelo(e.record.getString("modelo"));
+    e.record.set("porte", achado ? achado.porte : "");
+  }
+  e.next();
+}, "veiculos");
+onRecordUpdateRequest((e) => {
+  if (!e.hasSuperuserAuth()) e.record.set("porte", e.record.original().getString("porte"));
+  e.next();
+}, "veiculos");
 
 // ------------------------------------------- e-mail e rede social (opcional)
 // GET/POST /api/lr/meu-contato  { email, rede_social }: o próprio cliente vê e muda.
