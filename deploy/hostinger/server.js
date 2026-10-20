@@ -37,7 +37,7 @@ process.on('uncaughtException', (err) => console.error('[server.js] erro:', err 
 
 // 1) Abre a porta na hora (exigência da Hostinger).
 const provisorio = http.createServer((req, res) => {
-  res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '3' });
+  res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Retry-After': '3' });
   res.end('DNM&LTDA Lava Rápido está iniciando. Recarregue em alguns segundos.');
 });
 
@@ -58,6 +58,20 @@ provisorio.listen(PORT, '0.0.0.0', () => {
       { cwd: ROOT, encoding: 'utf8', timeout: 20000 },
     );
     console.log(r.status === 0 ? '[server.js] admin ok' : `[server.js] admin falhou: ${r.stderr || r.stdout || r.error}`);
+  }
+
+  // Diagnóstico: roda o PocketBase por alguns segundos numa porta interna e
+  // registra a saída (depois do execve a Hostinger não mostra o que ele imprime).
+  if (process.env.PB_DIAGNOSTICO !== '0') {
+    const d = spawnSync(
+      PB_BINARY,
+      ['serve', '--http=127.0.0.1:28091', `--dir=${DATA_DIR}`, `--migrationsDir=${path.join(ROOT, 'pb_migrations')}`,
+        `--hooksDir=${path.join(ROOT, 'pb_hooks')}`, '--hooksWatch=false', `--publicDir=${path.join(ROOT, 'pb_public')}`],
+      { cwd: ROOT, encoding: 'utf8', timeout: 2500, killSignal: 'SIGTERM' },
+    );
+    const saida = `${d.stdout || ''}${d.stderr || ''}`.split('\n').filter((l) => l.trim()).slice(-15);
+    console.log(`[server.js] diagnóstico: status=${d.status} sinal=${d.signal} erro=${d.error ? d.error.code : ''}`);
+    for (const l of saida) console.log(`[pocketbase] ${l.slice(0, 400)}`);
   }
 
   let execve;
