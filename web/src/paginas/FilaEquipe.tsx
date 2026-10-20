@@ -19,11 +19,12 @@ import {
 } from "../lib/fila";
 import { duracao, linkWhatsApp, mascaraCelular, normalizarPlaca, primeiroNome, somenteDigitos, celularValido } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
+import { CancelarEntrada, DadosEntrada, NovaReserva, Reposicionar } from "./FilaEquipeAcoes";
 import { pode } from "../lib/permissoes";
 import type { Empresa, Servico, Vinculo } from "../lib/tipos";
 
 type Pedido =
-  | { tipo: "recusar" | "cancelar"; entrada: EntradaFila }
+  | { tipo: "recusar" | "cancelar" | "reposicionar" | "dados"; entrada: EntradaFila }
   | { tipo: "iniciar_fora_ordem"; entrada: EntradaFila; naFrente: number }
   | { tipo: "baixa"; entrada: EntradaFila };
 
@@ -46,6 +47,8 @@ export function FilaEquipe() {
   const { publica, entradas, erro, recarregar } = useFilaAoVivo(empresa.slug, empresa.id, true);
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [balcao, setBalcao] = useState(false);
+  const [reserva, setReserva] = useState(false);
+  const [sucesso, setSucesso] = useState("");
   const [ocupado, setOcupado] = useState("");
   const [erroAcao, setErroAcao] = useState("");
   const gestao = pode(vinculo, "gerenciar_fila");
@@ -53,10 +56,18 @@ export function FilaEquipe() {
   if (!pode(vinculo, "ver_fila_completa")) return <Navigate to={`/${empresa.slug}`} replace />;
 
   const previsao = (id: string) => publica?.fila.find((f) => f.id === id);
+  const atraso = (id: string) => previsao(id)?.atrasado_min || 0;
+  const concluir = (msg: string) => {
+    setPedido(null);
+    setSucesso(msg);
+    setErroAcao("");
+    recarregar();
+  };
 
   async function executar(entrada: EntradaFila, acao: string, body?: Record<string, unknown>) {
     setOcupado(entrada.id + acao);
     setErroAcao("");
+    setSucesso("");
     try {
       await acaoFila(entrada.id, acao, body);
       setPedido(null);
@@ -71,7 +82,10 @@ export function FilaEquipe() {
   }
 
   function iniciar(entrada: EntradaFila) {
-    const naFrente = (entradas || []).filter((e) => STATUS_ESPERA.includes(e.status) && e.ordem < entrada.ordem).length;
+    // Quem está na frente mas passou da tolerância não conta: o próximo no local sobe.
+    const naFrente = (entradas || []).filter(
+      (e) => STATUS_ESPERA.includes(e.status) && e.ordem < entrada.ordem && !atraso(e.id),
+    ).length;
     if (naFrente > 0) setPedido({ tipo: "iniciar_fora_ordem", entrada, naFrente });
     else executar(entrada, "iniciar");
   }
@@ -95,16 +109,24 @@ export function FilaEquipe() {
 
   return (
     <Moldura voltarPara={`/${empresa.slug}`} titulo="Fila">
-      <div className="flex items-center justify-between gap-3">
-        <p className="flex items-center gap-1.5 text-sm font-semibold text-tinta-suave">
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-green-600" /> ao vivo · {publica?.capacidade ?? empresa.capacidade_simultanea} por vez
-        </p>
-        {gestao && (
-          <Botao variante="secundario" onClick={() => setBalcao(true)}>
+      <p className="flex items-center gap-1.5 text-sm font-semibold text-tinta-suave">
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-green-600" /> ao vivo · {publica?.capacidade ?? empresa.capacidade_simultanea} carros por vez
+      </p>
+      {gestao && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Botao variante="secundario" className="whitespace-nowrap" onClick={() => setReserva(true)}>
+            + Reserva
+          </Botao>
+          <Botao variante="secundario" className="whitespace-nowrap" onClick={() => setBalcao(true)}>
             + Balcão
           </Botao>
-        )}
-      </div>
+        </div>
+      )}
+      {sucesso && (
+        <div className="mt-4">
+          <Aviso tipo="sucesso">{sucesso}</Aviso>
+        </div>
+      )}
       {erroAcao && (
         <div className="mt-4">
           <Aviso>{erroAcao}</Aviso>
@@ -129,7 +151,7 @@ export function FilaEquipe() {
           {pendentes.length > 0 && (
             <Secao titulo={`Aguardando confirmação (${pendentes.length})`}>
               {pendentes.map((e) => (
-                <CartaoEntrada key={e.id} entrada={e} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora}>
+                <CartaoEntrada key={e.id} entrada={e} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
                   {e.quer_busca && celularDaEntrada(e) && (
                     <a
                       href={linkWhatsApp(celularDaEntrada(e), mensagemBusca(empresa, nomeDaEntrada(e)))}
@@ -156,7 +178,15 @@ export function FilaEquipe() {
           <Secao titulo={`Na fila (${naFila.length})`}>
             {naFila.length === 0 && <p className="text-base text-tinta-suave">Ninguém confirmado esperando.</p>}
             {naFila.map((e) => (
-              <CartaoEntrada key={e.id} entrada={e} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora}>
+              <CartaoEntrada key={e.id} entrada={e} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
+                {gestao && e.origem !== "app" && (!e.nome_avulso || !e.final_placa_avulsa) && !e.cliente && (
+                  <button
+                    onClick={() => setPedido({ tipo: "dados", entrada: e })}
+                    className="col-span-2 flex min-h-12 items-center justify-center rounded-xl border-2 border-dashed border-marca px-4 font-bold text-marca-forte"
+                  >
+                    Completar dados do cliente
+                  </button>
+                )}
                 {celularDaEntrada(e) && (
                   <button
                     onClick={() => avisarWhatsApp(e)}
@@ -168,7 +198,16 @@ export function FilaEquipe() {
                 )}
                 {e.status !== "no_local" && btn(e, "chegou", "Chegou")}
                 {btn(e, "iniciar", "Iniciar lavagem", "primario", () => iniciar(e))}
-                {gestao && <div className="col-span-2">{btn(e, "cancelar", "Cancelar", "fantasma", () => setPedido({ tipo: "cancelar", entrada: e }))}</div>}
+                {gestao && (
+                  <>
+                    {e.status !== "no_local" ? (
+                      btn(e, "reposicionar", atraso(e.id) ? "Reposicionar" : "Vai atrasar", "fantasma", () => setPedido({ tipo: "reposicionar", entrada: e }))
+                    ) : (
+                      <span />
+                    )}
+                    {btn(e, "cancelar", "Cancelar", "fantasma", () => setPedido({ tipo: "cancelar", entrada: e }))}
+                  </>
+                )}
               </CartaoEntrada>
             ))}
           </Secao>
@@ -207,16 +246,22 @@ export function FilaEquipe() {
         </div>
       )}
 
-      {pedido?.tipo === "recusar" || pedido?.tipo === "cancelar" ? (
-        <ConfirmarComMotivo
-          titulo={`${pedido.tipo === "recusar" ? "Recusar" : "Cancelar"} ${primeiroNome(nomeDaEntrada(pedido.entrada))}?`}
-          texto="A vaga sai da fila e todos abaixo sobem uma posição."
-          rotulo={pedido.tipo === "recusar" ? "Recusar" : "Cancelar a vaga"}
-          carregando={!!ocupado}
-          onConfirmar={(motivo) => executar(pedido.entrada, pedido.tipo, { motivo })}
-          onFechar={() => setPedido(null)}
+      {(pedido?.tipo === "recusar" || pedido?.tipo === "cancelar") && (
+        <CancelarEntrada entrada={pedido.entrada} recusar={pedido.tipo === "recusar"} onFechar={() => setPedido(null)} onSalvo={concluir} />
+      )}
+      {pedido?.tipo === "reposicionar" && <Reposicionar entrada={pedido.entrada} onFechar={() => setPedido(null)} onSalvo={concluir} />}
+      {pedido?.tipo === "dados" && (
+        <DadosEntrada entrada={pedido.entrada} onFechar={() => setPedido(null)} onSalvo={() => concluir("Dados do cliente salvos.")} />
+      )}
+      {reserva && (
+        <NovaReserva
+          onFechar={() => setReserva(false)}
+          onSalvo={(msg) => {
+            setReserva(false);
+            concluir(msg);
+          }}
         />
-      ) : null}
+      )}
       <Confirmar
         aberto={pedido?.tipo === "iniciar_fora_ordem"}
         titulo="Tem carro na frente"
@@ -260,17 +305,19 @@ function CartaoEntrada({
   posicao,
   previsaoIso,
   agora,
+  atrasoMin = 0,
   children,
 }: {
   entrada: EntradaFila;
   posicao?: number;
   previsaoIso?: string;
   agora?: string;
+  atrasoMin?: number;
   children: ReactNode;
 }) {
   const servico = e.expand?.servico;
   return (
-    <article className="rounded-2xl border border-linha bg-white p-4 shadow-sm">
+    <article className={`rounded-2xl border bg-white p-4 shadow-sm ${atrasoMin ? "border-2 border-red-400" : e.origem === "reserva" ? "border-2 border-dashed border-tinta-suave" : "border-linha"}`}>
       <div className="flex items-start gap-3">
         {posicao !== undefined && (
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-fundo text-lg font-black text-tinta">{posicao}</span>
@@ -293,46 +340,24 @@ function CartaoEntrada({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {e.quer_busca && <IconeBusca />}
             {e.origem === "balcao" && <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-sm font-bold text-gray-700">Balcão</span>}
+            {e.origem === "reserva" && (
+              <span className="rounded-full border border-dashed border-tinta-suave px-2.5 py-0.5 text-sm font-bold text-tinta">
+                Reserva {hora(e.horario_reserva)}
+              </span>
+            )}
+            {e.origem === "substituicao" && <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-sm font-bold text-gray-700">Substituiu</span>}
+            {e.chegada_prevista && e.status !== "no_local" && (
+              <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-sm font-bold text-sky-900">Chega ~{hora(e.chegada_prevista)}</span>
+            )}
+            {atrasoMin > 0 && (
+              <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-sm font-bold text-red-800">Atrasado {atrasoMin} min</span>
+            )}
           </div>
           {e.observacao && <p className="mt-2 rounded-xl bg-fundo px-3 py-2 text-base text-tinta">“{e.observacao}”</p>}
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2">{children}</div>
     </article>
-  );
-}
-
-function ConfirmarComMotivo({
-  titulo,
-  texto,
-  rotulo,
-  carregando,
-  onConfirmar,
-  onFechar,
-}: {
-  titulo: string;
-  texto: string;
-  rotulo: string;
-  carregando: boolean;
-  onConfirmar: (motivo: string) => void;
-  onFechar: () => void;
-}) {
-  const [motivo, setMotivo] = useState("");
-  return (
-    <Folha titulo={titulo} onFechar={onFechar}>
-      <p className="text-base text-tinta-suave">{texto}</p>
-      <div className="mt-4">
-        <Campo rotulo="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={300} />
-      </div>
-      <div className="mt-5 flex flex-col gap-3">
-        <Botao variante="perigo" largo carregando={carregando} onClick={() => onConfirmar(motivo.trim())}>
-          {rotulo}
-        </Botao>
-        <Botao variante="secundario" largo onClick={onFechar} disabled={carregando}>
-          Voltar
-        </Botao>
-      </div>
-    </Folha>
   );
 }
 

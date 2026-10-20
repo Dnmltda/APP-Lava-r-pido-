@@ -51,6 +51,10 @@ jobs:
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
         run: node scripts/testar-fila.mjs
 
+      - name: Teste das regras da fila (Etapa 3 — dia com 15 carros e 5 reservas)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-regras-fila.mjs
+
       - name: Log do PocketBase (se falhar)
         if: failure()
         run: cat pocketbase/pb.log

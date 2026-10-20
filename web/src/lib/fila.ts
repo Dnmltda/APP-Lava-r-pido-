@@ -14,12 +14,14 @@ export interface ItemPublico {
   posicao?: number;
   previsao?: string;
   inicio_em?: string;
+  atrasado_min?: number;
 }
 
 export interface FilaPublica {
   empresa: string;
   agora: string;
   capacidade: number;
+  tolerancia_min: number;
   proxima_vaga: string;
   lavando: ItemPublico[];
   fila: ItemPublico[];
@@ -42,6 +44,9 @@ export interface EntradaFila extends Base {
   veiculo_avulso: string;
   duracao_min: number;
   preco_servico: number;
+  horario_reserva: string;
+  chegada_prevista: string;
+  reposicionado_em: string;
   confirmado_em: string;
   avisado_em: string;
   chegada_em: string;
@@ -164,7 +169,7 @@ export function emQuanto(iso: string | undefined, agoraIso?: string) {
 }
 
 export function nomeDaEntrada(e: EntradaFila) {
-  return e.expand?.cliente?.nome || e.nome_avulso || "Cliente";
+  return e.expand?.cliente?.nome || e.nome_avulso || (e.origem === "reserva" ? "Reserva sem nome" : "Cliente");
 }
 
 export function placaDaEntrada(e: EntradaFila) {

@@ -239,7 +239,7 @@ onRecordUpdateRequest((e) => {
   e.next();
   lib.auditar(e.app, {
     empresa: e.record.getString("empresa"),
-    usuario: e.auth ? e.auth.id : "",
+    usuario: lib.idUsuario(e.auth),
     acao: "equipe_editar",
     entidade: "vinculos",
     entidade_id: e.record.id,
@@ -261,7 +261,7 @@ onRecordUpdateRequest((e) => {
   for (const c of campos) depois[c] = e.record.get(c);
   lib.auditar(e.app, {
     empresa: e.record.id,
-    usuario: e.auth ? e.auth.id : "",
+    usuario: lib.idUsuario(e.auth),
     acao: "empresa_configurar",
     entidade: "empresas",
     entidade_id: e.record.id,

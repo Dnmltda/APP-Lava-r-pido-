@@ -83,6 +83,7 @@ routerAdd("GET", "/api/lr/fila-publica/{slug}", (e) => {
   };
 
   const authId = e.auth ? e.auth.id : "";
+  const toleranciaMin = empresa.getInt("tolerancia_min") || 0;
   const saida = { lavando: [], fila: [], prontos: [] };
   let posicao = 0;
   for (const r of calc.ativos) {
@@ -108,6 +109,7 @@ routerAdd("GET", "/api/lr/fila-publica/{slug}", (e) => {
       posicao++;
       item.posicao = posicao;
       item.previsao = new Date(calc.previsoes[r.id]).toISOString();
+      item.atrasado_min = lib.minutosAtraso(r, empresa, calc.agora);
       saida.fila.push(item);
     }
   }
@@ -116,6 +118,7 @@ routerAdd("GET", "/api/lr/fila-publica/{slug}", (e) => {
     empresa: empresa.id,
     agora: new Date(calc.agora).toISOString(),
     capacidade: Math.max(1, empresa.getInt("capacidade_simultanea") || 2),
+    tolerancia_min: toleranciaMin,
     // Quem entrar agora começa por volta deste horário
     proxima_vaga: new Date(calc.proximaVaga).toISOString(),
     lavando: saida.lavando,
@@ -161,7 +164,7 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
     );
     if (ativas.length > 0) throw new BadRequestError("Você já está na fila deste lava rápido.");
 
-    const ultima = tx.findRecordsByFilter("fila_entradas", "empresa = {:e}", "-ordem", 1, 0, { e: empresa.id });
+    const pos = lib.posicaoNovaEntrada(lib.carregarFila(tx, empresa), servico.getInt("duracao_media_min"));
     entrada = new Record(tx.findCollectionByNameOrId("fila_entradas"));
     entrada.set("empresa", empresa.id);
     entrada.set("cliente", e.auth.id);
@@ -171,7 +174,7 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
     entrada.set("preco_servico", servico.getFloat("preco"));
     entrada.set("origem", "app");
     entrada.set("status", "pendente");
-    entrada.set("ordem", ultima.length ? ultima[0].getInt("ordem") + 1 : 1);
+    entrada.set("ordem", lib.ordemAntesDe(tx, empresa.id, pos.lista, pos.p));
     entrada.set("quer_busca", !!body.quer_busca);
     entrada.set("observacao", String(body.observacao || "").trim().slice(0, 300));
     tx.save(entrada);
@@ -208,9 +211,10 @@ routerAdd("POST", "/api/lr/fila/balcao", (e) => {
   if (finalPlaca.length !== 3) throw new BadRequestError("Informe os 3 últimos caracteres da placa.");
   if (celular && !lib.celularValido(celular)) throw new BadRequestError("Celular inválido. Use DDD + número.");
 
+  const empresa = e.app.findRecordById("empresas", empresaId);
   let entrada = null;
   e.app.runInTransaction((tx) => {
-    const ultima = tx.findRecordsByFilter("fila_entradas", "empresa = {:e}", "-ordem", 1, 0, { e: empresaId });
+    const pos = lib.posicaoNovaEntrada(lib.carregarFila(tx, empresa), servico.getInt("duracao_media_min"));
     entrada = new Record(tx.findCollectionByNameOrId("fila_entradas"));
     entrada.set("empresa", empresaId);
     entrada.set("servico", servico.id);
@@ -220,7 +224,8 @@ routerAdd("POST", "/api/lr/fila/balcao", (e) => {
     entrada.set("status", "confirmado");
     entrada.set("confirmado_por", e.auth.id);
     entrada.set("confirmado_em", lib.agoraISO());
-    entrada.set("ordem", ultima.length ? ultima[0].getInt("ordem") + 1 : 1);
+    entrada.set("ordem", lib.ordemAntesDe(tx, empresaId, pos.lista, pos.p));
+    entrada.set("previsao_inicio", new Date(pos.previsao).toISOString().replace("T", " "));
     entrada.set("nome_avulso", nome);
     entrada.set("celular_avulso", celular);
     entrada.set("final_placa_avulsa", finalPlaca);
@@ -292,19 +297,30 @@ routerAdd("POST", "/api/lr/fila/{id}/{acao}", (e) => {
   e.app.runInTransaction((tx) => {
     entrada.set("status", acao.para);
     entrada.set(acao.data, lib.agoraISO());
-    if (nomeAcao === "confirmar") entrada.set("confirmado_por", e.auth.id);
+    if (nomeAcao === "confirmar") {
+      entrada.set("confirmado_por", e.auth.id);
+      const calc = lib.calcularPrevisoes(tx, tx.findRecordById("empresas", empresaId));
+      if (calc.previsoes[entrada.id]) {
+        entrada.set("previsao_inicio", new Date(calc.previsoes[entrada.id]).toISOString().replace("T", " "));
+      }
+    }
     if (nomeAcao === "recusar" || nomeAcao === "cancelar") {
       entrada.set("cancelado_por", e.auth.id);
       if (motivo) entrada.set("motivo", motivo);
     }
     if (nomeAcao === "iniciar") {
-      // Registra quando um carro começa antes de outros que estavam na frente.
-      const naFrente = tx.findRecordsByFilter(
+      // Quem estava na frente e já passou da tolerância perde a vez para quem
+      // está no local (regra 7). Pular alguém que NÃO está atrasado fica registrado.
+      const empresa = tx.findRecordById("empresas", empresaId);
+      const agora = Date.now();
+      const naFrente = Array.from(tx.findRecordsByFilter(
         "fila_entradas",
         "empresa = {:e} && ordem < {:o} && (" + lib.STATUS_ESPERA.map((s) => "status = '" + s + "'").join(" || ") + ")",
-        "", 0, 0, { e: empresaId, o: entrada.getInt("ordem") },
-      );
-      if (naFrente.length) extra.fora_de_ordem = naFrente.length;
+        "", 0, 0, { e: empresaId, o: entrada.getFloat("ordem") },
+      ));
+      const atrasados = naFrente.filter((r) => lib.minutosAtraso(r, empresa, agora) > 0);
+      if (atrasados.length) extra.passou_atrasados = atrasados.length;
+      if (naFrente.length - atrasados.length > 0) extra.fora_de_ordem = naFrente.length - atrasados.length;
     }
     if (nomeAcao === "finalizar") {
       const lavador = String(body.lavado_por || e.auth.id);
@@ -328,4 +344,250 @@ routerAdd("POST", "/api/lr/fila/{id}/{acao}", (e) => {
   });
 
   return e.json(200, { id: entrada.id, status: entrada.getString("status") });
+}, $apis.requireAuth("usuarios"));
+
+// ================================================================ ETAPA 3
+
+// ------------------------------------------------------ horário reservado
+// POST /api/lr/fila/reserva { empresa, horario, servico, nome?, celular?, final_placa?, veiculo_desc?, observacao? }
+// Patrão, gerente ou responsável pela fila. A reserva entra na posição cuja
+// previsão bate com o horário. O público vê só "Reservado". Os dados do
+// cliente podem ser preenchidos depois (rota /dados).
+routerAdd("POST", "/api/lr/fila/reserva", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const body = new DynamicModel({
+    empresa: "", horario: "", servico: "", nome: "", celular: "", final_placa: "", veiculo_desc: "", observacao: "",
+  });
+  e.bindBody(body);
+
+  const empresaId = String(body.empresa || "");
+  if (!lib.podeGerirFila(lib.vinculoEquipe(e.app, e.auth.id, empresaId))) {
+    throw new ForbiddenError("Você não tem permissão para gerir a fila.");
+  }
+  const empresa = e.app.findRecordById("empresas", empresaId);
+  let servico;
+  try {
+    servico = e.app.findRecordById("servicos", String(body.servico || ""));
+  } catch (_) {}
+  if (!servico || servico.getString("empresa") !== empresaId || !servico.getBool("ativo")) {
+    throw new BadRequestError("Escolha um serviço.");
+  }
+  const horario = Date.parse(String(body.horario || ""));
+  const agora = Date.now();
+  if (isNaN(horario)) throw new BadRequestError("Informe o horário da reserva.");
+  if (horario < agora - 5 * 60000) throw new BadRequestError("O horário da reserva já passou.");
+  if (horario > agora + 30 * 24 * 3600000) throw new BadRequestError("Reservas só até 30 dias para a frente.");
+
+  const celular = lib.normalizarCelular(body.celular);
+  if (celular && !lib.celularValido(celular)) throw new BadRequestError("Celular inválido. Use DDD + número.");
+  const finalPlaca = String(body.final_placa || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-3);
+  if (finalPlaca && finalPlaca.length !== 3) throw new BadRequestError("Informe os 3 últimos caracteres da placa.");
+
+  let entrada = null;
+  let previsao = 0;
+  e.app.runInTransaction((tx) => {
+    const pos = lib.posicaoReserva(lib.carregarFila(tx, empresa), horario, servico.getInt("duracao_media_min"));
+    previsao = pos.previsao;
+    entrada = new Record(tx.findCollectionByNameOrId("fila_entradas"));
+    entrada.set("empresa", empresaId);
+    entrada.set("servico", servico.id);
+    entrada.set("duracao_min", servico.getInt("duracao_media_min"));
+    entrada.set("preco_servico", servico.getFloat("preco"));
+    entrada.set("origem", "reserva");
+    entrada.set("status", "confirmado");
+    entrada.set("confirmado_por", e.auth.id);
+    entrada.set("confirmado_em", lib.agoraISO());
+    entrada.set("horario_reserva", new Date(horario).toISOString().replace("T", " "));
+    entrada.set("previsao_inicio", new Date(pos.previsao).toISOString().replace("T", " "));
+    entrada.set("ordem", lib.ordemAntesDe(tx, empresaId, pos.lista, pos.p));
+    lib.preencherDadosAvulsos(tx, entrada, empresaId, {
+      nome: body.nome, celular: celular, final_placa: finalPlaca, veiculo_desc: body.veiculo_desc, observacao: body.observacao,
+    });
+    tx.save(entrada);
+    lib.auditar(tx, {
+      empresa: empresaId, usuario: e.auth.id, acao: "fila_reserva",
+      entidade: "fila_entradas", entidade_id: entrada.id,
+      depois: Object.assign(lib.resumoEntrada(entrada), { horario: entrada.getString("horario_reserva") }),
+    });
+  });
+
+  return e.json(201, { id: entrada.id, previsao: new Date(previsao).toISOString() });
+}, $apis.requireAuth("usuarios"));
+
+// ------------------------------------- completar dados (reserva/balcão)
+// POST /api/lr/fila/{id}/dados { nome, celular, final_placa, veiculo_desc, observacao }
+routerAdd("POST", "/api/lr/fila/{id}/dados", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const body = new DynamicModel({ nome: "", celular: "", final_placa: "", veiculo_desc: "", observacao: "" });
+  e.bindBody(body);
+  let entrada;
+  try {
+    entrada = e.app.findRecordById("fila_entradas", e.request.pathValue("id"));
+  } catch (_) {
+    throw new NotFoundError("Entrada da fila não encontrada.");
+  }
+  const empresaId = entrada.getString("empresa");
+  const vinculo = lib.vinculoEquipe(e.app, e.auth.id, empresaId);
+  if (!vinculo) throw new NotFoundError("Entrada da fila não encontrada.");
+  if (!lib.podeGerirFila(vinculo)) throw new ForbiddenError("Você não tem permissão para gerir a fila.");
+  if (lib.STATUS_ATIVOS.indexOf(entrada.getString("status")) < 0) throw new BadRequestError("Esta entrada não está mais na fila.");
+  if (entrada.getString("origem") === "app") throw new BadRequestError("Os dados de quem entrou pelo app são do próprio cliente.");
+
+  const celular = lib.normalizarCelular(body.celular);
+  if (celular && !lib.celularValido(celular)) throw new BadRequestError("Celular inválido. Use DDD + número.");
+  const finalPlaca = String(body.final_placa || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-3);
+  if (finalPlaca && finalPlaca.length !== 3) throw new BadRequestError("Informe os 3 últimos caracteres da placa.");
+
+  const antes = {
+    nome: entrada.getString("nome_avulso"), celular: entrada.getString("celular_avulso"),
+    final_placa: entrada.getString("final_placa_avulsa"), cliente: entrada.getString("cliente"),
+  };
+  e.app.runInTransaction((tx) => {
+    lib.preencherDadosAvulsos(tx, entrada, empresaId, {
+      nome: body.nome, celular: celular, final_placa: finalPlaca, veiculo_desc: body.veiculo_desc, observacao: body.observacao,
+    });
+    tx.save(entrada);
+    lib.auditar(tx, {
+      empresa: empresaId, usuario: e.auth.id, acao: "fila_dados",
+      entidade: "fila_entradas", entidade_id: entrada.id, antes: antes,
+      depois: {
+        nome: entrada.getString("nome_avulso"), celular: entrada.getString("celular_avulso"),
+        final_placa: entrada.getString("final_placa_avulsa"), cliente: entrada.getString("cliente"),
+      },
+    });
+  });
+  return e.json(200, { id: entrada.id });
+}, $apis.requireAuth("usuarios"));
+
+// ------------------------------------------------------------ reposicionar
+// POST /api/lr/fila/{id}/reposicionar { minutos, simular? }
+// Cliente atrasado não é punido: o responsável informa em quantos minutos ele
+// chega e o app mostra/aplica a posição em que ele se encaixa. Nunca vai para a frente.
+routerAdd("POST", "/api/lr/fila/{id}/reposicionar", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const body = new DynamicModel({ minutos: 0, simular: false, motivo: "" });
+  e.bindBody(body);
+  let entrada;
+  try {
+    entrada = e.app.findRecordById("fila_entradas", e.request.pathValue("id"));
+  } catch (_) {
+    throw new NotFoundError("Entrada da fila não encontrada.");
+  }
+  const empresaId = entrada.getString("empresa");
+  const vinculo = lib.vinculoEquipe(e.app, e.auth.id, empresaId);
+  if (!vinculo) throw new NotFoundError("Entrada da fila não encontrada.");
+  if (!lib.podeGerirFila(vinculo)) throw new ForbiddenError("Você não tem permissão para gerir a fila.");
+  const st = entrada.getString("status");
+  if (["pendente", "confirmado", "avisado"].indexOf(st) < 0) {
+    throw new BadRequestError("Só dá para reposicionar quem ainda não chegou.");
+  }
+  const minutos = parseInt(body.minutos, 10);
+  if (!minutos || minutos < 1 || minutos > 600) throw new BadRequestError("Informe em quantos minutos o cliente chega.");
+
+  const empresa = e.app.findRecordById("empresas", empresaId);
+  const chegada = Date.now() + minutos * 60000;
+  let resultado = null;
+  e.app.runInTransaction((tx) => {
+    const estado = lib.carregarFila(tx, empresa);
+    const posAtual = estado.espera.findIndex((r) => r.id === entrada.id);
+    const pos = lib.posicaoReposicionar(estado, entrada.id, chegada);
+    resultado = {
+      posicao_atual: posAtual + 1,
+      nova_posicao: pos.p + 1,
+      previsao: new Date(pos.previsao).toISOString(),
+    };
+    if (body.simular) return;
+
+    const antes = lib.resumoEntrada(entrada);
+    if (pos.p !== posAtual) entrada.set("ordem", lib.ordemAntesDe(tx, empresaId, pos.lista, pos.p));
+    entrada.set("chegada_prevista", new Date(chegada).toISOString().replace("T", " "));
+    entrada.set("reposicionado_em", lib.agoraISO());
+    // Novo combinado: o aviso anterior deixa de valer para o cálculo de atraso.
+    entrada.set("avisado_em", "");
+    if (st === "avisado") entrada.set("status", "confirmado");
+    tx.save(entrada);
+    lib.auditar(tx, {
+      empresa: empresaId, usuario: e.auth.id, acao: "fila_reposicionar",
+      entidade: "fila_entradas", entidade_id: entrada.id, antes: antes,
+      depois: Object.assign(lib.resumoEntrada(entrada), {
+        chega_em_min: minutos, posicao_antes: resultado.posicao_atual, posicao_depois: resultado.nova_posicao,
+      }),
+      motivo: String(body.motivo || "").trim().slice(0, 300),
+    });
+  });
+  return e.json(200, resultado);
+}, $apis.requireAuth("usuarios"));
+
+// ---------------------------------------------------- cancelar e substituir
+// POST /api/lr/fila/{id}/substituir { servico, nome, final_placa, veiculo_desc, celular, motivo }
+// Só no momento do cancelamento: coloca na MESMA posição um cliente que está no local.
+routerAdd("POST", "/api/lr/fila/{id}/substituir", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const body = new DynamicModel({ servico: "", nome: "", final_placa: "", veiculo_desc: "", celular: "", motivo: "" });
+  e.bindBody(body);
+  let entrada;
+  try {
+    entrada = e.app.findRecordById("fila_entradas", e.request.pathValue("id"));
+  } catch (_) {
+    throw new NotFoundError("Entrada da fila não encontrada.");
+  }
+  const empresaId = entrada.getString("empresa");
+  const vinculo = lib.vinculoEquipe(e.app, e.auth.id, empresaId);
+  if (!vinculo) throw new NotFoundError("Entrada da fila não encontrada.");
+  if (!lib.podeGerirFila(vinculo)) throw new ForbiddenError("Você não tem permissão para gerir a fila.");
+  if (lib.STATUS_ESPERA.indexOf(entrada.getString("status")) < 0) {
+    throw new BadRequestError("Só dá para substituir quem ainda está esperando na fila.");
+  }
+
+  let servico;
+  try {
+    servico = e.app.findRecordById("servicos", String(body.servico || ""));
+  } catch (_) {}
+  if (!servico || servico.getString("empresa") !== empresaId || !servico.getBool("ativo")) {
+    throw new BadRequestError("Escolha o serviço do cliente que vai entrar.");
+  }
+  const nome = String(body.nome || "").trim();
+  const finalPlaca = String(body.final_placa || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-3);
+  const celular = lib.normalizarCelular(body.celular);
+  if (nome.length < 2) throw new BadRequestError("Informe o nome de quem vai entrar.");
+  if (finalPlaca.length !== 3) throw new BadRequestError("Informe os 3 últimos caracteres da placa.");
+  if (celular && !lib.celularValido(celular)) throw new BadRequestError("Celular inválido. Use DDD + número.");
+  const motivo = String(body.motivo || "").trim().slice(0, 300);
+
+  let nova = null;
+  e.app.runInTransaction((tx) => {
+    const antes = lib.resumoEntrada(entrada);
+    nova = new Record(tx.findCollectionByNameOrId("fila_entradas"));
+    nova.set("empresa", empresaId);
+    nova.set("servico", servico.id);
+    nova.set("duracao_min", servico.getInt("duracao_media_min"));
+    nova.set("preco_servico", servico.getFloat("preco"));
+    nova.set("origem", "substituicao");
+    nova.set("status", "no_local");
+    nova.set("ordem", entrada.getFloat("ordem"));
+    nova.set("confirmado_por", e.auth.id);
+    nova.set("confirmado_em", lib.agoraISO());
+    nova.set("chegada_em", lib.agoraISO());
+    nova.set("substituiu_entrada", entrada.id);
+    nova.set("nome_avulso", nome);
+    nova.set("celular_avulso", celular);
+    nova.set("final_placa_avulsa", finalPlaca);
+    nova.set("veiculo_avulso", String(body.veiculo_desc || "").trim().slice(0, 90));
+    tx.save(nova);
+
+    entrada.set("status", "substituido");
+    entrada.set("cancelado_em", lib.agoraISO());
+    entrada.set("cancelado_por", e.auth.id);
+    entrada.set("substituido_por", nova.id);
+    if (motivo) entrada.set("motivo", motivo);
+    tx.save(entrada);
+
+    lib.auditar(tx, {
+      empresa: empresaId, usuario: e.auth.id, acao: "fila_substituir",
+      entidade: "fila_entradas", entidade_id: entrada.id, antes: antes,
+      depois: Object.assign(lib.resumoEntrada(entrada), { substituto: nova.id, substituto_nome: nome }),
+      motivo: motivo,
+    });
+  });
+  return e.json(201, { id: nova.id, substituida: entrada.id });
 }, $apis.requireAuth("usuarios"));

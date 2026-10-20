@@ -11,7 +11,18 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 |---|---|---|
 | 1. Base | ✅ concluída | `testar-isolamento.mjs`: 75/75 |
 | 2. Fila (fatia principal) | ✅ concluída | `testar-fila.mjs`: 56/56 + teste com 2 celulares no navegador |
-| 3 a 8 | a fazer | |
+| 3. Regras da fila | ✅ concluída | `testar-regras-fila.mjs`: 49/49 (dia com 15 carros e 5 reservas) |
+| 4 a 8 | a fazer | |
+
+### Etapa 3: Regras da fila (seção 3.3 do planejamento)
+- **Horários reservados**: patrão, gerente ou responsável pela fila criam a reserva (com dia e horário). O app encaixa a reserva antes do primeiro carro cuja previsão já passa do horário, e ela nunca começa antes do horário. O público vê só "Reservado". Os dados do cliente podem ser preenchidos depois. Se o celular for de um cliente cadastrado, a reserva aparece no app dele.
+- **Ninguém fura a fila**: o cliente novo entra no fim. A única exceção são reservas marcadas para mais tarde no fim da fila: o cliente novo passa na frente delas **só se isso não atrasar a reserva**. Testado a cada uma das 15 chegadas.
+- **Fila atrasada pela equipe**: a sequência não muda e a reserva não passa na frente. O app recalcula e mostra a nova previsão.
+- **Tolerância** (padrão 10 min, configurável): conta a partir do aviso pelo WhatsApp (mais a antecedência do aviso), do horário da reserva ou da previsão confirmada. Passou disso, o cartão fica "Atrasado X min" e o próximo **que está no local** pode começar sem alerta. O atrasado continua na vez dele.
+- **Reposicionar**: o responsável informa "chega em X min". O app mostra de que posição para qual o cliente vai e a nova previsão, e só então aplica. Nunca leva ninguém para a frente.
+- **Cancelar**: a vaga some e todos sobem.
+- **Cancelar e substituir**: só no momento do cancelamento, um cliente que está no local entra na **mesma posição**. Depois de cancelada, a vaga não volta.
+- Tudo registrado na auditoria (posição antes e depois, motivo, quem fez).
 
 ### Etapa 2: Fila
 - Cadastro do cliente com veículo: placa completa ou só os 3 últimos caracteres. Tela "Meus veículos".

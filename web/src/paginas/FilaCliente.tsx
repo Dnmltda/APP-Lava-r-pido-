@@ -4,7 +4,7 @@ import { descricaoVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/M
 import { Aviso, Botao, Carregando, Cartao, Confirmar, EstadoErro, Folha, Interruptor } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
 import { acaoFila, emQuanto, hora, useFilaAoVivo, type ItemPublico } from "../lib/fila";
-import { duracao, reais } from "../lib/formato";
+import { duracao, linkWhatsApp, reais } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
 import type { Servico, StatusFila } from "../lib/tipos";
 
@@ -68,6 +68,21 @@ export function FilaCliente() {
             </div>
           )}
           <p className="mt-4 text-base opacity-95">{info.texto}</p>
+          {!!minha.atrasado_min && (
+            <div className="mt-3 rounded-xl bg-white/95 p-3 text-base text-tinta">
+              Passou do horário combinado. Você não perde a vez se avisar o lava rápido quando vai chegar.
+              {empresa.whatsapp && (
+                <a
+                  href={linkWhatsApp(empresa.whatsapp, `Olá! Sou ${minha.nome} (…${minha.final_placa}) e estou a caminho. Chego em uns minutos.`)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 flex min-h-12 items-center justify-center rounded-xl bg-[#1f7a45] px-4 font-bold text-white"
+                >
+                  Avisar no WhatsApp
+                </a>
+              )}
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             <span className="rounded-full bg-black/15 px-3 py-1 text-sm font-bold">{minha.servico}</span>
             {minha.quer_busca && <IconeBusca />}
