@@ -713,7 +713,100 @@ function notificarEntrada(app, entrada, tipo, extra) {
   return enviados;
 }
 
+// ------------------------------------------------------------- câmeras
+const TIPOS_CAMERA = ["app_fabricante", "imagem", "hls", "demonstracao"];
+const PASSE_CAMERA_S = 600;
+
+// Segredo do servidor guardado no banco (gera na primeira vez).
+function segredoServidor(app, nome) {
+  try {
+    return app.findFirstRecordByData("servidor_segredos", "nome", nome).getString("valor");
+  } catch (_) {}
+  const r = new Record(app.findCollectionByNameOrId("servidor_segredos"));
+  r.set("nome", nome);
+  r.set("valor", $security.randomString(64));
+  app.save(r);
+  return r.getString("valor");
+}
+
+// Em produção o gateway precisa ser HTTPS e público (túnel). Endereços internos
+// (localhost, 10.x, 192.168.x…) só com LR_CAMERAS_LOCAL=1 (testes e desenvolvimento).
+function enderecoGatewayPermitido(url) {
+  const m = /^(https?):\/\/(\[[^\]]+\]|[^\/:?#@]+)(:\d+)?(\/[^?#]*)?$/i.exec(String(url || ""));
+  if (!m) return "Endereço do gateway inválido. Use algo como https://cameras.seudominio.com.br";
+  if ($os.getenv("LR_CAMERAS_LOCAL") === "1") return "";
+  if (m[1].toLowerCase() !== "https") return "Use um endereço https:// para o gateway (ex.: túnel da Cloudflare).";
+  const host = m[2].toLowerCase().replace(/^\[|\]$/g, "");
+  const interno =
+    host === "localhost" || /\.localhost$/.test(host) || /\.local$/.test(host) || /\.internal$/.test(host) ||
+    /^(127|10|0)\./.test(host) || /^192\.168\./.test(host) || /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host) ||
+    host.indexOf(":") >= 0 || /^\d+$/.test(host);
+  if (interno) return "Use o endereço público do túnel (https://…), não o endereço interno da rede. Nunca abra a porta do DVR.";
+  return "";
+}
+
+// Caminho dentro do gateway: sem "..", sem barra inicial, sem outro endereço.
+function caminhoSeguro(c) {
+  c = String(c || "");
+  return !(c.indexOf("..") >= 0 || c.indexOf("\\") >= 0 || c.indexOf("://") >= 0 || /^\//.test(c) || /[\r\n]/.test(c));
+}
+
+function validarCamera(r) {
+  const tipo = r.getString("tipo_integracao");
+  if (TIPOS_CAMERA.indexOf(tipo) < 0) throw new BadRequestError("Escolha o tipo da câmera.");
+  if (r.getString("nome").trim().length < 2) throw new BadRequestError("Dê um nome para a câmera (ex.: Box 1).");
+  if (tipo === "app_fabricante") {
+    if (!/^https:\/\//i.test(r.getString("link_app"))) throw new BadRequestError("Cole o link https:// do app ou da nuvem do fabricante.");
+    return;
+  }
+  if (tipo === "demonstracao") return;
+  const erro = enderecoGatewayPermitido(r.getString("endereco_stream"));
+  if (erro) throw new BadRequestError(erro);
+  const caminho = r.getString("caminho").replace(/^\/+/, "");
+  r.set("caminho", caminho);
+  if (!caminho) throw new BadRequestError(tipo === "hls" ? "Informe o caminho do vídeo (ex.: box1/index.m3u8)." : "Informe o caminho da imagem (ex.: api/frame.jpeg?src=box1).");
+  if (!caminhoSeguro(caminho.split("?")[0])) throw new BadRequestError("Caminho inválido.");
+}
+
+function escaparXml(t) {
+  return String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// Quadro da câmera de demonstração: relógio de São Paulo e um carro andando.
+function quadroDemonstracao(nome, agora) {
+  const d = new Date(agora - OFFSET_SP);
+  const p2 = (n) => (n < 10 ? "0" : "") + n;
+  const hora = p2(d.getUTCHours()) + ":" + p2(d.getUTCMinutes()) + ":" + p2(d.getUTCSeconds());
+  const data = p2(d.getUTCDate()) + "/" + p2(d.getUTCMonth() + 1) + "/" + d.getUTCFullYear();
+  const x = 40 + ((d.getUTCSeconds() * 1000 + (agora % 1000)) / 60000) * 460;
+  return (
+    '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">' +
+    '<rect width="640" height="360" fill="#1d2a33"/>' +
+    '<rect y="250" width="640" height="110" fill="#2c3a44"/>' +
+    '<g fill="#3e5260"><rect x="0" y="296" width="640" height="4"/></g>' +
+    '<g transform="translate(' + x.toFixed(0) + ',190)">' +
+    '<rect x="0" y="22" width="140" height="40" rx="10" fill="#0e7490"/>' +
+    '<rect x="26" y="0" width="80" height="34" rx="10" fill="#0e7490"/>' +
+    '<rect x="36" y="6" width="28" height="20" rx="4" fill="#a5d8e6"/><rect x="70" y="6" width="28" height="20" rx="4" fill="#a5d8e6"/>' +
+    '<circle cx="32" cy="62" r="14" fill="#111"/><circle cx="108" cy="62" r="14" fill="#111"/></g>' +
+    '<rect x="16" y="16" width="220" height="34" rx="6" fill="rgba(0,0,0,.55)"/>' +
+    '<circle cx="34" cy="33" r="7" fill="#e5484d"/>' +
+    '<text x="50" y="39" font-family="sans-serif" font-size="17" font-weight="700" fill="#fff">AO VIVO · DEMONSTRAÇÃO</text>' +
+    '<text x="624" y="40" text-anchor="end" font-family="monospace" font-size="22" fill="#fff">' + data + " " + hora + "</text>" +
+    '<text x="16" y="340" font-family="sans-serif" font-size="20" font-weight="700" fill="#fff">' + escaparXml(nome) + "</text>" +
+    "</svg>"
+  );
+}
+
 module.exports = {
+  TIPOS_CAMERA,
+  PASSE_CAMERA_S,
+  segredoServidor,
+  enderecoGatewayPermitido,
+  caminhoSeguro,
+  validarCamera,
+  quadroDemonstracao,
   TEXTOS_PADRAO,
   textoDoAviso,
   chavesPush,

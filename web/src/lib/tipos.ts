@@ -218,3 +218,18 @@ export interface DadosArea {
   vales: { quantidade: number; total: number };
   saldo_estimado: number;
 }
+
+export type TipoCamera = "app_fabricante" | "imagem" | "hls" | "demonstracao";
+
+// O token do gateway nunca vem do servidor: só "tem_token".
+export interface Camera extends Base {
+  empresa: string;
+  nome: string;
+  tipo_integracao: TipoCamera;
+  endereco_stream: string;
+  caminho: string;
+  link_app: string;
+  ordem: number;
+  ativo: boolean;
+  tem_token: boolean;
+}

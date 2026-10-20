@@ -19,7 +19,19 @@ O planejamento completo está em [`docs/PLANEJAMENTO-APP-LAVA-RAPIDO.md`](docs/P
 | 4. Produtos e vendas | ✅ concluída | `testar-vendas.mjs`: 53/53 |
 | 5. Painéis | ✅ concluída | `testar-paineis.mjs`: 59/59 |
 | 6. Avisos e avaliação | ✅ concluída | `testar-avisos.mjs`: 31/31 (Web Push descriptografado + VAPID conferido) |
-| 7 e 8 | a fazer | |
+| 7. Câmeras | ✅ concluída | `testar-cameras.mjs`: 60/60 (gateway falso com token, passes forjados/vencidos) |
+| 8. Testes e publicação final | a fazer | |
+
+### Etapa 7: Câmeras (só o patrão)
+- Tela **Câmeras** no painel do patrão. Gerente, funcionário e cliente não veem nem pela API (regra no PocketBase).
+- Três jeitos de ligar (guia completo em [`docs/CAMERAS.md`](docs/CAMERAS.md)):
+  - **App do fabricante**: botão que abre o app/nuvem oficial (Intelbras, Hikvision…). Não precisa de nada na loja.
+  - **Imagem ao vivo**: foto a cada segundo, vinda de um gateway na loja (go2rtc) por túnel seguro (Cloudflare).
+  - **Vídeo ao vivo (HLS)**: vídeo do gateway (MediaMTX/go2rtc), mesmo esquema.
+  - **Demonstração**: imagem gerada pelo servidor, para testar sem câmera (já cadastrada na empresa demo).
+- **O celular nunca recebe o endereço nem o token do gateway**: o patrão pede um passe de 10 minutos, só daquela câmera, e a imagem passa pelo servidor. Câmera desligada ou patrão desligado perde o acesso na hora, mesmo com passe.
+- Em produção o gateway precisa ser `https://` e público (túnel); endereços internos (192.168.x, localhost…) são recusados. **Nunca abrir a porta do DVR.**
+- Cada visualização e cada mudança de câmera fica na auditoria (sem o token).
 
 ### Etapa 6: Avisos e avaliação
 - **Notificação no celular (Web Push)**: "Vez confirmada", "Já pode vir" e "Carro pronto". Depois da baixa vem o convite "Como foi sua lavagem?", que abre a tela de avaliar.
@@ -167,7 +179,7 @@ scripts/                   criar empresa, testar isolamento, baixar PocketBase
 
 | Workflow | Quando | O que faz |
 |---|---|---|
-| `testar-e-publicar.yml` | push no `main`, PR, manual | build + testes de isolamento e fila; se passar e for `main`, publica no Fly (cria app/volume na 1ª vez) |
+| `testar-e-publicar.yml` | push no `main`, PR, manual | build + testes de todas as etapas (isolamento, fila, regras, vendas, painéis, avisos, câmeras); se passar e for `main`, publica no Fly (cria app/volume na 1ª vez) |
 | `backup-diario.yml` | todo dia 03:00 (Brasília), manual | backup completo do PocketBase guardado 90 dias como artefato |
 | `criar-empresa.yml` | manual | cria lava rápido + patrão (senha gerada) ou a demo |
 

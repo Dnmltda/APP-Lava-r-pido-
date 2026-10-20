@@ -30,6 +30,8 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/_\//],
         // Notificações (Web Push): public/push-sw.js
         importScripts: ["push-sw.js"],
+        // O player de vídeo das câmeras (hls.js) só baixa quando o patrão abre a tela.
+        globIgnores: ["**/hls-*.js"],
       },
     }),
   ],

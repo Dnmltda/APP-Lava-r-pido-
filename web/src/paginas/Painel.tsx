@@ -57,6 +57,9 @@ export function Painel() {
             {vinculo.papel !== "patrao" && (
               <Atalho para={`/${empresa.slug}/minha-area`} titulo="Minha área" texto="Carros lavados, bônus, vales e holerites" />
             )}
+            {pode(vinculo, "cameras") && (
+              <Atalho para={`/${empresa.slug}/cameras`} titulo="Câmeras" texto="Ver os boxes ao vivo" />
+            )}
             {pode(vinculo, "gerenciar_equipe") && (
               <Atalho para={`/${empresa.slug}/equipe`} titulo="Equipe" texto="Cadastrar, permissões, senhas" />
             )}

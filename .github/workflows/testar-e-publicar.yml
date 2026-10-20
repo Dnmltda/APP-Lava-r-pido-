@@ -45,7 +45,7 @@ jobs:
           ./scripts/compilar-pocketbase.sh
           cd pocketbase
           ./bin/pocketbase superuser upsert ci@teste.local 'SenhaCI-123456' --dir ./pb_data --migrationsDir ./pb_migrations
-          nohup ./bin/pocketbase serve --dir ./pb_data --migrationsDir ./pb_migrations --hooksDir ./pb_hooks --http 127.0.0.1:8090 > pb.log 2>&1 &
+          LR_CAMERAS_LOCAL=1 nohup ./bin/pocketbase serve --dir ./pb_data --migrationsDir ./pb_migrations --hooksDir ./pb_hooks --http 127.0.0.1:8090 > pb.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8090/api/health && break; sleep 1; done
 
       - name: Teste de isolamento (Etapa 1)
@@ -71,6 +71,10 @@ jobs:
       - name: Teste dos avisos e avaliações (Etapa 6 — notificações descriptografadas de verdade)
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
         run: node scripts/testar-avisos.mjs
+
+      - name: Teste das câmeras (Etapa 7 — gateway falso com token, só o patrão)
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-cameras.mjs
 
       - name: Log do PocketBase (se falhar)
         if: failure()
