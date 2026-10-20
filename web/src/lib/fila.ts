@@ -11,6 +11,11 @@ export interface ItemPublico {
   servico: string;
   quer_busca: boolean;
   minha: boolean;
+  /** Só nas entradas do próprio cliente: valor do serviço deste carro, tipo e modelo. */
+  valor?: number;
+  tipo_nome?: string;
+  modelo?: string;
+  veiculo?: string;
   posicao?: number;
   previsao?: string;
   inicio_em?: string;

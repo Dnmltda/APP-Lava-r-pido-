@@ -26,6 +26,9 @@ funcionário …0004, cliente …0005). Ela começa vazia: o dono cadastra servi
 - **Produtos a separar**: no cartão do carro, marque **separado** ou **em falta**.
 - **Avisar no WhatsApp**: abre a conversa com a mensagem pronta (“já pode vir”).
 
+**A pagar por este carro**: em cada cartão da fila aparece o serviço e os produtos daquele carro, com o valor de cada
+um. Cliente com dois carros = dois cartões, cada um com o seu valor (nunca somados).
+
 **Vendas**: **+ Nova venda** → produtos → forma de pagamento (cartão, dinheiro, Pix na maquininha) → **Fechar venda**.
 Depois de fechada, só o patrão corrige.
 
@@ -101,7 +104,9 @@ Tudo do gerente, mais:
    Pelo modelo o app já sabe o **tamanho** (HB20 = pequeno, Corolla = médio, Hilux = grande); o cliente **não escolhe
    nem muda** o tamanho. Pergunta só se trabalha
    com **aplicativo** (Uber, 99). E-mail e rede social são **opcionais** (para divulgação; só o dono vê).
-2. **Entrar na fila** → veículo → serviço (o preço já é o do tamanho do carro) → produtos (opcional) → “quero que busquem meu carro” (opcional) → **Confirmar e entrar na fila**.
+2. **Entrar na fila** → marca o carro (ou até 3 carros de uma vez) → serviço → **Conferir antes de entrar**: aparece
+   cada carro com o seu serviço e o seu valor, e os produtos. **Cada carro paga o seu valor, separado: o app nunca
+   soma os carros.** Depois **Confirmar**. Com o carro na fila dá para pôr outro em **+ Colocar outro carro na fila**. → produtos (opcional) → “quero que busquem meu carro” (opcional) → **Confirmar e entrar na fila**.
 3. Acompanhar a posição e a previsão. Se a equipe tirar fotos, aparece **Ver fotos do seu carro**. Botão **Falar no WhatsApp** direto com o lava rápido. Ligar os **avisos** para receber “vez confirmada”, “já pode vir” e “carro pronto”.
 4. Depois da lavagem: avaliar com estrelas.
 5. Pagamento: sempre no lava rápido, na hora.

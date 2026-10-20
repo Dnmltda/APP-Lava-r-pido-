@@ -195,6 +195,27 @@ async function main() {
     r = await api("POST", "/api/lr/app-aprovar", { token: patrao.token, body: { empresa: A.id, veiculo: v1.id, aprovar: false } });
     e1 = await entrar();
     checar("dono pode recusar depois: volta ao preço pelo tamanho, sem aviso de app", e1.preco_servico === 80 && !e1.app_conferir, e1);
+
+    console.log("\nVários carros do mesmo cliente na fila: cada um com o seu valor");
+    await sair(e1);
+    r = await api("POST", "/api/lr/fila/entrar", { token: c1.token, body: { slug: A.slug, servico: servico.id, veiculos: [v1.id, v2.id] } });
+    checar("cliente coloca 2 carros de uma vez", r.status === 201 && r.data.ids?.length === 2, r.data);
+    const [ea, eb] = await Promise.all((r.data.ids || []).map(async (id) => (await api("GET", `/api/collections/fila_entradas/records/${id}`, { token: ADM })).data));
+    checar("cada carro com o seu preço (grande 80, pequeno 50), sem somar", ea?.preco_servico === 80 && eb?.preco_servico === 50 && ea.veiculo === v1.id && eb.veiculo === v2.id, [ea?.preco_servico, eb?.preco_servico]);
+    let pub = await api("GET", `/api/lr/fila-publica/${A.slug}`, { token: c1.token });
+    const minhas = [...pub.data.fila, ...pub.data.lavando, ...pub.data.prontos].filter((i) => i.minha);
+    checar("na fila do cliente aparecem os 2 carros, cada um com o seu valor", minhas.length === 2 && minhas.some((m) => m.valor === 80) && minhas.some((m) => m.valor === 50) && minhas.every((m) => m.veiculo), minhas);
+    pub = await api("GET", `/api/lr/fila-publica/${A.slug}`, { token: c2.token });
+    checar("outro cliente não vê valor de ninguém", [...pub.data.fila, ...pub.data.lavando, ...pub.data.prontos].every((i) => i.valor === undefined));
+    r = await api("POST", "/api/lr/fila/entrar", { token: c1.token, body: { slug: A.slug, servico: servico.id, veiculo: v1.id } });
+    checar("o mesmo carro não entra duas vezes", r.status === 400 && /já está na fila/.test(r.data?.message || ""), r.data);
+    const v3 = await criar("veiculos", { cliente: c1.id, final_placa: "U03", modelo: "Gol", cor: "Branco", porte: "pequeno", ativo: true });
+    const v4 = await criar("veiculos", { cliente: c1.id, final_placa: "U04", modelo: "Gol", cor: "Azul", porte: "pequeno", ativo: true });
+    r = await api("POST", "/api/lr/fila/entrar", { token: c1.token, body: { slug: A.slug, servico: servico.id, veiculos: [v3.id, v4.id] } });
+    checar("no máximo 3 carros do mesmo cliente ao mesmo tempo", r.status === 400 && /3 carros/.test(r.data?.message || ""), r.data);
+    checar("carro de outro cliente não entra", (await api("POST", "/api/lr/fila/entrar", { token: c2.token, body: { slug: A.slug, servico: servico.id, veiculos: [v3.id] } })).status === 400);
+    await sair(ea);
+    await sair(eb);
     checar("busca do carro: empresa que não oferece não recebe pedido de busca", (await (async () => { await sair(e1); e1 = await entrar({ quer_busca: true }); return !e1.quer_busca; })()));
     await sair(e1);
     await api("PATCH", `/api/collections/empresas/records/${A.id}`, { token: patrao.token, body: { oferece_busca: true } });

@@ -100,6 +100,17 @@ routerAdd("GET", "/api/lr/fila-publica/{slug}", (e) => {
       quer_busca: r.getBool("quer_busca"),
       minha: minha,
     };
+    // Só para o próprio cliente: o valor deste carro (cada carro paga o seu, nunca somado).
+    if (minha) {
+      item.valor = r.getFloat("preco_servico");
+      item.tipo_nome = r.getString("tipo_veiculo_nome");
+      item.veiculo = r.getString("veiculo");
+      try {
+        item.modelo = r.getString("veiculo") ? e.app.findRecordById("veiculos", r.getString("veiculo")).getString("modelo") : "";
+      } catch (_) {
+        item.modelo = "";
+      }
+    }
     if (status === "lavando") {
       item.inicio_em = r.getString("inicio_em");
       saida.lavando.push(item);
@@ -131,7 +142,8 @@ routerAdd("GET", "/api/lr/fila-publica/{slug}", (e) => {
 // POST /api/lr/fila/entrar { slug, servico, veiculo, quer_busca, observacao }
 routerAdd("POST", "/api/lr/fila/entrar", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const body = new DynamicModel({ slug: "", servico: "", veiculo: "", quer_busca: false, observacao: "", itens: [] });
+  // veiculos: um ou mais carros do cliente (cada carro entra com a sua vez e o seu preço).
+  const body = new DynamicModel({ slug: "", servico: "", veiculo: "", veiculos: [], quer_busca: false, observacao: "", itens: [] });
   e.bindBody(body);
 
   const empresa = lib.acharEmpresaAtivaPorSlug(e.app, body.slug);
@@ -146,52 +158,66 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
   if (!servico || servico.getString("empresa") !== empresa.id || !servico.getBool("ativo")) {
     throw new BadRequestError("Escolha um serviço.");
   }
-  let veiculo;
+  let ids = [];
   try {
-    veiculo = e.app.findRecordById("veiculos", String(body.veiculo || ""));
+    ids = Array.from(body.veiculos || []).map(String);
   } catch (_) {}
-  if (!veiculo || veiculo.getString("cliente") !== e.auth.id || !veiculo.getBool("ativo")) {
-    throw new BadRequestError("Escolha o veículo.");
-  }
-  // Carrinho (opcional, sem pagamento): vira a lista de produtos a separar na OS.
+  if (!ids.length && body.veiculo) ids = [String(body.veiculo)];
+  ids = ids.filter((x, i) => x && ids.indexOf(x) === i);
+  if (!ids.length) throw new BadRequestError("Escolha o veículo.");
+  const MAX_CARROS = 3;
+  if (ids.length > MAX_CARROS) throw new BadRequestError("No máximo " + MAX_CARROS + " carros por vez.");
+  const veiculos = ids.map((id) => {
+    let v;
+    try {
+      v = e.app.findRecordById("veiculos", id);
+    } catch (_) {}
+    if (!v || v.getString("cliente") !== e.auth.id || !v.getBool("ativo")) throw new BadRequestError("Escolha o veículo.");
+    return v;
+  });
+  // Carrinho (opcional, sem pagamento): vai junto com o primeiro carro.
   const carrinho = lib.validarItens(e.app, empresa.id, body.itens, 20);
 
-  let entrada = null;
+  const criadas = [];
   e.app.runInTransaction((tx) => {
-    // 1 entrada ativa por cliente por empresa (evita fila falsa).
-    const ativas = tx.findRecordsByFilter(
-      "fila_entradas",
-      "empresa = {:e} && cliente = {:c} && (" + lib.STATUS_ATIVOS.map((s) => "status = '" + s + "'").join(" || ") + ")",
-      "", 1, 0, { e: empresa.id, c: e.auth.id },
-    );
-    if (ativas.length > 0) throw new BadRequestError("Você já está na fila deste lava rápido.");
+    const ativos = "(" + lib.STATUS_ATIVOS.map((s) => "status = '" + s + "'").join(" || ") + ")";
+    // Cada carro só uma vez na fila; e no máximo MAX_CARROS carros do mesmo cliente ao mesmo tempo.
+    const doCliente = tx.findRecordsByFilter("fila_entradas", "empresa = {:e} && cliente = {:c} && " + ativos, "", 0, 0, { e: empresa.id, c: e.auth.id });
+    for (const v of veiculos) {
+      if (doCliente.some((x) => x.getString("veiculo") === v.id)) {
+        throw new BadRequestError("O carro " + (v.getString("modelo") || "…" + v.getString("final_placa")) + " já está na fila.");
+      }
+    }
+    if (doCliente.length + veiculos.length > MAX_CARROS) throw new BadRequestError("No máximo " + MAX_CARROS + " carros na fila ao mesmo tempo.");
 
-    const pos = lib.posicaoNovaEntrada(lib.carregarFila(tx, empresa), servico.getInt("duracao_media_min"));
-    entrada = new Record(tx.findCollectionByNameOrId("fila_entradas"));
-    entrada.set("empresa", empresa.id);
-    entrada.set("cliente", e.auth.id);
-    entrada.set("veiculo", veiculo.id);
-    entrada.set("servico", servico.id);
-    entrada.set("duracao_min", servico.getInt("duracao_media_min"));
-    // Tipo do veículo: sai do cadastro do carro (porte / motorista de app) ou do que a equipe definiu.
-    const tipoId = lib.tipoDoCarro(empresa, vinculo, veiculo);
     const temApp = lib.tiposVeiculo(empresa).some((t) => t.vale === "app");
     const appTipo = lib.tiposVeiculo(empresa).find((t) => t.vale === "app");
-    const decidido = lib.mapaTipos(vinculo)[veiculo.id];
-    entrada.set("app_conferir", veiculo.getBool("app_motorista") && temApp && decidido !== (appTipo && appTipo.id) && decidido !== "recusado");
-    lib.aplicarTipo(entrada, servico, empresa, tipoId);
-    entrada.set("origem", "app");
-    entrada.set("status", "pendente");
-    entrada.set("ordem", lib.ordemAntesDe(tx, empresa.id, pos.lista, pos.p));
-    entrada.set("quer_busca", !!body.quer_busca && empresa.getBool("oferece_busca"));
-    entrada.set("observacao", String(body.observacao || "").trim().slice(0, 300));
-    tx.save(entrada);
+    for (const veiculo of veiculos) {
+      const pos = lib.posicaoNovaEntrada(lib.carregarFila(tx, empresa), servico.getInt("duracao_media_min"));
+      const entrada = new Record(tx.findCollectionByNameOrId("fila_entradas"));
+      entrada.set("empresa", empresa.id);
+      entrada.set("cliente", e.auth.id);
+      entrada.set("veiculo", veiculo.id);
+      entrada.set("servico", servico.id);
+      entrada.set("duracao_min", servico.getInt("duracao_media_min"));
+      // Tipo do veículo: sai do cadastro do carro (tamanho pelo modelo) ou do que a equipe definiu.
+      lib.aplicarTipo(entrada, servico, empresa, lib.tipoDoCarro(empresa, vinculo, veiculo));
+      const decidido = lib.mapaTipos(vinculo)[veiculo.id];
+      entrada.set("app_conferir", veiculo.getBool("app_motorista") && temApp && decidido !== (appTipo && appTipo.id) && decidido !== "recusado");
+      entrada.set("origem", "app");
+      entrada.set("status", "pendente");
+      entrada.set("ordem", lib.ordemAntesDe(tx, empresa.id, pos.lista, pos.p));
+      entrada.set("quer_busca", !!body.quer_busca && empresa.getBool("oferece_busca"));
+      entrada.set("observacao", String(body.observacao || "").trim().slice(0, 300));
+      tx.save(entrada);
+      criadas.push(entrada.id);
+    }
 
     const colItens = tx.findCollectionByNameOrId("itens_pedido");
     for (const it of carrinho) {
       const ip = new Record(colItens);
       ip.set("empresa", empresa.id);
-      ip.set("entrada", entrada.id);
+      ip.set("entrada", criadas[0]);
       ip.set("produto", it.produto.id);
       ip.set("produto_nome", it.produto.getString("nome"));
       ip.set("quantidade", it.quantidade);
@@ -201,7 +227,7 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
     }
   });
 
-  return e.json(201, { id: entrada.id });
+  return e.json(201, { id: criadas[0], ids: criadas });
 }, $apis.requireAuth("usuarios"));
 
 // --------------------------------------------------- cliente de balcão

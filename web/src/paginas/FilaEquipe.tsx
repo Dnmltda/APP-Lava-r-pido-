@@ -17,7 +17,7 @@ import {
   veiculoDaEntrada,
   type EntradaFila,
 } from "../lib/fila";
-import { duracao, linkWhatsApp, mascaraCelular, normalizarPlaca, primeiroNome, somenteDigitos, celularValido } from "../lib/formato";
+import { duracao, linkWhatsApp, mascaraCelular, normalizarPlaca, primeiroNome, reais, somenteDigitos, celularValido } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
 import { CancelarEntrada, DadosEntrada, NovaReserva, Reposicionar } from "./FilaEquipeAcoes";
 import { pode } from "../lib/permissoes";
@@ -459,6 +459,28 @@ function CartaoEntrada({
               <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-sm font-bold text-red-800">Atrasado {atrasoMin} min</span>
             )}
           </div>
+          {typeof e.preco_servico === "number" && (
+            <div className="mt-2 rounded-xl bg-fundo px-3 py-2 text-base text-tinta">
+              <p className="text-xs font-extrabold uppercase tracking-wide text-tinta-suave">A pagar por este carro</p>
+              <p className="flex items-baseline justify-between gap-3">
+                <span>
+                  {servico?.nome || "Serviço"}
+                  {e.tipo_veiculo_nome ? ` · ${e.tipo_veiculo_nome}` : ""}
+                </span>
+                <strong className="shrink-0">{reais(e.preco_servico)}</strong>
+              </p>
+              {(itens || [])
+                .filter((i) => i.status !== "em_falta")
+                .map((i) => (
+                  <p key={i.id} className="flex items-baseline justify-between gap-3">
+                    <span>
+                      {i.quantidade}× {i.produto_nome || i.expand?.produto?.nome}
+                    </span>
+                    <strong className="shrink-0">{reais(i.preco_unitario * i.quantidade)}</strong>
+                  </p>
+                ))}
+            </div>
+          )}
           {extras && <div className="mt-2 flex flex-wrap gap-2">{extras}</div>}
           {e.observacao && <p className="mt-2 rounded-xl bg-fundo px-3 py-2 text-base text-tinta">“{e.observacao}”</p>}
           {itens && itens.length > 0 && (

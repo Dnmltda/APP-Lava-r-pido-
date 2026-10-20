@@ -203,6 +203,11 @@ async function main() {
     checar("cliente vê a vitrine e põe produto no carrinho antes de entrar", await cli.getByText(/1 produto/).isVisible());
     await cli.getByRole("button", { name: "Entrar na fila" }).click();
     await cli.getByText("Lavagem simples").first().click();
+    await cli.getByRole("button", { name: "Conferir antes de entrar" }).click();
+    await cli.getByRole("heading", { name: "Confira antes de entrar" }).waitFor({ timeout: 10000 }).catch(() => {});
+    const txtConf = await cli.getByRole("dialog").innerText();
+    checar("antes de confirmar, o cliente confere o carro, o serviço, o valor e os produtos", /Lavagem simples/.test(txtConf) && /R\$\s40,00/.test(txtConf) && /Cheirinho/.test(txtConf), txtConf.slice(0, 300));
+    await foto("cliente", "0-conferir");
     await cli.getByRole("button", { name: "Confirmar e entrar na fila" }).click();
     await cli.waitForTimeout(1500);
     await foto("cliente", "1-cliente-na-fila");
@@ -327,10 +332,11 @@ async function main() {
 
       await cli.goto(`${APP}/${A.slug}`);
       await cli.getByRole("button", { name: "Entrar na fila" }).click();
-      await cli.getByText(/confere o tamanho deste carro/).first().waitFor({ timeout: 10000 }).catch(() => {});
-      checar("cliente não escolhe tamanho nem tipo: modelo fora da lista fica para a equipe conferir", (await cli.getByRole("radio", { name: /^Grande|Uber/ }).count()) === 0 && (await cli.getByText(/confere o tamanho deste carro/).count()) > 0);
+      await cli.getByText(/lava rápido confere/).first().waitFor({ timeout: 10000 }).catch(() => {});
+      checar("cliente não escolhe tamanho nem tipo: modelo fora da lista fica para a equipe conferir", (await cli.getByRole("radio", { name: /^Grande|Uber/ }).count()) === 0 && (await cli.getByText(/lava rápido confere/).count()) > 0);
       checar("sem busca de carro quando a empresa não oferece", (await cli.getByText(/busquem meu carro/).count()) === 0);
       await cli.getByText("Lavagem simples").first().click();
+      await cli.getByRole("button", { name: "Conferir antes de entrar" }).click();
       await cli.getByRole("button", { name: "Confirmar e entrar na fila" }).click();
       await cli.waitForTimeout(1500);
       const filtroCli = encodeURIComponent(`empresa="${A.id}" && cliente="${pessoas.cliente.id}" && status="pendente"`);
@@ -417,6 +423,36 @@ async function main() {
       await ger.goto(`${APP}/${A.slug}/caixa`);
       await ger.getByText("Aluguel do galpão").first().waitFor({ timeout: 15000 }).catch(() => {});
       checar("gerente acompanha os gastos fixos (sem botão de criar)", (await ger.getByText("Aluguel do galpão").count()) > 0 && (await ger.getByRole("button", { name: "+ Gasto fixo" }).count()) === 0);
+    }
+
+    console.log("\nDois carros do mesmo cliente: cada um com o seu valor, sem somar");
+    {
+      await criar("veiculos", { cliente: pessoas.cliente.id, final_placa: "B01", modelo: "HB20", cor: "Branco", porte: "pequeno", ativo: true });
+      await criar("veiculos", { cliente: pessoas.cliente.id, final_placa: "B02", modelo: "Hilux", cor: "Preta", porte: "grande", ativo: true });
+      await cli.goto(`${APP}/${A.slug}`);
+      await cli.getByRole("button", { name: "+ Colocar outro carro na fila" }).click();
+      await cli.getByRole("checkbox", { name: /HB20/ }).click();
+      await cli.getByRole("checkbox", { name: /Hilux/ }).click();
+      await cli.getByRole("dialog").getByText("Lavagem simples").first().click();
+      const linhas = await cli.getByRole("radio", { name: /Lavagem simples/ }).innerText();
+      checar("na escolha do serviço, um preço por carro (HB20 R$ 40 / Hilux R$ 60)", /HB20[\s\S]*R\$\s40,00/.test(linhas) && /Hilux[\s\S]*R\$\s60,00/.test(linhas), linhas);
+      await cli.getByRole("button", { name: "Conferir antes de entrar" }).click();
+      await cli.getByRole("heading", { name: "Confira antes de entrar" }).waitFor({ timeout: 10000 }).catch(() => {});
+      const conf = await cli.getByRole("dialog").innerText();
+      checar("conferência mostra cada carro separado e não mostra total", /HB20[\s\S]*R\$\s40,00/.test(conf) && /Hilux[\s\S]*R\$\s60,00/.test(conf) && !/R\$\s100,00/.test(conf) && !/total/i.test(conf), conf.slice(0, 400));
+      await foto("cliente", "conferir-2-carros");
+      await cli.getByRole("button", { name: "Confirmar e colocar os 2 carros na fila" }).click();
+      await cli.waitForTimeout(2000);
+      const doCli = (await api("GET", `/api/collections/fila_entradas/records?filter=${encodeURIComponent(`empresa="${A.id}" && cliente="${pessoas.cliente.id}" && status="pendente"`)}`, { token: ADM })).data.items;
+      checar("os 2 carros entram na fila, cada um com o seu valor", doCli.length === 3 && doCli.some((x) => x.preco_servico === 40) && doCli.filter((x) => x.preco_servico === 60).length >= 1, doCli.map((x) => x.preco_servico));
+      await cli.goto(`${APP}/${A.slug}`);
+      await cli.getByText("Valor deste carro (paga no fim)").first().waitFor({ timeout: 10000 }).catch(() => {});
+      checar("cliente vê um cartão por carro, cada um com o seu valor", (await cli.getByText("Valor deste carro (paga no fim)").count()) === 3);
+      await foto("cliente", "tres-carros");
+      await paginas.funcionario.goto(`${APP}/${A.slug}/fila`);
+      await paginas.funcionario.getByText("A pagar por este carro").first().waitFor({ timeout: 15000 }).catch(() => {});
+      checar("funcionário vê quanto cada carro vai pagar", (await paginas.funcionario.getByText("A pagar por este carro").count()) >= 3);
+      await foto("funcionario", "a-pagar");
     }
 
     console.log("\nModo TV (sem login, tela grande)");
