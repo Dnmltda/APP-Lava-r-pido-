@@ -67,7 +67,11 @@ export function Colunas({
 }) {
   const id = useId();
   const [ativo, setAtivo] = useState<number | null>(null);
-  const max = maximoBonito(Math.max(0, ...pontos.map((p) => p.valor)));
+  // Escala mínima de 2 (eixo 0 · 1 · 2): evita "meio carro" no eixo.
+  const max = Math.max(2, maximoBonito(Math.max(0, ...pontos.map((p) => p.valor))));
+  if (pontos.every((p) => p.valor <= 0)) {
+    return <p className="py-6 text-center text-base text-tinta-suave">Sem movimento no período.</p>;
+  }
   const maior = pontos.reduce((m, p, i) => (p.valor > (pontos[m]?.valor ?? -1) ? i : m), 0);
   const passo = Math.max(1, Math.ceil(pontos.length / 8)); // no máx. ~8 rótulos no eixo
   const p = ativo !== null ? pontos[ativo] : null;

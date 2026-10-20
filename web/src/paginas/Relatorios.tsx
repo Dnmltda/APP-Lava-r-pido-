@@ -172,9 +172,11 @@ export function Relatorios() {
             <p className="mt-3 text-base opacity-95">
               Serviços {reais(dados.resumo.servicos)} · Produtos {reais(dados.resumo.produtos)}
             </p>
-            <div className="mt-2 inline-block rounded-lg bg-white/95 px-2 py-1">
-              <Variacao atual={dados.resumo.total} anterior={dados.anterior.total} />
-            </div>
+            {(dados.resumo.total > 0 || dados.anterior.total > 0) && (
+              <div className="mt-2 inline-block rounded-lg bg-white/95 px-2 py-1">
+                <Variacao atual={dados.resumo.total} anterior={dados.anterior.total} />
+              </div>
+            )}
           </section>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
