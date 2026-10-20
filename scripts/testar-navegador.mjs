@@ -174,7 +174,7 @@ async function main() {
     }
 
     console.log("\nLink direto para tela proibida volta para o início");
-    const proibidas = { gerente: ["equipe", "cameras", "configuracoes", "servicos"], funcionario: ["painel", "caixa", "cameras", "equipe"], cliente: ["fila", "vendas", "painel", "cameras", "avaliacoes"] };
+    const proibidas = { gerente: ["equipe", "cameras", "configuracoes", "servicos"], funcionario: ["painel", "caixa", "fechamento", "cameras", "equipe"], cliente: ["fila", "vendas", "painel", "cameras", "avaliacoes"] };
     for (const [p, rotas] of Object.entries(proibidas)) {
       for (const r of rotas) {
         await paginas[p].goto(`${APP}/${A.slug}/${r}`);
@@ -285,6 +285,106 @@ async function main() {
       await ger.goto(`${APP}/${A.slug}/clientes`);
       await ger.getByText("Carla Navegadora").first().waitFor({ timeout: 15000 }).catch(() => {});
       checar("e abre a lista de clientes", (await ger.locator("body").innerText()).includes("Carla Navegadora"));
+    }
+
+    console.log("\nTipos de veículo, fotos antes/depois, fechamento do dia e gastos fixos");
+    {
+      const PNG = { name: "foto.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") };
+      const pat = paginas.patrao;
+      await pat.goto(`${APP}/${A.slug}/servicos`);
+      await pat.getByRole("button", { name: /Criar tipos/ }).click();
+      await pat.getByRole("button", { name: "+ Adicionar tipo" }).click();
+      await pat.getByRole("button", { name: "+ Adicionar tipo" }).click();
+      await pat.getByLabel("Tipo 1").fill("Carro grande");
+      await pat.getByLabel("Tipo 2").fill("Uber");
+      await pat.getByRole("switch", { name: /Só a equipe define/ }).nth(1).click();
+      await pat.getByRole("button", { name: "Salvar tipos" }).click();
+      await pat.waitForTimeout(1500);
+      const tipos = (await api("GET", `/api/collections/empresas/records/${A.id}`, { token: ADM })).data.tipos_veiculo || [];
+      const grande = tipos.find((t) => t.nome === "Carro grande");
+      const uber = tipos.find((t) => t.nome === "Uber");
+      checar("dono cria os tipos de veículo (Uber só a equipe define)", tipos.length === 2 && grande && !grande.restrito && uber?.restrito, tipos);
+      await pat.getByRole("button", { name: /Lavagem simples/ }).click();
+      await pat.getByLabel("Carro grande (R$)").fill("60");
+      await pat.getByRole("button", { name: "Salvar", exact: true }).click();
+      await pat.waitForTimeout(1500);
+      const sv = (await api("GET", `/api/collections/servicos/records?filter=${encodeURIComponent(`empresa="${A.id}"`)}`, { token: ADM })).data.items[0];
+      checar("dono põe preço do carro grande no serviço", sv.precos_tipo?.[grande?.id] === 60, sv.precos_tipo);
+
+      await cli.goto(`${APP}/${A.slug}`);
+      await cli.getByRole("button", { name: "Entrar na fila" }).click();
+      await cli.getByRole("radio", { name: "Carro grande" }).waitFor({ timeout: 10000 });
+      checar("cliente escolhe o tipo, mas não vê o tipo restrito (Uber)", (await cli.getByRole("radio", { name: "Uber" }).count()) === 0);
+      await cli.getByRole("radio", { name: "Carro grande" }).click();
+      checar("preço muda para o do carro grande", await cli.getByText("R$ 60,00").first().isVisible());
+      await cli.getByText("Lavagem simples").first().click();
+      await cli.getByRole("button", { name: "Confirmar e entrar na fila" }).click();
+      await cli.waitForTimeout(1500);
+      const filtroCli = encodeURIComponent(`empresa="${A.id}" && cliente="${pessoas.cliente.id}" && status="pendente"`);
+      const nova = (await api("GET", `/api/collections/fila_entradas/records?filter=${filtroCli}`, { token: ADM })).data.items[0];
+      checar("entrada grava o tipo e o preço do tipo", nova?.tipo_veiculo_nome === "Carro grande" && nova?.preco_servico === 60, nova && [nova.tipo_veiculo_nome, nova.preco_servico]);
+
+      const ger = paginas.gerente;
+      await ger.goto(`${APP}/${A.slug}/fila`);
+      await ger.getByText("Carla").first().waitFor({ timeout: 15000 });
+      await ger.getByRole("button", { name: "Tipo: Carro grande" }).first().click();
+      await ger.getByRole("radio", { name: "Uber" }).click();
+      await ger.getByRole("button", { name: "Salvar", exact: true }).click();
+      await ger.waitForTimeout(1500);
+      const trocada = (await api("GET", `/api/collections/fila_entradas/records/${nova.id}`, { token: ADM })).data;
+      checar("gerente marca o carro como Uber e o preço volta ao padrão", trocada.tipo_veiculo_nome === "Uber" && trocada.preco_servico === 40, [trocada.tipo_veiculo_nome, trocada.preco_servico]);
+      const vincCli = (await api("GET", `/api/collections/vinculos/records?filter=${encodeURIComponent(`usuario="${pessoas.cliente.id}"`)}`, { token: ADM })).data.items[0];
+      checar("o app lembra o tipo deste carro para as próximas vezes", Object.values(vincCli.tipos_veiculos || {}).includes(uber?.id), vincCli.tipos_veiculos);
+
+      await ger.getByRole("button", { name: "Fotos antes/depois" }).first().click();
+      await ger.locator('input[type="file"]').setInputFiles(PNG);
+      await ger.getByLabel(/Avarias/).fill("risco na porta");
+      await ger.getByRole("button", { name: "Salvar fotos" }).click();
+      await ger.getByText(/Avarias: risco na porta/).waitFor({ timeout: 15000 }).catch(() => {});
+      const vist = (await api("GET", `/api/collections/vistorias/records?filter=${encodeURIComponent(`entrada="${nova.id}"`)}`, { token: ADM })).data.items;
+      checar("gerente tira foto de antes com avarias", vist.length === 1 && vist[0].momento === "antes" && vist[0].avarias === "risco na porta", vist);
+      await foto("gerente", "fotos-antes");
+      await paginas.funcionario.goto(`${APP}/${A.slug}/fila`);
+      await paginas.funcionario.getByText("Carla").first().waitFor({ timeout: 15000 });
+      await paginas.funcionario.getByRole("button", { name: /Fotos \(1\)/ }).first().click();
+      await paginas.funcionario.getByRole("img", { name: /Foto de antes/ }).first().waitFor({ timeout: 10000 }).catch(() => {});
+      checar("funcionário vê as fotos, mas não tem botão de tirar", (await paginas.funcionario.getByRole("img", { name: /Foto de antes/ }).count()) === 1 && (await paginas.funcionario.getByText("Tirar fotos").count()) === 0);
+
+      await cli.goto(`${APP}/${A.slug}`);
+      await cli.getByRole("button", { name: /Ver fotos do seu carro \(1\)/ }).waitFor({ timeout: 15000 }).catch(() => {});
+      checar("cliente vê o botão com as fotos do carro dele", await cli.getByRole("button", { name: /Ver fotos do seu carro \(1\)/ }).isVisible());
+      await cli.getByRole("button", { name: /Ver fotos do seu carro/ }).click();
+      await cli.getByRole("img", { name: /Foto de antes/ }).first().waitFor({ timeout: 10000 }).catch(() => {});
+      checar("e abre as fotos", (await cli.getByRole("img", { name: /Foto de antes/ }).count()) === 1);
+      await foto("cliente", "fotos-do-carro");
+
+      await ger.goto(`${APP}/${A.slug}/fechamento`);
+      await ger.getByLabel("Cartão (R$)").fill("30,50");
+      await ger.getByLabel("Dinheiro (R$)").fill("20");
+      await ger.locator('input[type="file"]').setInputFiles(PNG);
+      await ger.getByRole("button", { name: "Fechar o dia" }).click();
+      await ger.getByText(/Fechamento salvo/).waitFor({ timeout: 15000 }).catch(() => {});
+      const fd = (await api("GET", `/api/collections/fechamentos_dia/records?filter=${encodeURIComponent(`empresa="${A.id}"`)}`, { token: ADM })).data.items;
+      checar("gerente fecha o dia com valores e a nota anexada", fd.length === 1 && fd[0].cartao === 30.5 && fd[0].dinheiro === 20 && fd[0].anexos.length === 1, fd);
+      await foto("gerente", "fechamento-dia");
+      await pat.goto(`${APP}/${A.slug}/fechamento`);
+      await pat.getByText("Notas do dia (1)").waitFor({ timeout: 15000 }).catch(() => {});
+      checar("dono acompanha o fechamento e a nota", await pat.getByText("Notas do dia (1)").isVisible());
+
+      await pat.goto(`${APP}/${A.slug}/caixa`);
+      await pat.getByRole("button", { name: "+ Gasto fixo" }).click();
+      await pat.getByLabel("O que é").fill("Aluguel do galpão");
+      await pat.getByLabel("Valor (R$)").fill("1000");
+      await pat.getByLabel("Vence todo dia").fill("1");
+      await pat.getByRole("button", { name: "Salvar", exact: true }).click();
+      await pat.waitForTimeout(2000);
+      const lanc = (await api("GET", `/api/collections/lancamentos_caixa/records?filter=${encodeURIComponent(`empresa="${A.id}" && gasto_fixo!=""`)}`, { token: ADM })).data.items;
+      checar("gasto fixo do dono já entra no caixa do mês", lanc.length === 1 && lanc[0].valor === 1000, lanc);
+      checar("caixa mostra o fechamento do mês", await pat.getByText("Saldo do mês").isVisible());
+      await foto("patrao", "caixa-mes");
+      await ger.goto(`${APP}/${A.slug}/caixa`);
+      await ger.getByText("Aluguel do galpão").first().waitFor({ timeout: 15000 }).catch(() => {});
+      checar("gerente acompanha os gastos fixos (sem botão de criar)", (await ger.getByText("Aluguel do galpão").count()) > 0 && (await ger.getByRole("button", { name: "+ Gasto fixo" }).count()) === 0);
     }
 
     console.log("\nTodas as telas de cada perfil abrem sem erro");

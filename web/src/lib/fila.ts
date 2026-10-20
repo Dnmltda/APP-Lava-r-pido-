@@ -44,6 +44,8 @@ export interface EntradaFila extends Base {
   veiculo_avulso: string;
   duracao_min: number;
   preco_servico: number;
+  tipo_veiculo?: string;
+  tipo_veiculo_nome?: string;
   horario_reserva: string;
   chegada_prevista: string;
   reposicionado_em: string;

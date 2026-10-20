@@ -93,6 +93,10 @@ jobs:
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
         run: node scripts/testar-acessos.mjs
 
+      - name: Fotos antes/depois, preço por tipo de veículo, gastos fixos e fechamentos
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-financeiro.mjs
+
       - name: Navegador (Etapa 8 — fluxo completo com um celular por perfil)
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456, APP_URL: "http://127.0.0.1:8090" }
         run: |

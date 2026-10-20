@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { FechamentoDoMes, GastosFixos } from "../componentes/CaixaMes";
 import { Moldura } from "../componentes/Moldura";
 import { Aviso, Botao, Campo, Carregando, Confirmar, EstadoVazio, Folha } from "../componentes/ui";
 import { useEmpresa } from "../contexto/Empresa";
@@ -32,6 +33,7 @@ export function Caixa() {
   const [novo, setNovo] = useState<"entrada" | "saida" | null>(null);
   const [cancelando, setCancelando] = useState<LancamentoCaixa | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [versao, setVersao] = useState(0);
   const patrao = pode(vinculo, "configurar_empresa");
 
   const carregar = useCallback(async () => {
@@ -45,6 +47,7 @@ export function Caixa() {
           expand: "criado_por",
         }),
       );
+      setVersao((v) => v + 1);
     } catch (err) {
       setErro(mensagemDeErro(err));
     }
@@ -90,7 +93,22 @@ export function Caixa() {
       <div className="mt-4">
         <Campo rotulo="Mês" type="month" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)} />
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <Link
+        to={`/${empresa.slug}/fechamento`}
+        className="mt-4 flex min-h-14 items-center justify-between gap-3 rounded-2xl border-2 border-marca bg-marca-suave px-4 py-3"
+      >
+        <span>
+          <span className="block text-base font-extrabold text-tinta">Fechamento do dia</span>
+          <span className="block text-sm text-tinta-suave">Maquininhas, Pix, dinheiro e notas do dia</span>
+        </span>
+        <span className="text-2xl text-marca" aria-hidden="true">›</span>
+      </Link>
+      <div className="mt-4 flex flex-col gap-4">
+        <FechamentoDoMes mes={mes} versao={versao} />
+        <GastosFixos patrao={patrao} onMudou={carregar} />
+      </div>
+      <h2 className="mt-6 text-lg font-extrabold text-tinta">Lançamentos do mês</h2>
+      <div className="mt-2 grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-linha bg-white p-3">
           <p className="text-sm font-semibold text-tinta-suave">Gastos</p>
           <p className="text-xl font-extrabold text-tinta">{reais(saidas)}</p>

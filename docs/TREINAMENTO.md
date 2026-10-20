@@ -42,6 +42,11 @@ Tudo do funcionário, mais:
   Ninguém fura a fila: ele vai para a posição em que se encaixa.
 - **Cancelar**: pede o motivo. Dá para **cancelar e substituir** por um cliente que já está no local, na mesma posição.
 - **Busca do carro**: pedido com ícone de busca → **Combinar busca no WhatsApp** (local e taxa são combinados fora do app).
+- **Fotos antes/depois** (opcional): no cartão do carro → **Tirar fotos** → marque *Antes* ou *Depois*, anote avarias que o
+  carro já tinha → **Salvar fotos**. As fotos não se apagam (são prova) e o cliente vê as do carro dele.
+- **Tipo do veículo**: no cartão, **Definir tipo do veículo** (ex.: carro grande, moto, Uber, convênio). O preço muda
+  sozinho. Com “Lembrar para as próximas vezes”, o carro já entra com esse tipo da próxima vez.
+- **WhatsApp**: “Mandar confirmação no WhatsApp”, “Falar no WhatsApp” e “Avisar: pronto” abrem a conversa com a mensagem pronta.
 
 Tudo isso fica registrado (quem fez e quando).
 
@@ -49,7 +54,10 @@ Tudo isso fica registrado (quem fez e quando).
 Tudo do responsável pela fila, mais:
 - **Painel do dia**: carros lavados, faturamento, formas de pagamento, metas, ranking de funcionários e produtos,
   estoque baixo e atrasos da fila (hoje, ontem, 7 dias ou mês).
-- **Caixa**: **+ Gasto** / **+ Entrada** do mês.
+- **Caixa**: fechamento do mês (serviços, produtos, gastos fixos, outros gastos e saldo) e a lista de gastos fixos.
+- **Fechamento do dia**: no fim do expediente, digite o que deu nas **maquininhas (cartão)**, no **Pix** e em **dinheiro**,
+  anexe as **notas** (foto ou PDF) e toque em **Fechar o dia**. O app mostra o que ele registrou e se sobrou ou faltou.
+  O dono acompanha de onde estiver.
 - O gerente **não** mexe em vendas, vales, bônus ou cadastro dos outros (só o patrão).
 
 ## Patrão
@@ -61,6 +69,10 @@ Tudo do gerente, mais:
 - **Clientes**: quem veio, quantas vezes, última visita, quanto gastou e o histórico de cada um (com WhatsApp). Em cada pessoa: área, **Lançar vale** (com comprovante) e holerites.
 - **Vendas**: **Corrigir venda** fechada (pede o motivo; fica no histórico).
 - **Serviços** e **Produtos**: preço, tempo médio, estoque, estoque mínimo e comissão.
+  Em **Serviços → Tipos de veículo e convênios** crie os tipos (pequeno, grande, moto, Uber, empresa conveniada…).
+  Marque “Só a equipe define” nos que o cliente não pode escolher sozinho (Uber, convênio). Depois, em cada serviço,
+  coloque o preço de cada tipo (em branco = preço padrão).
+- **Caixa → + Gasto fixo**: aluguel, luz, internet, contador… com o dia do vencimento. Entra sozinho no caixa todo mês.
 - **Configurações**: logo, cor, quantos carros lava ao mesmo tempo, tolerância de atraso, antecedência do aviso,
   textos das notificações, horário de funcionamento, comissão ligada/desligada. Metas e bônus por carro.
 - **Câmeras**: ver os boxes ao vivo; sensor de movimento com alerta de área parada (ver `docs/CAMERAS.md`).
@@ -69,8 +81,8 @@ Tudo do gerente, mais:
 
 ## Cliente (o que explicar no balcão)
 1. Ler o QR Code → **Criar cadastro** (nome, celular, senha, carro).
-2. **Entrar na fila** → serviço → produtos (opcional) → “quero que busquem meu carro” (opcional) → **Confirmar e entrar na fila**.
-3. Acompanhar a posição e a previsão. Ligar os **avisos** para receber “vez confirmada”, “já pode vir” e “carro pronto”.
+2. **Entrar na fila** → tipo do veículo (se o lava rápido usar) → serviço → produtos (opcional) → “quero que busquem meu carro” (opcional) → **Confirmar e entrar na fila**.
+3. Acompanhar a posição e a previsão. Se a equipe tirar fotos, aparece **Ver fotos do seu carro**. Botão **Falar no WhatsApp** direto com o lava rápido. Ligar os **avisos** para receber “vez confirmada”, “já pode vir” e “carro pronto”.
 4. Depois da lavagem: avaliar com estrelas.
 5. Pagamento: sempre no lava rápido, na hora.
 

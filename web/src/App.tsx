@@ -10,6 +10,7 @@ import { Inicio } from "./paginas/Inicio";
 import { FilaEquipe } from "./paginas/FilaEquipe";
 import { Avaliacoes, Avaliar } from "./paginas/Avaliacoes";
 import { Caixa } from "./paginas/Caixa";
+import { Fechamento } from "./paginas/Fechamento";
 import { Cameras } from "./paginas/Cameras";
 import { Cartaz } from "./paginas/Cartaz";
 import { Privacidade } from "./paginas/Privacidade";
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="historico" element={<Historico />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="caixa" element={<Caixa />} />
+            <Route path="fechamento" element={<Fechamento />} />
             <Route path="minha-area" element={<MinhaArea />} />
             <Route path="avaliar/:entrada" element={<Avaliar />} />
             <Route path="avaliacoes" element={<Avaliacoes />} />

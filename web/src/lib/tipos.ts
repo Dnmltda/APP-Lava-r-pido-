@@ -28,6 +28,15 @@ export interface Empresa extends Base {
   horario_funcionamento: DiaFuncionamento[] | null;
   comissao_ativa: boolean;
   ativo: boolean;
+  tipos_veiculo?: TipoVeiculo[] | null;
+}
+
+// Tipos de veículo criados por cada lava rápido (ex.: Pequeno, Grande/SUV, Moto, Motorista de app).
+// "restrito": só a equipe escolhe (o cliente não pode se colocar como Uber/convênio).
+export interface TipoVeiculo {
+  id: string;
+  nome: string;
+  restrito: boolean;
 }
 
 export interface Usuario extends Base {
@@ -48,6 +57,7 @@ export interface Vinculo extends Base {
   perm_valores?: boolean;
   perm_cameras?: boolean;
   perm_catalogo?: boolean;
+  tipos_veiculos?: Record<string, string> | null;
   expand?: { usuario?: Usuario; empresa?: Empresa };
 }
 
@@ -78,6 +88,7 @@ export interface Servico extends Base {
   duracao_media_min: number;
   ordem_exibicao: number;
   ativo: boolean;
+  precos_tipo?: Record<string, number> | null;
 }
 
 export interface Veiculo extends Base {
@@ -252,4 +263,37 @@ export interface CameraEvento {
   tipo: "movimento" | "parado" | "desligado" | "religado";
   minutos: number;
   created: string;
+}
+
+export interface Vistoria extends Base {
+  empresa: string;
+  entrada: string;
+  momento: "antes" | "depois";
+  fotos: string[];
+  avarias: string;
+  criado_por: string;
+  expand?: { criado_por?: Usuario };
+}
+
+export interface GastoFixo extends Base {
+  empresa: string;
+  descricao: string;
+  categoria: string;
+  valor: number;
+  dia: number;
+  ativo: boolean;
+  criado_por: string;
+}
+
+export interface FechamentoDia extends Base {
+  empresa: string;
+  dia: string;
+  cartao: number;
+  pix: number;
+  dinheiro: number;
+  observacao: string;
+  anexos: string[];
+  criado_por: string;
+  atualizado_por: string;
+  expand?: { criado_por?: Usuario; atualizado_por?: Usuario };
 }

@@ -131,7 +131,7 @@ routerAdd("GET", "/api/lr/fila-publica/{slug}", (e) => {
 // POST /api/lr/fila/entrar { slug, servico, veiculo, quer_busca, observacao }
 routerAdd("POST", "/api/lr/fila/entrar", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const body = new DynamicModel({ slug: "", servico: "", veiculo: "", quer_busca: false, observacao: "", itens: [] });
+  const body = new DynamicModel({ slug: "", servico: "", veiculo: "", quer_busca: false, observacao: "", itens: [], tipo_veiculo: "" });
   e.bindBody(body);
 
   const empresa = lib.acharEmpresaAtivaPorSlug(e.app, body.slug);
@@ -173,7 +173,18 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
     entrada.set("veiculo", veiculo.id);
     entrada.set("servico", servico.id);
     entrada.set("duracao_min", servico.getInt("duracao_media_min"));
-    entrada.set("preco_servico", servico.getFloat("preco"));
+    // Tipo do veículo: o que a equipe já definiu para este carro vale mais que a escolha do cliente;
+    // o cliente não pode escolher tipo restrito (ex.: motorista de app, convênio).
+    let tipoId = "";
+    try {
+      const mapa = JSON.parse(vinculo.getString("tipos_veiculos") || "{}");
+      if (mapa && mapa[veiculo.id]) tipoId = mapa[veiculo.id];
+    } catch (_) {}
+    if (!lib.acharTipo(empresa, tipoId)) {
+      const escolhido = lib.acharTipo(empresa, String(body.tipo_veiculo || ""));
+      tipoId = escolhido && !escolhido.restrito ? escolhido.id : "";
+    }
+    lib.aplicarTipo(entrada, servico, empresa, tipoId);
     entrada.set("origem", "app");
     entrada.set("status", "pendente");
     entrada.set("ordem", lib.ordemAntesDe(tx, empresa.id, pos.lista, pos.p));
@@ -204,7 +215,7 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
 routerAdd("POST", "/api/lr/fila/balcao", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const body = new DynamicModel({
-    empresa: "", servico: "", nome: "", celular: "", final_placa: "", veiculo_desc: "", observacao: "",
+    empresa: "", servico: "", nome: "", celular: "", final_placa: "", veiculo_desc: "", observacao: "", tipo_veiculo: "",
   });
   e.bindBody(body);
 
@@ -234,7 +245,7 @@ routerAdd("POST", "/api/lr/fila/balcao", (e) => {
     entrada.set("empresa", empresaId);
     entrada.set("servico", servico.id);
     entrada.set("duracao_min", servico.getInt("duracao_media_min"));
-    entrada.set("preco_servico", servico.getFloat("preco"));
+    lib.aplicarTipo(entrada, servico, empresa, String(body.tipo_veiculo || ""));
     entrada.set("origem", "balcao");
     entrada.set("status", "confirmado");
     entrada.set("confirmado_por", e.auth.id);
@@ -375,7 +386,7 @@ routerAdd("POST", "/api/lr/fila/{id}/{acao}", (e) => {
 routerAdd("POST", "/api/lr/fila/reserva", (e) => {
   const lib = require(`${__hooks}/lib.js`);
   const body = new DynamicModel({
-    empresa: "", horario: "", servico: "", nome: "", celular: "", final_placa: "", veiculo_desc: "", observacao: "",
+    empresa: "", horario: "", servico: "", nome: "", celular: "", final_placa: "", veiculo_desc: "", observacao: "", tipo_veiculo: "",
   });
   e.bindBody(body);
 
@@ -411,7 +422,7 @@ routerAdd("POST", "/api/lr/fila/reserva", (e) => {
     entrada.set("empresa", empresaId);
     entrada.set("servico", servico.id);
     entrada.set("duracao_min", servico.getInt("duracao_media_min"));
-    entrada.set("preco_servico", servico.getFloat("preco"));
+    lib.aplicarTipo(entrada, servico, e.app.findRecordById("empresas", empresaId), String(body.tipo_veiculo || ""));
     entrada.set("origem", "reserva");
     entrada.set("status", "confirmado");
     entrada.set("confirmado_por", e.auth.id);
@@ -542,7 +553,7 @@ routerAdd("POST", "/api/lr/fila/{id}/reposicionar", (e) => {
 // Só no momento do cancelamento: coloca na MESMA posição um cliente que está no local.
 routerAdd("POST", "/api/lr/fila/{id}/substituir", (e) => {
   const lib = require(`${__hooks}/lib.js`);
-  const body = new DynamicModel({ servico: "", nome: "", final_placa: "", veiculo_desc: "", celular: "", motivo: "" });
+  const body = new DynamicModel({ servico: "", nome: "", final_placa: "", veiculo_desc: "", celular: "", motivo: "", tipo_veiculo: "" });
   e.bindBody(body);
   let entrada;
   try {
@@ -580,7 +591,7 @@ routerAdd("POST", "/api/lr/fila/{id}/substituir", (e) => {
     nova.set("empresa", empresaId);
     nova.set("servico", servico.id);
     nova.set("duracao_min", servico.getInt("duracao_media_min"));
-    nova.set("preco_servico", servico.getFloat("preco"));
+    lib.aplicarTipo(nova, servico, tx.findRecordById("empresas", empresaId), String(body.tipo_veiculo || ""));
     nova.set("origem", "substituicao");
     nova.set("status", "no_local");
     nova.set("ordem", entrada.getFloat("ordem"));
@@ -613,3 +624,53 @@ routerAdd("POST", "/api/lr/fila/{id}/substituir", (e) => {
 
 // Tempo real: o próprio PocketBase já manda "X-Accel-Buffering: no" e "Cache-Control: no-store"
 // na conexão. (Um hook antigo aqui quebrava a conexão; o app seguia pela consulta a cada 10 s.)
+
+// ------------------------------------------------------- tipo do veículo
+// POST /api/lr/fila/{id}/tipo { tipo, lembrar }
+// Quem gere a fila (dono, gerente, responsável) define o tipo do veículo da entrada
+// (o preço do serviço muda junto). "lembrar" guarda para as próximas vezes deste carro.
+routerAdd("POST", "/api/lr/fila/{id}/tipo", (e) => {
+  const lib = require(`${__hooks}/lib.js`);
+  const body = new DynamicModel({ tipo: "", lembrar: false });
+  e.bindBody(body);
+  let entrada;
+  try {
+    entrada = e.app.findRecordById("fila_entradas", e.request.pathValue("id"));
+  } catch (_) {
+    throw new NotFoundError("Entrada da fila não encontrada.");
+  }
+  const empresaId = entrada.getString("empresa");
+  const vinculo = lib.vinculoEquipe(e.app, e.auth.id, empresaId);
+  if (!vinculo) throw new NotFoundError("Entrada da fila não encontrada.");
+  if (!lib.podeGerirFila(vinculo)) throw new ForbiddenError("Só quem gere a fila define o tipo do veículo.");
+  if (lib.STATUS_ATIVOS.indexOf(entrada.getString("status")) < 0) throw new BadRequestError("Esta entrada não está mais na fila.");
+  const empresa = e.app.findRecordById("empresas", empresaId);
+  const tipo = String(body.tipo || "");
+  if (tipo && !lib.acharTipo(empresa, tipo)) throw new BadRequestError("Tipo de veículo não encontrado.");
+  const servico = e.app.findRecordById("servicos", entrada.getString("servico"));
+  const antes = { tipo: entrada.getString("tipo_veiculo_nome"), preco: entrada.getFloat("preco_servico") };
+  e.app.runInTransaction((tx) => {
+    lib.aplicarTipo(entrada, servico, empresa, tipo);
+    tx.save(entrada);
+    const clienteId = entrada.getString("cliente");
+    const veiculoId = entrada.getString("veiculo");
+    if (body.lembrar && clienteId && veiculoId) {
+      const vc = lib.acharVinculo(tx, clienteId, empresaId);
+      if (vc) {
+        let mapa = {};
+        try {
+          mapa = JSON.parse(vc.getString("tipos_veiculos") || "{}") || {};
+        } catch (_) {}
+        if (tipo) mapa[veiculoId] = tipo;
+        else delete mapa[veiculoId];
+        vc.set("tipos_veiculos", mapa);
+        tx.unsafeWithoutHooks().save(vc);
+      }
+    }
+    lib.auditar(tx, {
+      empresa: empresaId, usuario: e.auth.id, acao: "fila_tipo_veiculo", entidade: "fila_entradas", entidade_id: entrada.id,
+      antes: antes, depois: { tipo: entrada.getString("tipo_veiculo_nome"), preco: entrada.getFloat("preco_servico"), lembrar: !!body.lembrar },
+    });
+  });
+  return e.json(200, { tipo_veiculo: entrada.getString("tipo_veiculo"), tipo_veiculo_nome: entrada.getString("tipo_veiculo_nome"), preco_servico: entrada.getFloat("preco_servico") });
+}, $apis.requireAuth("usuarios"));

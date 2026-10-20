@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AtivarAvisos } from "../componentes/Avisos";
 import { Quantidade } from "../componentes/Quantidade";
+import { EscolhaTipo, precoPara, tiposDaEmpresa } from "../componentes/TipoVeiculo";
+import { FotosEntrada, useFotosDasEntradas } from "../componentes/Vistoria";
 import { ListaFilaPublica, IconeBusca } from "../componentes/fila";
 import { descricaoVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
 import { Aviso, Botao, Carregando, Cartao, Confirmar, EstadoErro, Folha, Interruptor } from "../componentes/ui";
@@ -34,6 +36,7 @@ export function FilaCliente() {
   const [itens, setItens] = useState<Record<string, ItemPedido[]>>({});
   const [avaliar, setAvaliar] = useState("");
   const [versaoItens, setVersaoItens] = useState(0);
+  const [vendoFotos, setVendoFotos] = useState(false);
   const catalogo = useCatalogo(empresa.slug);
   const [carrinho, setCarrinhoEstado] = useState<Carrinho>(() => lerCarrinho(empresa.slug));
   const setCarrinho = (c: Carrinho) => {
@@ -48,6 +51,7 @@ export function FilaCliente() {
       .catch(() => {});
   }, [empresa.slug]);
   const idMinha = publica && [...publica.lavando, ...publica.fila, ...publica.prontos].find((i) => i.minha)?.id;
+  const { contagem: fotos } = useFotosDasEntradas(idMinha ? [idMinha] : []);
 
   // Produtos que o cliente pediu (e se a equipe já separou).
   useEffect(() => {
@@ -166,6 +170,25 @@ export function FilaCliente() {
               + Reservar produtos
             </button>
           )}
+          {!!fotos[minha.id] && (
+            <button
+              type="button"
+              onClick={() => setVendoFotos(true)}
+              className="mt-3 min-h-12 w-full rounded-xl bg-white/95 px-4 text-base font-bold text-marca-forte"
+            >
+              Ver fotos do seu carro ({fotos[minha.id]})
+            </button>
+          )}
+          {empresa.whatsapp && (
+            <a
+              href={linkWhatsApp(empresa.whatsapp, `Olá! Sou ${minha.nome} (placa final ${minha.final_placa}) e estou na fila pelo app.`)}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 flex min-h-12 items-center justify-center rounded-xl bg-[#1f7a45] px-4 text-base font-bold text-white"
+            >
+              Falar com o {empresa.nome} no WhatsApp
+            </a>
+          )}
           {minha.posicao !== undefined && (
             <button
               onClick={() => setCancelando(true)}
@@ -237,6 +260,16 @@ export function FilaCliente() {
           }}
         />
       )}
+      {vendoFotos && minha && (
+        <FotosEntrada
+          entradaId={minha.id}
+          empresaId={empresa.id}
+          titulo="Fotos do seu carro"
+          podeTirar={false}
+          momentoPadrao="antes"
+          onFechar={() => setVendoFotos(false)}
+        />
+      )}
       <Confirmar
         aberto={cancelando}
         titulo="Cancelar sua vez?"
@@ -264,8 +297,9 @@ function EntrarNaFila({
   onFechar: () => void;
   onEntrou: () => void;
 }) {
-  const { empresa } = useEmpresa();
+  const { empresa, vinculo } = useEmpresa();
   const { veiculos, recarregar } = useMeusVeiculos();
+  const [tipo, setTipo] = useState("");
   const [servicos, setServicos] = useState<Servico[] | null>(null);
   const [servico, setServico] = useState("");
   const [veiculo, setVeiculo] = useState("");
@@ -286,6 +320,10 @@ function EntrarNaFila({
   const totalCarrinho = itensCarrinho.reduce((s, it) => s + (catalogo.find((p) => p.id === it.produto)?.preco || 0) * it.quantidade, 0);
 
   const veiculoEscolhido = veiculo || (veiculos?.length === 1 ? veiculos[0].id : "");
+  // Tipo que a equipe já definiu para este carro vale sempre; senão o cliente escolhe (menos os restritos).
+  const tipos = tiposDaEmpresa(empresa);
+  const tipoDaEquipe = tipos.find((t) => t.id === vinculo?.tipos_veiculos?.[veiculoEscolhido]);
+  const tipoEfetivo = tipoDaEquipe?.id || tipo;
 
   async function confirmar() {
     setErro("");
@@ -295,7 +333,7 @@ function EntrarNaFila({
     try {
       await pb.send("/api/lr/fila/entrar", {
         method: "POST",
-        body: { slug: empresa.slug, servico, veiculo: veiculoEscolhido, quer_busca: busca, observacao: obs.trim(), itens: itensCarrinho },
+        body: { slug: empresa.slug, servico, veiculo: veiculoEscolhido, tipo_veiculo: tipoEfetivo, quer_busca: busca, observacao: obs.trim(), itens: itensCarrinho },
       });
       onEntrou();
     } catch (err) {
@@ -321,6 +359,13 @@ function EntrarNaFila({
   return (
     <Folha titulo="Entrar na fila" onFechar={onFechar}>
       <div className="flex flex-col gap-5">
+        {tipoDaEquipe ? (
+          <p className="rounded-xl bg-marca-suave px-4 py-3 text-base text-tinta">
+            Tipo do veículo: <strong>{tipoDaEquipe.nome}</strong>
+          </p>
+        ) : (
+          <EscolhaTipo tipos={tipos.filter((t) => !t.restrito)} valor={tipo} onChange={setTipo} />
+        )}
         <fieldset>
           <legend className="mb-2 text-base font-bold text-tinta">Serviço</legend>
           {servicos === null ? (
@@ -333,7 +378,7 @@ function EntrarNaFila({
                 <Opcao key={s.id} marcada={servico === s.id} onClick={() => setServico(s.id)}>
                   <span className="flex items-baseline justify-between gap-3">
                     <span className="text-base font-bold text-tinta">{s.nome}</span>
-                    <span className="text-base font-bold text-tinta">{reais(s.preco)}</span>
+                    <span className="text-base font-bold text-tinta">{reais(precoPara(s, tipoEfetivo))}</span>
                   </span>
                   <span className="block text-sm text-tinta-suave">
                     ~{duracao(s.duracao_media_min)}

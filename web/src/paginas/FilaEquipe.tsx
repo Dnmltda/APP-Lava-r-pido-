@@ -21,12 +21,17 @@ import { duracao, linkWhatsApp, mascaraCelular, normalizarPlaca, primeiroNome, s
 import { mensagemDeErro, pb } from "../lib/pb";
 import { CancelarEntrada, DadosEntrada, NovaReserva, Reposicionar } from "./FilaEquipeAcoes";
 import { pode } from "../lib/permissoes";
-import type { Empresa, ItemPedido, Servico, Vinculo } from "../lib/tipos";
+import { Camera } from "lucide-react";
+import { FotosEntrada, useFotosDasEntradas } from "../componentes/Vistoria";
+import { EscolhaTipo, tiposDaEmpresa } from "../componentes/TipoVeiculo";
+import type { Empresa, ItemPedido, Servico, TipoVeiculo, Vinculo } from "../lib/tipos";
 
 type Pedido =
   | { tipo: "recusar" | "cancelar" | "reposicionar" | "dados"; entrada: EntradaFila }
   | { tipo: "iniciar_fora_ordem"; entrada: EntradaFila; naFrente: number }
-  | { tipo: "baixa"; entrada: EntradaFila };
+  | { tipo: "baixa"; entrada: EntradaFila }
+  | { tipo: "fotos"; entrada: EntradaFila }
+  | { tipo: "tipoVeiculo"; entrada: EntradaFila };
 
 const TEXTO_AVISO_PADRAO =
   "Faltam {minutos} minutos para a sua vez no {empresa}. Se quiser, já pode vir, temos café esperando!";
@@ -36,6 +41,11 @@ function mensagemAviso(empresa: Empresa, nome: string) {
     .replaceAll("{minutos}", String(empresa.aviso_min ?? 15))
     .replaceAll("{empresa}", empresa.nome);
   return `Olá, ${primeiroNome(nome)}! ${texto}`;
+}
+
+function mensagemConfirmada(empresa: Empresa, nome: string, previsaoIso?: string) {
+  const prev = previsaoIso ? ` A previsão é ${hora(previsaoIso)}.` : "";
+  return `Olá, ${primeiroNome(nome)}! Sua vez no ${empresa.nome} está confirmada.${prev} Avisamos quando estiver chegando a hora.`;
 }
 
 function mensagemBusca(empresa: Empresa, nome: string) {
@@ -52,6 +62,32 @@ export function FilaEquipe() {
   const [ocupado, setOcupado] = useState("");
   const [erroAcao, setErroAcao] = useState("");
   const gestao = pode(vinculo, "gerenciar_fila");
+  const tipos = tiposDaEmpresa(empresa);
+  const { contagem: fotos, recarregar: recarregarFotos } = useFotosDasEntradas((entradas || []).map((x) => x.id));
+
+  // Linha de extras do cartão: tipo do veículo e fotos de antes/depois.
+  const extras = (e: EntradaFila) => {
+    const n = fotos[e.id] || 0;
+    const chip = "inline-flex min-h-10 items-center gap-1.5 rounded-full border-2 px-3 text-sm font-bold";
+    return (
+      <>
+        {tipos.length > 0 &&
+          (gestao ? (
+            <button type="button" onClick={() => setPedido({ tipo: "tipoVeiculo", entrada: e })} className={`${chip} border-marca/40 bg-white text-marca-forte`}>
+              {e.tipo_veiculo_nome ? `Tipo: ${e.tipo_veiculo_nome}` : "Definir tipo do veículo"}
+            </button>
+          ) : (
+            e.tipo_veiculo_nome && <span className={`${chip} border-linha bg-white text-tinta`}>{e.tipo_veiculo_nome}</span>
+          ))}
+        {(gestao || n > 0) && (
+          <button type="button" onClick={() => setPedido({ tipo: "fotos", entrada: e })} className={`${chip} border-linha bg-white text-tinta`}>
+            <Camera className="h-4 w-4" aria-hidden="true" />
+            {n > 0 ? `Fotos (${n})` : "Fotos antes/depois"}
+          </button>
+        )}
+      </>
+    );
+  };
 
   if (!pode(vinculo, "ver_fila_completa")) return <Navigate to={`/${empresa.slug}`} replace />;
 
@@ -161,7 +197,7 @@ export function FilaEquipe() {
           {pendentes.length > 0 && (
             <Secao titulo={`Aguardando confirmação (${pendentes.length})`}>
               {pendentes.map((e) => (
-                <CartaoEntrada key={e.id} entrada={e} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
+                <CartaoEntrada key={e.id} entrada={e} extras={extras(e)} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
                   {e.quer_busca && celularDaEntrada(e) && (
                     <a
                       href={linkWhatsApp(celularDaEntrada(e), mensagemBusca(empresa, nomeDaEntrada(e)))}
@@ -188,7 +224,7 @@ export function FilaEquipe() {
           <Secao titulo={`Na fila (${naFila.length})`}>
             {naFila.length === 0 && <p className="text-base text-tinta-suave">Ninguém confirmado esperando.</p>}
             {naFila.map((e) => (
-              <CartaoEntrada key={e.id} entrada={e} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
+              <CartaoEntrada key={e.id} entrada={e} extras={extras(e)} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} posicao={previsao(e.id)?.posicao} previsaoIso={previsao(e.id)?.previsao} agora={publica?.agora} atrasoMin={atraso(e.id)}>
                 {gestao && e.origem !== "app" && (!e.nome_avulso || !e.final_placa_avulsa) && !e.cliente && (
                   <button
                     onClick={() => setPedido({ tipo: "dados", entrada: e })}
@@ -205,6 +241,16 @@ export function FilaEquipe() {
                   >
                     {e.status === "avisado" ? "Avisar de novo no WhatsApp" : "Avisar no WhatsApp"}
                   </button>
+                )}
+                {celularDaEntrada(e) && e.status === "confirmado" && (
+                  <a
+                    href={linkWhatsApp(celularDaEntrada(e), mensagemConfirmada(empresa, nomeDaEntrada(e), previsao(e.id)?.previsao))}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="col-span-2 flex min-h-12 items-center justify-center rounded-xl border-2 border-[#1f7a45] px-4 font-bold text-[#1f7a45]"
+                  >
+                    Mandar confirmação no WhatsApp
+                  </a>
                 )}
                 {e.status !== "no_local" && btn(e, "chegou", "Chegou")}
                 {btn(e, "iniciar", "Iniciar lavagem", "primario", () => iniciar(e))}
@@ -225,7 +271,17 @@ export function FilaEquipe() {
           <Secao titulo={`Lavando (${lavando.length})`}>
             {lavando.length === 0 && <p className="text-base text-tinta-suave">Nenhum carro lavando.</p>}
             {lavando.map((e) => (
-              <CartaoEntrada key={e.id} entrada={e} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} agora={publica?.agora}>
+              <CartaoEntrada key={e.id} entrada={e} extras={extras(e)} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} agora={publica?.agora}>
+                {celularDaEntrada(e) && (
+                  <a
+                    href={linkWhatsApp(celularDaEntrada(e), `Olá, ${primeiroNome(nomeDaEntrada(e))}! Seu carro já está sendo lavado no ${empresa.nome}. Avisamos quando ficar pronto.`)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="col-span-2 flex min-h-12 items-center justify-center rounded-xl border-2 border-[#1f7a45] px-4 font-bold text-[#1f7a45]"
+                  >
+                    Falar no WhatsApp
+                  </a>
+                )}
                 {btn(e, "pronto", "Pronto")}
                 {btn(e, "finalizar", "Dar baixa", "primario", () => setPedido({ tipo: "baixa", entrada: e }))}
               </CartaoEntrada>
@@ -235,7 +291,7 @@ export function FilaEquipe() {
           {prontos.length > 0 && (
             <Secao titulo={`Prontos para retirar (${prontos.length})`}>
               {prontos.map((e) => (
-                <CartaoEntrada key={e.id} entrada={e} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} agora={publica?.agora}>
+                <CartaoEntrada key={e.id} entrada={e} extras={extras(e)} itens={itensOS[e.id]} onItem={marcarItem} slug={empresa.slug} agora={publica?.agora}>
                   {celularDaEntrada(e) ? (
                     <a
                       href={linkWhatsApp(celularDaEntrada(e), `Olá, ${primeiroNome(nomeDaEntrada(e))}! Seu carro está pronto no ${empresa.nome}.`)}
@@ -243,7 +299,7 @@ export function FilaEquipe() {
                       rel="noreferrer"
                       className="flex min-h-12 items-center justify-center rounded-xl border-2 border-[#1f7a45] px-3 font-bold text-[#1f7a45]"
                     >
-                      WhatsApp
+                      Avisar: pronto
                     </a>
                   ) : (
                     <span />
@@ -285,6 +341,20 @@ export function FilaEquipe() {
         onConfirmar={() => pedido && executar(pedido.entrada, "iniciar")}
         onCancelar={() => setPedido(null)}
       />
+      {pedido?.tipo === "fotos" && (
+        <FotosEntrada
+          entradaId={pedido.entrada.id}
+          empresaId={empresa.id}
+          titulo={`Fotos · ${nomeDaEntrada(pedido.entrada)}`}
+          podeTirar={gestao}
+          momentoPadrao={["lavando", "pronto"].includes(pedido.entrada.status) ? "depois" : "antes"}
+          onFechar={() => setPedido(null)}
+          onMudou={recarregarFotos}
+        />
+      )}
+      {pedido?.tipo === "tipoVeiculo" && (
+        <DefinirTipo entrada={pedido.entrada} tipos={tipos} onFechar={() => setPedido(null)} onSalvo={() => concluir("Tipo do veículo salvo.")} />
+      )}
       {pedido?.tipo === "baixa" && (
         <DarBaixa entrada={pedido.entrada} carregando={!!ocupado} onConfirmar={(lavador) => executar(pedido.entrada, "finalizar", { lavado_por: lavador })} onFechar={() => setPedido(null)} />
       )}
@@ -319,9 +389,11 @@ function CartaoEntrada({
   itens,
   onItem,
   slug,
+  extras,
   children,
 }: {
   entrada: EntradaFila;
+  extras?: ReactNode;
   itens?: ItemPedido[];
   onItem?: (item: ItemPedido, status: ItemPedido["status"]) => void;
   slug?: string;
@@ -369,6 +441,7 @@ function CartaoEntrada({
               <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-sm font-bold text-red-800">Atrasado {atrasoMin} min</span>
             )}
           </div>
+          {extras && <div className="mt-2 flex flex-wrap gap-2">{extras}</div>}
           {e.observacao && <p className="mt-2 rounded-xl bg-fundo px-3 py-2 text-base text-tinta">“{e.observacao}”</p>}
           {itens && itens.length > 0 && (
             <div className="mt-3 rounded-xl border border-linha p-2">
@@ -487,6 +560,7 @@ function ClienteBalcao({ onFechar, onSalvo }: { onFechar: () => void; onSalvo: (
   const [finalPlaca, setFinalPlaca] = useState("");
   const [veiculo, setVeiculo] = useState("");
   const [celular, setCelular] = useState("");
+  const [tipo, setTipo] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
@@ -508,7 +582,7 @@ function ClienteBalcao({ onFechar, onSalvo }: { onFechar: () => void; onSalvo: (
     try {
       await pb.send("/api/lr/fila/balcao", {
         method: "POST",
-        body: { empresa: empresa.id, servico, nome: nome.trim(), final_placa: finalPlaca, veiculo_desc: veiculo.trim(), celular: somenteDigitos(celular) },
+        body: { empresa: empresa.id, servico, nome: nome.trim(), final_placa: finalPlaca, veiculo_desc: veiculo.trim(), celular: somenteDigitos(celular), tipo_veiculo: tipo },
       });
       onSalvo();
     } catch (err) {
@@ -542,6 +616,7 @@ function ClienteBalcao({ onFechar, onSalvo }: { onFechar: () => void; onSalvo: (
           onChange={(e) => setCelular(mascaraCelular(e.target.value))}
           ajuda="Para avisar pelo WhatsApp."
         />
+        <EscolhaTipo tipos={tiposDaEmpresa(empresa)} valor={tipo} onChange={setTipo} semTipo="Padrão" />
         <fieldset>
           <legend className="mb-2 text-base font-bold text-tinta">Serviço</legend>
           {servicos === null ? (
@@ -570,6 +645,44 @@ function ClienteBalcao({ onFechar, onSalvo }: { onFechar: () => void; onSalvo: (
           Colocar na fila
         </Botao>
       </form>
+    </Folha>
+  );
+}
+
+// Quem gere a fila define o tipo do veículo (o preço do serviço muda junto).
+function DefinirTipo({ entrada, tipos, onFechar, onSalvo }: { entrada: EntradaFila; tipos: TipoVeiculo[]; onFechar: () => void; onSalvo: () => void }) {
+  const [tipo, setTipo] = useState(entrada.tipo_veiculo || "");
+  const [lembrar, setLembrar] = useState(!!entrada.cliente);
+  const [erro, setErro] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  async function salvar() {
+    setSalvando(true);
+    setErro("");
+    try {
+      await pb.send(`/api/lr/fila/${entrada.id}/tipo`, { method: "POST", body: { tipo, lembrar: lembrar && !!entrada.cliente } });
+      onSalvo();
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setSalvando(false);
+    }
+  }
+  return (
+    <Folha titulo={`Tipo do veículo · ${nomeDaEntrada(entrada)}`} onFechar={onFechar}>
+      <div className="flex flex-col gap-4">
+        <EscolhaTipo tipos={tipos} valor={tipo} onChange={setTipo} rotulo="Escolha o tipo" semTipo="Padrão" />
+        <p className="text-sm text-tinta-suave">O preço do serviço muda conforme o tipo. Tipos marcados como restritos (ex.: motorista de app, convênio) só a equipe escolhe.</p>
+        {entrada.cliente && (
+          <label className="flex min-h-12 items-center gap-3 rounded-xl border-2 border-linha bg-white px-4">
+            <input type="checkbox" className="h-5 w-5 accent-[var(--marca)]" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} />
+            <span className="text-base text-tinta">Lembrar para as próximas vezes deste carro</span>
+          </label>
+        )}
+        {erro && <Aviso>{erro}</Aviso>}
+        <Botao largo carregando={salvando} onClick={salvar}>
+          Salvar
+        </Botao>
+      </div>
     </Folha>
   );
 }

@@ -1229,7 +1229,177 @@ function listaClientes(app, empresaId) {
   return lista;
 }
 
+// ------------------------------------------------- tipos de veículo e preço
+// Cada empresa cria os tipos (ex.: Pequeno, Grande/SUV, Moto, Motorista de app, Convênio).
+// "restrito" = só a equipe escolhe (o cliente não pode se colocar como Uber/convênio).
+function tiposVeiculo(empresa) {
+  try {
+    const t = JSON.parse(empresa.getString("tipos_veiculo") || "[]");
+    return Array.isArray(t) ? t : [];
+  } catch (_) {
+    return [];
+  }
+}
+function acharTipo(empresa, id) {
+  if (!id) return null;
+  return tiposVeiculo(empresa).find((t) => t.id === id) || null;
+}
+function precoDoServico(servico, tipoId) {
+  if (tipoId) {
+    try {
+      const p = JSON.parse(servico.getString("precos_tipo") || "{}");
+      if (p && typeof p[tipoId] === "number" && p[tipoId] >= 0) return p[tipoId];
+    } catch (_) {}
+  }
+  return servico.getFloat("preco");
+}
+// Grava tipo + preço na entrada. tipoId inválido → sem tipo (preço normal).
+function aplicarTipo(entrada, servico, empresa, tipoId) {
+  const t = acharTipo(empresa, tipoId);
+  entrada.set("tipo_veiculo", t ? t.id : "");
+  entrada.set("tipo_veiculo_nome", t ? t.nome : "");
+  entrada.set("preco_servico", precoDoServico(servico, t ? t.id : ""));
+}
+// Normaliza a lista de tipos digitada pelo dono.
+function normalizarTipos(lista) {
+  if (!Array.isArray(lista)) throw new BadRequestError("Lista de tipos inválida.");
+  if (lista.length > 12) throw new BadRequestError("No máximo 12 tipos de veículo.");
+  const vistos = {};
+  return lista.map((t, i) => {
+    const nome = String((t && t.nome) || "").trim().replace(/\s+/g, " ").slice(0, 40);
+    if (nome.length < 2) throw new BadRequestError("Dê um nome para cada tipo de veículo.");
+    let id = String((t && t.id) || "").replace(/[^a-z0-9_-]/gi, "").slice(0, 20);
+    if (!id || vistos[id]) id = "t" + $security.randomStringWithAlphabet(7, "abcdefghijklmnopqrstuvwxyz0123456789");
+    vistos[id] = true;
+    return { id: id, nome: nome, restrito: !!(t && t.restrito) };
+  });
+}
+
+// ------------------------------------------------------------ gastos fixos
+// Lança no caixa os gastos fixos do mês que já venceram (um por mês, sem repetir).
+function competenciaSP(ms) {
+  const d = new Date(ms - OFFSET_SP);
+  return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0");
+}
+function lancarGastosFixos(app, agora, empresaId) {
+  const d = new Date(agora - OFFSET_SP);
+  const hoje = d.getUTCDate();
+  const comp = competenciaSP(agora);
+  const filtro = "ativo = true && dia <= {:h}" + (empresaId ? " && empresa = {:e}" : "");
+  const fixos = app.findRecordsByFilter("gastos_fixos", filtro, "", 0, 0, { h: hoje, e: empresaId || "" });
+  let lancados = 0;
+  for (const f of fixos) {
+    try {
+      app.findFirstRecordByFilter("lancamentos_caixa", "gasto_fixo = {:g} && competencia = {:c}", { g: f.id, c: comp });
+      continue; // já lançado neste mês
+    } catch (_) {}
+    try {
+      const r = new Record(app.findCollectionByNameOrId("lancamentos_caixa"));
+      r.set("empresa", f.getString("empresa"));
+      // data do vencimento (meio-dia em São Paulo)
+      r.set("data", new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), f.getInt("dia"), 15)).toISOString().replace("T", " "));
+      r.set("tipo", "saida");
+      r.set("categoria", f.getString("categoria"));
+      r.set("valor", f.getFloat("valor"));
+      r.set("descricao", "Gasto fixo: " + f.getString("descricao"));
+      r.set("criado_por", f.getString("criado_por"));
+      r.set("gasto_fixo", f.id);
+      r.set("competencia", comp);
+      app.save(r);
+      lancados++;
+    } catch (err) {
+      console.log("[gastos fixos] não lançou", f.id, err);
+    }
+  }
+  return lancados;
+}
+
+// Fechamento do mês: faturamento, caixa (fixos x variáveis, por categoria), formas de
+// pagamento dos produtos e conferência dos fechamentos do dia.
+function fechamentoMes(app, empresaId, ini, fim, comVales) {
+  const p = { e: empresaId, de: dataPB(ini), ate: dataPB(fim) };
+  const f = faturamento(app, empresaId, ini, fim);
+  const lanc = buscar(app, "lancamentos_caixa", "empresa = {:e} && cancelado = false && data >= {:de} && data < {:ate}", p);
+  let entradas = 0, fixos = 0, variaveis = 0;
+  const porCategoria = {};
+  for (const l of lanc) {
+    const v = l.getFloat("valor");
+    if (l.getString("tipo") === "entrada") {
+      entradas += v;
+      continue;
+    }
+    if (l.getString("gasto_fixo")) fixos += v;
+    else variaveis += v;
+    const c = l.getString("categoria") || "Outros";
+    porCategoria[c] = arred((porCategoria[c] || 0) + v);
+  }
+  const porForma = { cartao: 0, dinheiro: 0, pix: 0 };
+  for (const v of f.vendas) porForma[v.getString("forma_pagamento")] = arred((porForma[v.getString("forma_pagamento")] || 0) + v.getFloat("total"));
+  const diaIni = new Date(ini - OFFSET_SP).toISOString().slice(0, 10);
+  const diaFim = new Date(fim - OFFSET_SP).toISOString().slice(0, 10);
+  const fech = buscar(app, "fechamentos_dia", "empresa = {:e} && dia >= {:a} && dia < {:b}", { e: empresaId, a: diaIni, b: diaFim });
+  const conferido = { cartao: 0, pix: 0, dinheiro: 0, dias: fech.length, anexos: 0 };
+  for (const x of fech) {
+    conferido.cartao += x.getFloat("cartao");
+    conferido.pix += x.getFloat("pix");
+    conferido.dinheiro += x.getFloat("dinheiro");
+    conferido.anexos += (x.get("anexos") || []).length;
+  }
+  for (const k of ["cartao", "pix", "dinheiro"]) conferido[k] = arred(conferido[k]);
+  const saidas = arred(fixos + variaveis);
+  const r = {
+    periodo: { de: new Date(ini).toISOString(), ate: new Date(fim).toISOString() },
+    carros: f.carros.length,
+    faturamento: { servicos: f.servicos, produtos: f.produtos, total: f.total },
+    produtos_por_forma: porForma,
+    caixa: {
+      entradas: arred(entradas), saidas: saidas, fixos: arred(fixos), variaveis: arred(variaveis),
+      por_categoria: Object.keys(porCategoria).map((c) => ({ categoria: c, valor: porCategoria[c] })).sort((a, b) => b.valor - a.valor),
+    },
+    saldo: arred(f.total + entradas - saidas),
+    fechamentos_dia: conferido,
+  };
+  if (comVales) {
+    const vales = buscar(app, "vales", "empresa = {:e} && cancelado = false && data >= {:de} && data < {:ate}", p);
+    r.vales = arred(somar(vales, (v) => v.getFloat("valor")));
+  }
+  return r;
+}
+
+// Limpa os preços por tipo enviados no cadastro/edição de serviço.
+function limparPrecosTipo(e) {
+  const body = e.requestInfo().body || {};
+  if (body.precos_tipo === undefined) return;
+  let p = body.precos_tipo;
+  // campo JSON chega como bytes brutos no hook: converte para texto antes
+  if (Array.isArray(p) && p.length && typeof p[0] === "number") p = toString(p);
+  if (typeof p === "string") {
+    try {
+      p = JSON.parse(p || "{}");
+    } catch (_) {
+      throw new BadRequestError("Preços por tipo inválidos.");
+    }
+  }
+  const limpo = {};
+  for (const k of Object.keys(p || {})) {
+    const v = Number(p[k]);
+    if (p[k] === "" || p[k] === null || isNaN(v)) continue;
+    if (v < 0 || v > 100000) throw new BadRequestError("Preço por tipo inválido.");
+    limpo[String(k).slice(0, 20)] = Math.round(v * 100) / 100;
+  }
+  e.record.set("precos_tipo", limpo);
+}
+
 module.exports = {
+  limparPrecosTipo,
+  competenciaSP,
+  lancarGastosFixos,
+  fechamentoMes,
+  tiposVeiculo,
+  acharTipo,
+  precoDoServico,
+  aplicarTipo,
+  normalizarTipos,
   historicoCliente,
   listaClientes,
   ACESSOS,

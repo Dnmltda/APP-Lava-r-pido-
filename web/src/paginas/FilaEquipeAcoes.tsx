@@ -5,6 +5,7 @@ import { emQuanto, hora, nomeDaEntrada, placaDaEntrada, type EntradaFila } from 
 import { celularValido, mascaraCelular, normalizarPlaca, somenteDigitos } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
 import type { Servico } from "../lib/tipos";
+import { EscolhaTipo, tiposDaEmpresa } from "../componentes/TipoVeiculo";
 
 // Ações da Etapa 3 na fila da equipe: reserva, dados da reserva, reposicionar,
 // cancelar (com ou sem substituição).
@@ -116,6 +117,7 @@ export function NovaReserva({ onFechar, onSalvo }: { onFechar: () => void; onSal
   const { empresa } = useEmpresa();
   const [quando, setQuando] = useState(proximaHoraLocal());
   const [servico, setServico] = useState("");
+  const [tipo, setTipo] = useState("");
   const [dados, setDados] = useState(CLIENTE_VAZIO);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -131,7 +133,7 @@ export function NovaReserva({ onFechar, onSalvo }: { onFechar: () => void; onSal
     try {
       const r = await pb.send<{ previsao: string }>("/api/lr/fila/reserva", {
         method: "POST",
-        body: { empresa: empresa.id, horario: localParaIso(quando), servico, ...corpoCliente(dados) },
+        body: { empresa: empresa.id, horario: localParaIso(quando), servico, tipo_veiculo: tipo, ...corpoCliente(dados) },
       });
       onSalvo(`Reserva encaixada na fila. Previsão de início: ${hora(r.previsao)}.`);
     } catch (err) {
@@ -149,6 +151,7 @@ export function NovaReserva({ onFechar, onSalvo }: { onFechar: () => void; onSal
         </p>
         <Campo rotulo="Dia e horário" type="datetime-local" value={quando} onChange={(e) => setQuando(e.target.value)} />
         <EscolherServico valor={servico} onChange={setServico} />
+        <EscolhaTipo tipos={tiposDaEmpresa(empresa)} valor={tipo} onChange={setTipo} semTipo="Padrão" />
         <p className="-mb-2 text-base font-bold text-tinta">Cliente (pode preencher depois)</p>
         <CamposCliente valor={dados} onChange={setDados} />
         {erro && <Aviso>{erro}</Aviso>}
@@ -309,9 +312,11 @@ export function CancelarEntrada({
   const [modo, setModo] = useState<"cancelar" | "substituir">("cancelar");
   const [motivo, setMotivo] = useState("");
   const [servico, setServico] = useState("");
+  const [tipo, setTipo] = useState("");
   const [dados, setDados] = useState(CLIENTE_VAZIO);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const { empresa } = useEmpresa();
   const nome = nomeDaEntrada(entrada);
 
   async function confirmar() {
@@ -326,7 +331,7 @@ export function CancelarEntrada({
       if (modo === "substituir") {
         await pb.send(`/api/lr/fila/${entrada.id}/substituir`, {
           method: "POST",
-          body: { servico, motivo: motivo.trim(), ...corpoCliente(dados) },
+          body: { servico, tipo_veiculo: tipo, motivo: motivo.trim(), ...corpoCliente(dados) },
         });
         onSalvo(`${dados.nome.trim()} entrou no lugar de ${nome}, na mesma posição.`);
       } else {
@@ -374,6 +379,7 @@ export function CancelarEntrada({
           <>
             <CamposCliente valor={dados} onChange={setDados} obrigatorio />
             <EscolherServico valor={servico} onChange={setServico} />
+            <EscolhaTipo tipos={tiposDaEmpresa(empresa)} valor={tipo} onChange={setTipo} semTipo="Padrão" />
           </>
         )}
         <Campo rotulo="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={300} />

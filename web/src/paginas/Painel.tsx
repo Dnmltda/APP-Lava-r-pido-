@@ -17,6 +17,7 @@ import {
   UserRound,
   Users,
   Wallet,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -81,7 +82,8 @@ export function Painel() {
               <Atalho para={`/${s}/vendas`} icone={ShoppingBag} titulo="Vendas" texto={valores ? "Registrar e ver as vendas" : "Registrar e ver as minhas"} />
               {valores && <Atalho para={`/${s}/dashboard`} icone={ChartColumn} titulo="Dashboard" texto="Gráficos e relatórios" />}
               {valores && <Atalho para={`/${s}/painel`} icone={Gauge} titulo="Painel do dia" texto="Metas, estoque e atrasos" />}
-              {valores && <Atalho para={`/${s}/caixa`} icone={Wallet} titulo="Caixa" texto="Gastos e entradas" />}
+              {valores && <Atalho para={`/${s}/caixa`} icone={Wallet} titulo="Caixa" texto="Gastos fixos e fechamento do mês" />}
+              {valores && <Atalho para={`/${s}/fechamento`} icone={Receipt} titulo="Fechamento do dia" texto="Maquininhas, dinheiro e notas" />}
               <Atalho para={`/${s}/avaliacoes`} icone={Star} titulo="Avaliações" texto="O que os clientes acharam" />
               {vinculo.papel !== "patrao" && <Atalho para={`/${s}/minha-area`} icone={UserRound} titulo="Minha área" texto="Carros, bônus e vales" />}
               {pode(vinculo, "clientes") && <Atalho para={`/${s}/clientes`} icone={Contact} titulo="Clientes" texto="Quem veio, quantas vezes e quanto gastou" />}
