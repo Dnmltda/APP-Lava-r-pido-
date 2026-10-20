@@ -1,0 +1,237 @@
+#!/usr/bin/env node
+// Etapa 8 — Teste completo no navegador, um "celular" para cada perfil.
+//
+// Cria um lava rápido de teste, entra com patrão, gerente, funcionário, responsável
+// pela fila e cliente (tela de celular) e confere:
+//   - o que cada perfil vê no menu (tabela 1.3) e que link direto não abre tela proibida;
+//   - o fluxo inteiro: cliente entra na fila → responsável confirma → funcionário lava e
+//     dá baixa → cliente avalia → patrão vê a avaliação com o nome;
+//   - todas as telas de cada perfil abrem sem erro de JavaScript.
+//
+//   APP_URL=http://127.0.0.1:5173 PB_ADMIN_EMAIL=... PB_ADMIN_PASSWORD=... node scripts/testar-navegador.mjs [pasta-das-fotos]
+//
+// Precisa do Playwright (PLAYWRIGHT_MODULE aponta para ele, se não estiver instalado no projeto).
+
+import { createRequire } from "node:module";
+import fs from "node:fs";
+import path from "node:path";
+
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || "playwright");
+
+const PB = process.env.PB_URL || "http://127.0.0.1:8090";
+const APP = (process.env.APP_URL || "http://127.0.0.1:5173").replace(/\/$/, "");
+const { PB_ADMIN_EMAIL, PB_ADMIN_PASSWORD } = process.env;
+if (!PB_ADMIN_EMAIL || !PB_ADMIN_PASSWORD) {
+  console.error("Defina PB_ADMIN_EMAIL e PB_ADMIN_PASSWORD.");
+  process.exit(2);
+}
+const FOTOS = process.argv[2] || "";
+if (FOTOS) fs.mkdirSync(FOTOS, { recursive: true });
+
+const sufixo = Date.now().toString().slice(-6);
+let falhas = 0;
+let total = 0;
+function checar(descricao, ok, extra) {
+  total++;
+  if (ok) console.log("  ✔ " + descricao);
+  else {
+    falhas++;
+    console.log("  ✘ " + descricao + (extra !== undefined ? "  → " + JSON.stringify(extra).slice(0, 400) : ""));
+  }
+}
+async function api(method, p, { token, body } = {}) {
+  const res = await fetch(PB + p, {
+    method,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: token } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {}
+  return { status: res.status, data };
+}
+
+const MENU = ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Minha área", "Equipe", "Serviços", "Produtos", "Configurações", "Câmeras"];
+// O que cada perfil deve ver no menu (tabela 1.3)
+const VE = {
+  patrao: ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Equipe", "Serviços", "Produtos", "Configurações", "Câmeras"],
+  gerente: ["Fila", "Vendas", "Painel do dia", "Caixa", "Avaliações", "Minha área"],
+  funcionario: ["Fila", "Vendas", "Avaliações", "Minha área"],
+  responsavel: ["Fila", "Vendas", "Avaliações", "Minha área"],
+  cliente: [],
+};
+const ROTA = {
+  Fila: "fila", Vendas: "vendas", "Painel do dia": "painel", Caixa: "caixa", Avaliações: "avaliacoes", "Minha área": "minha-area",
+  Equipe: "equipe", Serviços: "servicos", Produtos: "produtos", Configurações: "configuracoes", Câmeras: "cameras",
+};
+
+async function main() {
+  const adm = await api("POST", "/api/collections/_superusers/auth-with-password", { body: { identity: PB_ADMIN_EMAIL, password: PB_ADMIN_PASSWORD } });
+  if (adm.status !== 200) throw new Error("Login do admin falhou");
+  const ADM = adm.data.token;
+  const criados = { empresas: [], usuarios: [] };
+  const criar = async (col, body) => {
+    const r = await api("POST", `/api/collections/${col}/records`, { token: ADM, body });
+    if (r.status !== 200) throw new Error(`Falha ao criar ${col}: ${JSON.stringify(r.data)}`);
+    if (criados[col]) criados[col].push(r.data.id);
+    return r.data;
+  };
+  const HORARIO = [0, 1, 2, 3, 4, 5, 6].map(() => ({ aberto: true, abre: "00:00", fecha: "23:59" }));
+  const A = await criar("empresas", { nome: "Lava Teste Navegador", slug: "teste-nav-" + sufixo, ativo: true, capacidade_simultanea: 2, horario_funcionamento: HORARIO, cor_principal: "#0E7490" });
+  await criar("servicos", { empresa: A.id, nome: "Lavagem simples", preco: 40, duracao_media_min: 30, ativo: true });
+  await criar("produtos", { empresa: A.id, nome: "Cheirinho", preco: 10, estoque: 50, estoque_minimo: 1, comissao_tipo: "nenhuma", comissao_valor: 0, ativo: true });
+  await criar("cameras", { empresa: A.id, nome: "Box 1", tipo_integracao: "demonstracao", ativo: true });
+  let seq = 0;
+  const pessoas = {};
+  for (const [chave, nome, papel, extra] of [
+    ["patrao", "Paulo Patrão", "patrao", {}],
+    ["gerente", "Gina Gerente", "gerente", {}],
+    ["funcionario", "Fábio Lavador", "funcionario", {}],
+    ["responsavel", "Rita Responsável", "funcionario", { responsavel_fila: true }],
+    ["cliente", "Carla Navegadora", "cliente", {}],
+  ]) {
+    const celular = "119" + sufixo + String(seq++).padStart(2, "0");
+    const u = await criar("usuarios", { nome, celular, password: "senha12345", passwordConfirm: "senha12345" });
+    await criar("vinculos", { usuario: u.id, empresa: A.id, papel, ativo: true, ...extra });
+    pessoas[chave] = { ...u, celular };
+  }
+  await criar("veiculos", { cliente: pessoas.cliente.id, placa: "NAV1A23", final_placa: "A23", modelo: "Onix", cor: "Prata", ativo: true });
+
+  const navegador = await chromium.launch(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {});
+  const erros = {};
+  const paginas = {};
+  const foto = async (p, nome) => FOTOS && (await paginas[p].screenshot({ path: path.join(FOTOS, `${nome}.png`), fullPage: true }));
+
+  try {
+    console.log("Login de cada perfil (tela de celular)");
+    for (const p of Object.keys(pessoas)) {
+      const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR", timezoneId: "America/Sao_Paulo" });
+      const page = await ctx.newPage();
+      erros[p] = [];
+      page.on("pageerror", (e) => erros[p].push(String(e)));
+      page.on("console", (m) => m.type() === "error" && !/Failed to load resource|ERR_|favicon/.test(m.text()) && erros[p].push(m.text()));
+      await page.goto(`${APP}/${A.slug}/entrar`);
+      await page.fill('input[type="tel"]', pessoas[p].celular);
+      await page.fill('input[type="password"]', "senha12345");
+      await page.click('button[type="submit"]');
+      await page.getByText("Minha conta").waitFor({ timeout: 15000 });
+      paginas[p] = page;
+      checar(`${p}: entra com celular e senha`, true);
+    }
+
+    console.log("\nMenu de cada perfil (tabela 1.3)");
+    for (const p of Object.keys(pessoas)) {
+      const page = paginas[p];
+      const visiveis = [];
+      for (const item of MENU) {
+        if (await page.locator(`a[href="/${A.slug}/${ROTA[item]}"]`).count()) visiveis.push(item);
+      }
+      checar(`${p}: vê exatamente ${VE[p].length ? VE[p].join(", ") : "nada da equipe"}`, JSON.stringify(visiveis) === JSON.stringify(VE[p]), visiveis);
+      await foto(p, `menu-${p}`);
+    }
+
+    console.log("\nLink direto para tela proibida volta para o início");
+    const proibidas = { gerente: ["equipe", "cameras", "configuracoes", "servicos"], funcionario: ["painel", "caixa", "cameras", "equipe"], cliente: ["fila", "vendas", "painel", "cameras", "avaliacoes"] };
+    for (const [p, rotas] of Object.entries(proibidas)) {
+      for (const r of rotas) {
+        await paginas[p].goto(`${APP}/${A.slug}/${r}`);
+        await paginas[p].waitForTimeout(1200);
+        const url = new URL(paginas[p].url()).pathname;
+        const dados = await paginas[p].locator("body").innerText();
+        checar(`${p}: /${r} não abre`, url === `/${A.slug}` || url === `/${A.slug}/` || /permiss|não tem acesso|só (o )?patr/i.test(dados), url);
+      }
+    }
+
+    console.log("\nFluxo completo: fila → confirmar → lavar → baixa → avaliar");
+    const cli = paginas.cliente;
+    await cli.goto(`${APP}/${A.slug}`);
+    await cli.getByRole("button", { name: "Entrar na fila" }).click();
+    await cli.getByText("Lavagem simples").first().click();
+    await cli.getByRole("button", { name: "Confirmar e entrar na fila" }).click();
+    await cli.waitForTimeout(1500);
+    await foto("cliente", "1-cliente-na-fila");
+    const naFila = await api("GET", `/api/collections/fila_entradas/records?filter=${encodeURIComponent(`empresa="${A.id}" && cliente="${pessoas.cliente.id}"`)}`, { token: ADM });
+    const entrada = naFila.data.items[0];
+    checar("cliente entra na fila pelo app (pendente)", entrada && entrada.status === "pendente", entrada && entrada.status);
+
+    const resp = paginas.responsavel;
+    await resp.goto(`${APP}/${A.slug}/fila`);
+    await resp.getByText("Carla").first().waitFor({ timeout: 15000 });
+    await foto("responsavel", "2-responsavel-ve-pendente");
+    await resp.getByRole("button", { name: "Confirmar", exact: true }).first().click();
+    await resp.waitForTimeout(1500);
+    let st = (await api("GET", `/api/collections/fila_entradas/records/${entrada.id}`, { token: ADM })).data.status;
+    checar("responsável pela fila confirma na tela", st === "confirmado", st);
+
+    const func = paginas.funcionario;
+    await func.goto(`${APP}/${A.slug}/fila`);
+    await func.getByText("Carla").first().waitFor({ timeout: 15000 });
+    checar("funcionário não vê botão de confirmar/recusar", (await func.getByRole("button", { name: "Recusar" }).count()) === 0);
+    await func.getByRole("button", { name: "Iniciar lavagem" }).first().click();
+    const mesmoAssim = func.getByRole("button", { name: "Iniciar mesmo assim" });
+    if (await mesmoAssim.isVisible().catch(() => false)) await mesmoAssim.click();
+    await func.waitForTimeout(1500);
+    st = (await api("GET", `/api/collections/fila_entradas/records/${entrada.id}`, { token: ADM })).data.status;
+    checar("funcionário inicia a lavagem", st === "lavando", st);
+    await func.getByRole("button", { name: "Dar baixa" }).first().click();
+    await func.getByRole("radio", { name: /Fábio/ }).click();
+    await func.getByRole("button", { name: "Confirmar: carro lavado" }).click();
+    await func.waitForTimeout(1500);
+    const fin = (await api("GET", `/api/collections/fila_entradas/records/${entrada.id}`, { token: ADM })).data;
+    checar("funcionário dá baixa registrando quem lavou", fin.status === "finalizado" && fin.lavado_por === pessoas.funcionario.id, fin.status);
+    await foto("funcionario", "3-funcionario-deu-baixa");
+
+    await cli.goto(`${APP}/${A.slug}/avaliar/${entrada.id}`);
+    await cli.getByRole("radiogroup").first().waitFor({ timeout: 15000 });
+    for (const grupo of await cli.getByRole("radiogroup").all()) await grupo.getByRole("radio", { name: "5 estrelas" }).click();
+    await cli.locator("textarea").fill("Atendimento nota 10, teste do navegador");
+    await cli.getByRole("button", { name: "Enviar avaliação" }).click();
+    await cli.waitForTimeout(1500);
+    await foto("cliente", "4-cliente-avaliou");
+    const av = await api("GET", `/api/collections/avaliacoes/records?filter=${encodeURIComponent(`entrada="${entrada.id}"`)}`, { token: ADM });
+    checar("cliente avalia com estrelas e comentário", av.data.items.length === 1 && av.data.items[0].nota_funcionario === 5, av.data.items);
+
+    await paginas.patrao.goto(`${APP}/${A.slug}/avaliacoes`);
+    await paginas.patrao.getByText("teste do navegador").first().waitFor({ timeout: 10000 }).catch(() => {});
+    const txtPatrao = await paginas.patrao.locator("body").innerText();
+    checar("patrão vê a avaliação com o nome do cliente", txtPatrao.includes("teste do navegador") && txtPatrao.includes("Carla"), txtPatrao.slice(0, 300));
+    await paginas.gerente.goto(`${APP}/${A.slug}/avaliacoes`);
+    await paginas.gerente.getByText("teste do navegador").first().waitFor({ timeout: 10000 }).catch(() => {});
+    const txtGerente = await paginas.gerente.locator("body").innerText();
+    checar("gerente vê a avaliação sem o nome do cliente", txtGerente.includes("teste do navegador") && !txtGerente.includes("Carla"), txtGerente.slice(0, 300));
+
+    console.log("\nTodas as telas de cada perfil abrem sem erro");
+    for (const p of ["patrao", "gerente", "funcionario", "responsavel"]) {
+      const page = paginas[p];
+      for (const item of VE[p]) {
+        await page.goto(`${APP}/${A.slug}/${ROTA[item]}`);
+        await page.waitForTimeout(1500);
+        const corpo = await page.locator("body").innerText();
+        const quebrou = /Algo deu errado|Não foi possível carregar/i.test(corpo);
+        checar(`${p}: ${item}`, !quebrou && new URL(page.url()).pathname.endsWith(ROTA[item]), corpo.slice(0, 200));
+        await foto(p, `tela-${p}-${ROTA[item]}`);
+      }
+      for (const extra of ["conta"]) {
+        await page.goto(`${APP}/${A.slug}/${extra}`);
+        await page.waitForTimeout(800);
+      }
+    }
+    await cli.goto(`${APP}/${A.slug}/conta`);
+    await cli.waitForTimeout(800);
+    for (const p of Object.keys(pessoas)) checar(`${p}: nenhum erro de JavaScript`, erros[p].length === 0, erros[p]);
+  } finally {
+    await navegador.close();
+    for (const id of criados.usuarios) await api("DELETE", `/api/collections/usuarios/records/${id}`, { token: ADM });
+    for (const id of criados.empresas) await api("DELETE", `/api/collections/empresas/records/${id}`, { token: ADM });
+  }
+
+  console.log(`\n${total - falhas}/${total} verificações passaram.`);
+  process.exit(falhas ? 1 : 0);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
