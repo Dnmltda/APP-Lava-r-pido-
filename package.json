@@ -1,0 +1,11 @@
+{
+  "name": "dnm-lava-rapido",
+  "private": true,
+  "scripts": {
+    "pb": "cd pocketbase && ./bin/pocketbase serve --dir ./pb_data --migrationsDir ./pb_migrations --hooksDir ./pb_hooks",
+    "web": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "testar": "node scripts/testar-isolamento.mjs",
+    "demo": "node scripts/criar-empresa.mjs --demo"
+  }
+}

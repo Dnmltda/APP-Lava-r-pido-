@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dev-dist/
+.env
+.env.local
+pocketbase/pb_data/
+pocketbase/bin/
+*.log
+.DS_Store

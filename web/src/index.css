@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* Cores da marca do lava rápido (white-label) vêm de src/lib/tema.ts. */
+:root {
+  --marca: rgb(14 116 144);
+  --marca-forte: rgb(11 87 108);
+  --marca-suave: rgb(226 239 243);
+  --sobre-marca: #ffffff;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-marca: var(--marca);
+  --color-marca-forte: var(--marca-forte);
+  --color-marca-suave: var(--marca-suave);
+  --color-sobre-marca: var(--sobre-marca);
+  --color-fundo: #f4f5f2;
+  --color-tinta: #14181f;
+  --color-tinta-suave: #4b5563;
+  --color-linha: #d6d9d2;
+  /* Status da fila (fixos, iguais para todas as empresas) */
+  --color-status-pendente: #b45309;
+  --color-status-confirmado: #1d4ed8;
+  --color-status-lavando: #7e22ce;
+  --color-status-pronto: #15803d;
+  --color-status-cancelado: #6b7280;
+  --font-sans: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  background: var(--color-fundo);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  font-size: 16px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--marca);
+  outline-offset: 2px;
+}
