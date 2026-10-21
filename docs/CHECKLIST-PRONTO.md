@@ -36,7 +36,7 @@ Conferido em 20/10/2026, no servidor de desenvolvimento **e na produção**
 - [ ] Cópia fora do servidor (GitHub, 90 dias): workflow pronto; falta cadastrar secrets/variável — **COWORK.md, Passo 1**.
 
 ## Publicação
-- [x] No ar na Hostinger com HTTPS; empresa de teste em `/lava-teste` (um login por função).
+- [x] No ar na Hostinger com HTTPS; empresa de teste em `/claude-teste` (um login por função); titular da plataforma: dnmltda@hotmail.com.
 - [x] Cartaz do balcão com QR Code (patrão → *Cartaz do balcão*), pronto para imprimir/PDF.
 - [x] Política de privacidade (LGPD) por lava rápido, com link no cadastro e em *Minha conta*.
       Versão inicial: **revisar com advogado** antes de vender em escala.

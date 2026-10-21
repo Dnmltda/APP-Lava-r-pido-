@@ -40,3 +40,13 @@ Cada uma diz o que precisa, quanto custa e o tamanho do trabalho (P = dias, M = 
   modelos (hoje a equipe confere na 1ª lavagem).
 - **Limite de carros na fila por cliente:** hoje 3. Avaliar exceção para frotas (Uber com vários carros, empresas).
 - **Preço de moto:** a tabela de referência não tem (sem fonte confiável); cada lava rápido cadastra o seu.
+
+## 6. Para a versão de venda (decidido pelo Diego em 21/10/2026)
+Entram só depois que o site da DNM&LTDA tiver a área de login e senha dos membros (exclusividades e descontos
+futuros com parceiros como Woltrix e Navarro). Até lá o app fica exatamente como está.
+- **Liga/desliga de módulos por empresa** (ex.: câmeras desligadas por padrão).
+- **Conta de demonstração** separada para quem quer conhecer o app.
+- **Aviso "Protótipo em teste — DNM&LTDA"** e **botão "Deixar opinião"**.
+- **Aceite dos termos e da privacidade (LGPD)** no cadastro.
+- **Poder do titular:** hoje o titular (dnmltda@hotmail.com) administra tudo, inclusive logins de todas as
+  empresas. Na venda, tirar do titular o poder de mexer nos logins e dados das empresas clientes.

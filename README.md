@@ -10,7 +10,7 @@ automático): [`docs/IDEIAS-FUTURAS.md`](docs/IDEIAS-FUTURAS.md).
 
 ## No ar (empresa de teste, começa vazia)
 
-**https://seagreen-cattle-355822.hostingersite.com/lava-teste**: hospedagem Node.js da Hostinger (ver [`deploy/hostinger/README.md`](deploy/hostinger/README.md)).
+**https://seagreen-cattle-355822.hostingersite.com/claude-teste**: hospedagem Node.js da Hostinger (ver [`deploy/hostinger/README.md`](deploy/hostinger/README.md)).
 
 ## Situação
 

@@ -13,7 +13,7 @@
 const PB = (process.env.PB_URL || "http://127.0.0.1:8090").replace(/\/$/, "");
 const { PB_ADMIN_EMAIL, PB_ADMIN_PASSWORD } = process.env;
 const EXECUTAR = process.argv.includes("--executar");
-const MANTER = (process.env.MANTER || "11900000001,11900000002,11900000003,11900000004,11900000005").split(",");
+const MANTER = (process.env.MANTER || "11920000001,11920000002,11920000003,11920000004,11920000005").split(",");
 const q = encodeURIComponent;
 
 async function api(method, path, token, body) {

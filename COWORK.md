@@ -18,7 +18,7 @@ Em https://github.com/Dnmltda/APP-Lava-r-pido-/settings/secrets/actions:
 
 | Nome | Valor |
 |---|---|
-| `PB_ADMIN_EMAIL` | `admin@dnmltda.com.br` |
+| `PB_ADMIN_EMAIL` | `dnmltda@hotmail.com` (titular da plataforma) |
 | `PB_ADMIN_PASSWORD` | a senha do administrador do PocketBase (a mesma da variável `PB_ADMIN_PASSWORD` do site na Hostinger) |
 
 **Aba Variables → New repository variable**
