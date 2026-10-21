@@ -23,8 +23,14 @@ export function Privacidade() {
         <Secao titulo="O que guardamos">
           <ul className="list-disc pl-5">
             <li>Nome e celular (para entrar no app e para o lava rápido falar com você).</li>
-            <li>Dados do carro: placa (completa ou os 3 últimos números), modelo e cor.</li>
-            <li>Suas lavagens: serviço, horários, produtos pedidos e quem lavou.</li>
+            <li>Se você quiser informar: e-mail e rede social (opcionais, para o lava rápido mandar novidades).</li>
+            <li>
+              Dados do carro: placa (completa ou os 3 últimos números), modelo, cor, o tamanho (que sai do modelo) e se você trabalha com o carro em
+              aplicativo (Uber, 99…).
+            </li>
+            <li>Suas lavagens: serviço, valores, horários, produtos pedidos e quem lavou.</li>
+            <li>Fotos do carro tiradas pela equipe antes e depois da lavagem (opcional, servem de prova do estado do carro).</li>
+            <li>Pedidos de horário, pedidos de orçamento (com as fotos que você mandar) e planos que você pedir ou tiver.</li>
             <li>Avaliações que você enviar.</li>
             <li>Se você ativar os avisos, o endereço técnico do seu celular para receber as notificações.</li>
             <li>Se você aceitar, o seu interesse em receber promoções (pode desligar quando quiser em “Minha conta”).</li>
@@ -36,6 +42,11 @@ export function Privacidade() {
             <li>Na fila pública aparecem só o seu primeiro nome e os 3 últimos números da placa.</li>
             <li>A equipe do lava rápido vê o seu nome, o carro e o pedido, para fazer o serviço.</li>
             <li>A equipe vê as avaliações sem o seu nome; só o dono vê quem avaliou.</li>
+            <li>Fotos do carro e de orçamento: só você e a equipe deste lava rápido veem.</li>
+            <li>
+              E-mail, rede social e a lista de clientes: só o dono (ou quem ele autorizar). O dono e o gerente podem ver quem não volta há algum tempo
+              e mandar uma mensagem no WhatsApp; se não quiser receber, é só dizer.
+            </li>
             <li>Os seus dados não são vendidos nem passados para outras empresas.</li>
           </ul>
         </Secao>
@@ -62,7 +73,7 @@ export function Privacidade() {
           A conexão é criptografada (https), a senha é guardada de forma protegida e cada pessoa da equipe só acessa o que a função dela permite.
         </Secao>
         <p className="text-sm text-tinta-suave">
-          Última atualização: outubro de 2026. ·{" "}
+          Última atualização: 21 de outubro de 2026. ·{" "}
           <Link to={`/${empresa.slug}`} className="underline">
             Voltar ao app
           </Link>
