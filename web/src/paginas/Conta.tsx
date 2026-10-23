@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { InstalarApp } from "../componentes/Avisos";
+import { ContasNoCelular } from "../componentes/ContasSalvas";
 import { Moldura } from "../componentes/Moldura";
 import { MeusVeiculos } from "../componentes/MeusVeiculos";
 import { Aviso, Botao, Campo, Interruptor } from "../componentes/ui";
@@ -104,6 +105,8 @@ export function Conta() {
           Trocar senha
         </Botao>
       </form>
+
+      <ContasNoCelular />
 
       <div className="mt-8">
         <InstalarApp />

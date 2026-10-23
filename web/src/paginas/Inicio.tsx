@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { InstalarApp } from "../componentes/Avisos";
+import { ContasSalvas } from "../componentes/ContasSalvas";
 import { CenaLavagem, RodapeDNM } from "../componentes/Marca";
 import { Botao, Carregando } from "../componentes/ui";
 import { lerUltimaEmpresa } from "../contexto/Empresa";
@@ -16,6 +17,7 @@ import { NOME_PAPEL, type Vinculo } from "../lib/tipos";
 export function Inicio() {
   const { usuario, sair } = useSessao();
   const [vinculos, setVinculos] = useState<Vinculo[] | null>(null);
+  const [celularEscolhido, setCelularEscolhido] = useState("");
   const ficar = !!(useLocation().state as { ficar?: boolean } | null)?.ficar;
   const ultima = ficar ? "" : lerUltimaEmpresa();
 
@@ -62,7 +64,10 @@ export function Inicio() {
             <div className="rounded-2xl border border-linha bg-white p-5 text-base text-tinta shadow-sm">
               <h2 className="text-lg font-bold">Entrar</h2>
               <p className="mt-1 text-tinta-suave">Já tem cadastro em um lava rápido? Use o celular e a senha.</p>
-              <FormEntrar onEntrou={() => undefined} />
+              <div className="mt-4">
+                <ContasSalvas onEntrou={() => undefined} onEscolher={setCelularEscolhido} />
+              </div>
+              <FormEntrar key={celularEscolhido} celularInicial={celularEscolhido} onEntrou={() => undefined} />
             </div>
             <div className="mt-4 rounded-2xl border border-linha bg-white p-5 text-base text-tinta shadow-sm">
               <h2 className="text-lg font-bold">Primeira vez?</h2>

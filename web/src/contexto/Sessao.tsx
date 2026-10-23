@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { pb } from "../lib/pb";
+import { listarContas, lembrarConta, renovarConta } from "../lib/contas";
 import { somenteDigitos } from "../lib/formato";
 import type { Usuario } from "../lib/tipos";
 
@@ -18,9 +19,14 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    const desligar = pb.authStore.onChange((_, record) => {
+    const desligar = pb.authStore.onChange((token, record) => {
       setUsuario(pb.authStore.isValid ? (record as unknown as Usuario) : null);
+      // Conta com senha salva neste celular: guarda a chave renovada.
+      if (pb.authStore.isValid && record?.id) renovarConta(record.id, token);
     });
+    // Quem já estava conectado antes das contas salvas entra na lista (sem senha salva).
+    const atual = pb.authStore.record as unknown as Usuario | null;
+    if (pb.authStore.isValid && atual?.id && atual.celular && !listarContas().some((c) => c.id === atual.id)) lembrarConta(atual, false);
     // Renova o token ao abrir o app; se a senha foi trocada pelo patrão, cai fora.
     if (pb.authStore.isValid) {
       pb.collection("usuarios").authRefresh().catch((err) => {

@@ -14,6 +14,14 @@ funcionário …0004, cliente …0005). Ela começa vazia: o dono cadastra servi
 2. **Android:** toque em “Instalar o app”. **iPhone:** botão Compartilhar → “Adicionar à Tela de Início”.
 3. Entre com o **celular e a senha**. Esqueceu a senha? O patrão troca em *Equipe*.
 4. Em *Minha conta*: mudar nome, trocar a senha, ligar/desligar promoções e sair.
+5. **Mais de uma conta no mesmo celular** (ex.: o amigo empresta o celular para você pôr o seu carro na fila):
+   - Na tela de entrar aparece **Entrar como** com as contas já usadas no aparelho. Com **senha salva**, entra num
+     toque; sem senha salva, o app preenche o celular e pede só a senha. O **X** esquece a conta naquele aparelho.
+   - Ao entrar, **Salvar a senha neste celular** vem ligado na primeira conta do aparelho (a do dono do celular) e
+     desligado nas outras (celular emprestado). Mesmo sem salvar a senha, o nome fica gravado para a próxima vez.
+   - Em *Minha conta → Contas neste celular*: ligar/desligar a senha salva, **Entrar** em outra conta do aparelho e
+     **Entrar com outra conta**.
+   - O app não guarda a senha escrita: guarda um acesso que deixa de valer se a senha for trocada.
 
 ---
 

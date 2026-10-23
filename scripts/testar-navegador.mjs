@@ -605,6 +605,69 @@ async function main() {
       await ctx.close();
     }
 
+    console.log("\nVárias contas no mesmo celular (celular emprestado)");
+    {
+      const D = await criar("empresas", { nome: "Lava Teste Contas", slug: "teste-cnt-" + sufixo, ativo: true, capacidade_simultanea: 2, horario_funcionamento: HORARIO });
+      const celDono = "118" + sufixo + "01";
+      const celAmigo = "118" + sufixo + "02";
+      const dono = await criar("usuarios", { nome: "Dono Celular", celular: celDono, password: "senha12345", passwordConfirm: "senha12345" });
+      const amigo = await criar("usuarios", { nome: "Amigo Emprestado", celular: celAmigo, password: "senha12345", passwordConfirm: "senha12345" });
+      await criar("vinculos", { usuario: dono.id, empresa: D.id, papel: "cliente", ativo: true });
+      await criar("vinculos", { usuario: amigo.id, empresa: D.id, papel: "cliente", ativo: true });
+      const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, locale: "pt-BR", timezoneId: "America/Sao_Paulo" });
+      const p = await ctx.newPage();
+      const erros = [];
+      p.on("pageerror", (e) => erros.push(String(e)));
+      const emCasa = () => p.getByText("Minha conta").first().waitFor({ timeout: 15000 }).then(() => true, () => false);
+      const sairDoApp = async () => {
+        await p.goto(`${APP}/${D.slug}/conta`);
+        await p.getByRole("button", { name: "Sair do app" }).click();
+        await p.waitForURL(/\/entrar$/, { timeout: 15000 });
+      };
+      await p.goto(`${APP}/${D.slug}/entrar`);
+      const chave = p.getByRole("switch", { name: /Salvar a senha neste celular/ });
+      checar("primeira conta do celular: 'Salvar a senha' já vem ligado", (await chave.getAttribute("aria-checked")) === "true");
+      await p.fill('input[type="tel"]', celDono);
+      await p.fill('input[type="password"]', "senha12345");
+      await p.click('button[type="submit"]');
+      checar("dono entra", await emCasa());
+      await sairDoApp();
+      await p.getByRole("button", { name: /^Dono Celular/ }).click();
+      checar("depois de sair, o dono entra só tocando no nome (senha salva)", await emCasa());
+
+      await p.goto(`${APP}/${D.slug}/conta`);
+      await p.getByRole("button", { name: "Entrar com outra conta" }).click();
+      await p.waitForURL(/\/entrar$/, { timeout: 15000 });
+      checar("celular emprestado: para a segunda conta 'Salvar a senha' vem desligado", (await p.getByRole("switch", { name: /Salvar a senha neste celular/ }).getAttribute("aria-checked")) === "false");
+      await p.fill('input[type="tel"]', celAmigo);
+      await p.fill('input[type="password"]', "senha12345");
+      await p.click('button[type="submit"]');
+      checar("amigo entra na conta dele no celular do dono", await emCasa());
+      await p.goto(`${APP}/${D.slug}/conta`);
+      const linhaDono = p.locator("li", { hasText: "Dono Celular" });
+      await linhaDono.getByRole("button", { name: "Entrar" }).click();
+      await p.waitForURL((u) => u.pathname === `/${D.slug}`, { timeout: 15000 }).catch(() => {});
+      checar("em Minha conta, volta para a conta do dono num toque", await emCasa());
+      const sessao = await p.evaluate(() => JSON.parse(localStorage.getItem("pocketbase_auth") || "{}").record?.nome);
+      checar("a conta aberta agora é a do dono", sessao === "Dono Celular", sessao);
+
+      await sairDoApp();
+      checar("o amigo aparece na lista, mas pede a senha", await p.getByRole("button", { name: /^Amigo Emprestado.*pede a senha/ }).isVisible());
+      await p.getByRole("button", { name: /^Amigo Emprestado/ }).click();
+      checar("tocar no amigo preenche o celular dele e pede só a senha", (await p.locator('input[type="tel"]').inputValue()).replace(/\D/g, "") === celAmigo);
+      await p.getByRole("button", { name: "Esquecer Amigo Emprestado" }).click();
+      checar("o amigo tira a conta dele do celular", (await p.getByRole("button", { name: /^Amigo Emprestado/ }).count()) === 0);
+
+      await api("PATCH", `/api/collections/usuarios/records/${dono.id}`, { token: ADM, body: { password: "outraSenha987", passwordConfirm: "outraSenha987" } });
+      await p.getByRole("button", { name: /^Dono Celular/ }).click();
+      await p.getByText(/venceu ou a senha mudou/).waitFor({ timeout: 15000 }).catch(() => {});
+      checar("senha trocada: o acesso salvo deixa de valer e o app pede a senha nova", (await p.getByText(/venceu ou a senha mudou/).count()) === 1 && (await p.getByText("Minha conta").count()) === 0);
+      const guardado = await p.evaluate(() => localStorage.getItem("lr_contas") || "");
+      checar("a senha escrita nunca fica guardada no celular", !guardado.includes("senha12345") && !guardado.includes("outraSenha987"));
+      checar("sem erros de JavaScript nas contas salvas", erros.length === 0, erros);
+      await ctx.close();
+    }
+
     console.log("\nTodas as telas de cada perfil abrem sem erro");
     for (const p of ["patrao", "gerente", "funcionario", "responsavel"]) {
       const page = paginas[p];

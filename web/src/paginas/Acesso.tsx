@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { InstalarApp } from "../componentes/Avisos";
+import { ContasSalvas } from "../componentes/ContasSalvas";
 import { CamposVeiculo, corpoVeiculo, validarVeiculo, VEICULO_VAZIO } from "../componentes/CamposVeiculo";
 import { Moldura } from "../componentes/Moldura";
 import { Aviso, Botao, Campo, Interruptor } from "../componentes/ui";
@@ -8,6 +9,8 @@ import { useEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
 import { celularValido, mascaraCelular, somenteDigitos } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
+import { listarContas, lembrarConta } from "../lib/contas";
+import type { Usuario } from "../lib/tipos";
 
 const CHAVE_CELULAR = "lr_ultimo_celular";
 function lerUltimoCelular() {
@@ -36,10 +39,13 @@ async function oferecerSalvarSenha(id: string, password: string) {
 }
 
 // Formulário de login (celular + senha). Usado na tela do lava rápido e na página inicial.
-export function FormEntrar({ onEntrou }: { onEntrou: () => void }) {
+export function FormEntrar({ onEntrou, celularInicial }: { onEntrou: () => void; celularInicial?: string }) {
   const { entrar } = useSessao();
   // Lembra o último celular usado neste aparelho (só o número, nunca a senha).
-  const [celular, setCelular] = useState(() => mascaraCelular(lerUltimoCelular()));
+  const [celular, setCelular] = useState(() => mascaraCelular(celularInicial || lerUltimoCelular()));
+  // Primeira conta do celular: costuma ser o dono do aparelho, já vem marcado. Celular emprestado
+  // (já tem outra conta salva): vem desmarcado.
+  const [salvarSenha, setSalvarSenha] = useState(() => listarContas().length === 0);
   const [senha, setSenha] = useState("");
   const [verSenha, setVerSenha] = useState(false);
   const [erro, setErro] = useState("");
@@ -54,7 +60,8 @@ export function FormEntrar({ onEntrou }: { onEntrou: () => void }) {
     try {
       await entrar(celular, senha);
       guardarUltimoCelular(somenteDigitos(celular));
-      await oferecerSalvarSenha(somenteDigitos(celular), senha);
+      lembrarConta(pb.authStore.record as unknown as Usuario, salvarSenha);
+      if (salvarSenha) await oferecerSalvarSenha(somenteDigitos(celular), senha);
       onEntrou();
     } catch (err) {
       const status = (err as { status?: number })?.status;
@@ -95,7 +102,12 @@ export function FormEntrar({ onEntrou }: { onEntrou: () => void }) {
           {verSenha ? "Esconder" : "Mostrar"}
         </button>
       </div>
-      <p className="-mt-2 text-sm text-tinta-suave">O app fica conectado neste celular. O celular também oferece salvar a senha.</p>
+      <Interruptor
+        rotulo="Salvar a senha neste celular"
+        descricao={salvarSenha ? "Da próxima vez é só tocar no seu nome." : "Celular emprestado? Deixe desligado: fica só o seu nome e o app pede a senha."}
+        ligado={salvarSenha}
+        onChange={setSalvarSenha}
+      />
       {erro && <Aviso>{erro}</Aviso>}
       <Botao type="submit" largo carregando={enviando}>
         Entrar
@@ -108,14 +120,21 @@ export function Entrar() {
   const { empresa } = useEmpresa();
   const { usuario } = useSessao();
   const navegar = useNavigate();
+  // "Trocar de conta" (Minha conta) pode mandar o celular da conta escolhida.
+  const estado = useLocation().state as { celular?: string } | null;
+  const [celularEscolhido, setCelularEscolhido] = useState(estado?.celular || "");
 
   if (usuario) return <Navigate to={`/${empresa.slug}`} replace />;
+  const entrou = () => navegar(`/${empresa.slug}`, { replace: true });
 
   return (
     <Moldura>
       <h1 className="text-2xl font-extrabold text-tinta">Entrar</h1>
       <p className="mt-1 text-base text-tinta-suave">Use o celular e a senha do seu cadastro.</p>
-      <FormEntrar onEntrou={() => navegar(`/${empresa.slug}`, { replace: true })} />
+      <div className="mt-5">
+        <ContasSalvas onEntrou={entrou} onEscolher={setCelularEscolhido} />
+      </div>
+      <FormEntrar key={celularEscolhido} celularInicial={celularEscolhido} onEntrou={entrou} />
       <div className="mt-8 border-t border-linha pt-6 text-center">
         <p className="text-base text-tinta-suave">Primeira vez aqui?</p>
         <Link
@@ -179,9 +198,12 @@ export function Cadastro() {
           ...corpoVeiculo(veiculo),
         },
       });
+      // Conta nova neste celular: guarda com a senha se for a primeira conta do aparelho (dá para mudar em Minha conta).
+      const primeira = listarContas().length === 0;
       await entrar(celular, senha);
       guardarUltimoCelular(somenteDigitos(celular));
-      await oferecerSalvarSenha(somenteDigitos(celular), senha);
+      lembrarConta(pb.authStore.record as unknown as Usuario, primeira);
+      if (primeira) await oferecerSalvarSenha(somenteDigitos(celular), senha);
       navegar(`/${empresa.slug}`, { replace: true });
     } catch (err) {
       setErro(mensagemDeErro(err));
