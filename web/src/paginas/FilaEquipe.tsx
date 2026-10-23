@@ -1,3 +1,4 @@
+import { porteDoCarro, useModelos } from "../lib/porteVeiculo";
 import { useFlip } from "../lib/animacao";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate } from "react-router-dom";
@@ -70,6 +71,7 @@ export function FilaEquipe() {
   const [erroAcao, setErroAcao] = useState("");
   const gestao = pode(vinculo, "gerenciar_fila");
   const tipos = tiposDaEmpresa(empresa);
+  const modelos = useModelos();
   const { contagem: fotos, recarregar: recarregarFotos } = useFotosDasEntradas((entradas || []).map((x) => x.id));
   // Plano e prêmio de fidelidade de cada cliente na fila (o servidor calcula).
   const [beneficios, setBeneficios] = useState<Record<string, Beneficio>>({});
@@ -158,7 +160,7 @@ export function FilaEquipe() {
             e.tipo_veiculo_nome && <span className={`${chip} border-linha bg-white text-tinta`}>{e.tipo_veiculo_nome}</span>
           ))}
         {beneficioChips(e)}
-        {gestao && e.cliente && e.veiculo && !e.tipo_veiculo && !e.expand?.veiculo?.porte && tipos.some((t) => t.vale && t.vale !== "app") && (
+        {gestao && e.cliente && e.veiculo && !e.tipo_veiculo && !(e.expand?.veiculo && porteDoCarro(modelos, e.expand.veiculo)) && tipos.some((t) => t.vale && t.vale !== "app") && (
           <button
             type="button"
             onClick={() => setPedido({ tipo: "tipoVeiculo", entrada: e })}

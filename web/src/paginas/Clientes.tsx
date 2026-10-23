@@ -8,7 +8,8 @@ import { useEmpresa } from "../contexto/Empresa";
 import { linkWhatsApp, mascaraCelular, reais } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
 import { pode } from "../lib/permissoes";
-import { textoPorte } from "../lib/porteVeiculo";
+import { porteDoCarro, textoPorte, useModelos } from "../lib/porteVeiculo";
+import type { Porte } from "../lib/tipos";
 import { tempoDeCliente, vezes, type DadosHistorico } from "./Historico";
 
 // Lista de clientes: só o dono, ou quem o dono liberar em Equipe → "Lista de clientes".
@@ -31,7 +32,7 @@ interface VeiculoCliente {
   final_placa: string;
   modelo: string;
   cor: string;
-  porte: string;
+  porte: Porte | "";
   app_motorista: boolean;
   cobrar_como: string;
 }
@@ -172,6 +173,7 @@ export function Clientes() {
 function CobrarComo({ empresaId, veiculo }: { empresaId: string; veiculo: VeiculoCliente }) {
   const { empresa, vinculo } = useEmpresa();
   const tipos = tiposDaEmpresa(empresa);
+  const porte = porteDoCarro(useModelos(), veiculo);
   const [tipo, setTipo] = useState(veiculo.cobrar_como === "recusado" ? "" : veiculo.cobrar_como);
   const [salvo, setSalvo] = useState(tipo);
   const [erro, setErro] = useState("");
@@ -197,7 +199,7 @@ function CobrarComo({ empresaId, veiculo }: { empresaId: string; veiculo: Veicul
     <div className="rounded-2xl border border-linha bg-white p-3">
       <p className="text-base font-bold text-tinta">{[veiculo.modelo, veiculo.cor, veiculo.placa || `…${veiculo.final_placa}`].filter(Boolean).join(" · ")}</p>
       <p className="text-sm text-tinta-suave">
-        {veiculo.porte ? `${textoPorte(veiculo.porte)} (pelo modelo)` : "Modelo fora da lista: tamanho a definir"}
+        {porte ? `${textoPorte(porte)} (pela tabela de tamanhos)` : "Modelo fora da tabela: tamanho a definir"}
         {veiculo.app_motorista ? " · diz ser motorista de app" : ""}
         {nomeSalvo ? ` · cobrando como ${nomeSalvo}` : ""}
       </p>

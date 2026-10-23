@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useEmpresaOpcional } from "../contexto/Empresa";
 import { pb } from "./pb";
 import type { Porte, TipoVeiculo, Veiculo, Vinculo } from "./tipos";
 
@@ -16,22 +17,41 @@ export const nomePorte = (p?: string) => PORTES.find((x) => x.id === p)?.nome ||
 export interface ModeloConhecido {
   nome: string;
   porte: Porte;
+  /** Tamanho mudado pelo dono deste lava rápido (padrao = tamanho da lista geral; "" = modelo incluído por ele). */
+  ajustado?: boolean;
+  padrao?: Porte | "";
 }
-let cacheModelos: Promise<ModeloConhecido[]> | null = null;
+// Dentro de um lava rápido a lista já vem com a tabela de tamanhos dele.
+const cacheModelos = new Map<string, Promise<ModeloConhecido[]>>();
+export function esquecerModelos(empresaId: string) {
+  cacheModelos.delete(empresaId);
+}
 export function useModelos() {
+  const empresaId = useEmpresaOpcional()?.empresa.id || "";
   const [lista, setLista] = useState<ModeloConhecido[]>([]);
   useEffect(() => {
-    cacheModelos ||= pb.send<ModeloConhecido[]>("/api/lr/modelos", { method: "GET" }).catch(() => {
-      cacheModelos = null;
-      return [];
-    });
+    let p = cacheModelos.get(empresaId);
+    if (!p) {
+      p = pb
+        .send<ModeloConhecido[]>("/api/lr/modelos", { method: "GET", query: empresaId ? { empresa: empresaId } : {} })
+        .catch(() => {
+          cacheModelos.delete(empresaId);
+          return [];
+        });
+      cacheModelos.set(empresaId, p);
+    }
     let vivo = true;
-    cacheModelos.then((l) => vivo && setLista(l));
+    p.then((l) => vivo && setLista(l));
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [empresaId]);
   return lista;
+}
+
+// Tamanho do carro neste lava rápido: a tabela dele > tamanho gravado no cadastro.
+export function porteDoCarro(lista: ModeloConhecido[], veiculo: Pick<Veiculo, "modelo" | "porte">): Porte | "" {
+  return acharModelo(lista, veiculo.modelo || "")?.porte || veiculo.porte || "";
 }
 
 const normal = (t: string) => ` ${t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim()} `;
@@ -62,6 +82,7 @@ export function tipoDoCarro(
   tipos: TipoVeiculo[],
   vinculo: Vinculo | null,
   veiculo: Veiculo | undefined,
+  modelos: ModeloConhecido[] = [],
 ): { tipo?: TipoVeiculo; motivo: string; appPendente: boolean } {
   if (!veiculo) return { motivo: "", appPendente: false };
   const idEquipe = vinculo?.tipos_veiculos?.[veiculo.id];
@@ -69,7 +90,8 @@ export function tipoDoCarro(
   const app = tipos.find((t) => t.vale === "app");
   const appPendente = !!veiculo.app_motorista && !!app && idEquipe !== app.id && idEquipe !== "recusado";
   if (daEquipe) return { tipo: daEquipe, motivo: daEquipe.vale === "app" ? "motorista de app aprovado" : "definido pelo lava rápido", appPendente };
-  const porte = veiculo.porte && tipos.find((t) => t.vale === veiculo.porte);
+  const tamanho = porteDoCarro(modelos, veiculo);
+  const porte = tamanho && tipos.find((t) => t.vale === tamanho);
   if (porte) return { tipo: porte, motivo: "pelo tamanho do carro", appPendente };
   return { motivo: "", appPendente };
 }

@@ -73,7 +73,7 @@ routerAdd("POST", "/api/lr/agendar", (e) => {
   } catch (_) {}
   ids = ids.filter((x, i) => x && ids.indexOf(x) === i);
   if (!ids.length) throw new BadRequestError("Escolha o veículo.");
-  if (ids.length > 3) throw new BadRequestError("No máximo 3 carros por vez.");
+  if (ids.length > lib.MAX_CARROS_POR_PEDIDO) throw new BadRequestError("Marque até " + lib.MAX_CARROS_POR_PEDIDO + " carros de uma vez.");
   for (const id of ids) {
     let v;
     try {

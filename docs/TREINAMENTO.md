@@ -82,14 +82,18 @@ Tudo do gerente, mais:
   Botão **Pausar** em cada serviço: some da tela do cliente sem apagar nada; **Ativar** traz de volta.
 - **Produtos**: sugestões prontas (cheirinho, pretinho, flanela, água…). Toque, coloque o seu preço e o estoque.
 - **Configurações → Buscamos o carro do cliente**: liga a opção de busca (o app avisa que tem taxa adicional).
-- **Cobrar como** (privilégio do cliente): em **Clientes**, em cada carro, o dono (ou o gerente) escolhe como cobrar
+- **Tamanho dos carros** (só o dono): a tabela que diz se cada modelo é pequeno, médio, grande ou moto **no seu
+  lava rápido**. Toque no tamanho certo ao lado do modelo, ou inclua um modelo que não está na lista (ex.: Strada
+  como médio). Vale para todos os clientes nas próximas entradas na fila; **Voltar ao padrão** desfaz. Não muda
+  nada nos outros lava rápidos nem o cadastro do carro do cliente.
+- **Cobrar como** (privilégio do cliente, vale por cima da tabela): em **Clientes**, em cada carro, o dono (ou o gerente) escolhe como cobrar
   aquele carro — ex.: um carro grande cobrado como médio para um cliente fiel. Vale sozinho nas próximas vezes;
   “Pelo tamanho” volta ao normal. Fica registrado quem mudou.
 - **Motorista de app para aprovar** (tela inicial): carros que a equipe conferiu na fila. **Aprovar** = desconto
   automático nas próximas vezes, só para aquele carro e só neste lava rápido. **Recusar** = preço pelo tamanho.
   Um carro cadastrado não troca de placa nem de modelo (para ninguém passar outro carro como o aprovado).
 - **Caixa → + Gasto fixo**: aluguel, luz, internet, contador… com o dia do vencimento. Entra sozinho no caixa todo mês.
-- **Configurações**: logo, cor, quantos carros lava ao mesmo tempo, tolerância de atraso, antecedência do aviso,
+- **Configurações**: logo, quantos carros lava ao mesmo tempo, tolerância de atraso, antecedência do aviso,
   textos das notificações, horário de funcionamento, comissão ligada/desligada. Metas e bônus por carro.
 - **Câmeras**: ver os boxes ao vivo; sensor de movimento com alerta de área parada (ver `docs/CAMERAS.md`).
 - **Cartaz do balcão**: QR Code para imprimir. Coloque no balcão, na espera e no caixa.
@@ -119,7 +123,7 @@ Tudo do gerente, mais:
    Pelo modelo o app já sabe o **tamanho** (HB20 = pequeno, Corolla = médio, Hilux = grande); o cliente **não escolhe
    nem muda** o tamanho. Pergunta só se trabalha
    com **aplicativo** (Uber, 99). E-mail e rede social são **opcionais** (para divulgação; só o dono vê).
-2. **Entrar na fila** → marca o carro (ou até 3 carros de uma vez) → serviço → **Conferir antes de entrar**: aparece
+2. **Entrar na fila** → marca o carro (ou todos os carros que vai trazer) → serviço → **Conferir antes de entrar**: aparece
    cada carro com o seu serviço e o seu valor, e os produtos. **Cada carro paga o seu valor, separado: o app nunca
    soma os carros.** Depois **Confirmar**. Com o carro na fila dá para pôr outro em **+ Colocar outro carro na fila**. → produtos (opcional) → “quero que busquem meu carro” (opcional) → **Confirmar e entrar na fila**.
 3. Acompanhar a posição e a previsão. Se a equipe tirar fotos, aparece **Ver fotos do seu carro**. Botão **Falar no WhatsApp** direto com o lava rápido. Ligar os **avisos** para receber “vez confirmada”, “já pode vir” e “carro pronto”.

@@ -1328,9 +1328,15 @@ function tipoDoCarro(empresa, vinculo, veiculo) {
   } catch (_) {}
   const tipos = tiposVeiculo(empresa);
   const porVale = (v) => tipos.find((t) => t.vale === v);
-  const porte = veiculo.getString("porte");
+  const porte = porteNaEmpresa(empresa, veiculo);
   if (porte && porVale(porte)) return porVale(porte).id;
   return "";
+}
+// Tamanho do carro neste lava rápido: a tabela dele (ajustes do dono) > tamanho do cadastro.
+function porteNaEmpresa(empresa, veiculo) {
+  const modelos = require(`${__hooks}/modelos.js`);
+  const achado = modelos.acharModelo(veiculo.getString("modelo"), modelos.listaDaEmpresa(empresa));
+  return achado ? achado.porte : veiculo.getString("porte");
 }
 // Grava tipo + preço na entrada. tipoId inválido → sem tipo (preço normal).
 function aplicarTipo(entrada, servico, empresa, tipoId) {
@@ -1419,7 +1425,6 @@ function criarEntradaConfirmada(tx, o) {
     if (bate) throw new BadRequestError("O carro " + nomeCarro + " já tem vez perto desse horário.");
   } else {
     if (doCarro.length) throw new BadRequestError("O carro " + nomeCarro + " já está na fila.");
-    if (doCliente.length >= 3) throw new BadRequestError("O cliente já tem 3 carros na fila.");
   }
   const dur = o.duracao || o.servico.getInt("duracao_media_min");
   const estado = carregarFila(tx, o.empresa);
@@ -1614,7 +1619,12 @@ function limparPrecosTipo(e) {
   e.record.set("precos_tipo", limpo);
 }
 
+// O cliente pode ter quantos carros quiser na fila; isto é só uma trava técnica por pedido.
+const MAX_CARROS_POR_PEDIDO = 30;
+
 module.exports = {
+  MAX_CARROS_POR_PEDIDO,
+  porteNaEmpresa,
   limparPrecosTipo,
   competenciaSP,
   lancarGastosFixos,

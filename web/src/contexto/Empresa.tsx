@@ -112,6 +112,11 @@ export function EmpresaProvider({
   );
 }
 
+// Igual a useEmpresa, mas devolve null fora de um lava rápido (componentes usados nos dois lugares).
+export function useEmpresaOpcional() {
+  return useContext(Ctx);
+}
+
 export function useEmpresa() {
   const c = useContext(Ctx);
   if (!c) throw new Error("useEmpresa fora do EmpresaProvider");

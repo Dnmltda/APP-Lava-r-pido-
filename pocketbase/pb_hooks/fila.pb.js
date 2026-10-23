@@ -166,8 +166,8 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
   if (!ids.length && body.veiculo) ids = [String(body.veiculo)];
   ids = ids.filter((x, i) => x && ids.indexOf(x) === i);
   if (!ids.length) throw new BadRequestError("Escolha o veículo.");
-  const MAX_CARROS = 3;
-  if (ids.length > MAX_CARROS) throw new BadRequestError("No máximo " + MAX_CARROS + " carros por vez.");
+  // Sem limite de carros por cliente (decisão do Diego, 23/10/2026): só uma trava técnica por pedido.
+  if (ids.length > lib.MAX_CARROS_POR_PEDIDO) throw new BadRequestError("Marque até " + lib.MAX_CARROS_POR_PEDIDO + " carros de uma vez.");
   const veiculos = ids.map((id) => {
     let v;
     try {
@@ -182,14 +182,13 @@ routerAdd("POST", "/api/lr/fila/entrar", (e) => {
   const criadas = [];
   e.app.runInTransaction((tx) => {
     const ativos = "(" + lib.STATUS_ATIVOS.map((s) => "status = '" + s + "'").join(" || ") + ")";
-    // Cada carro só uma vez na fila; e no máximo MAX_CARROS carros do mesmo cliente ao mesmo tempo.
+    // Cada carro só uma vez na fila (o cliente pode ter quantos carros quiser).
     const doCliente = tx.findRecordsByFilter("fila_entradas", "empresa = {:e} && cliente = {:c} && " + ativos, "", 0, 0, { e: empresa.id, c: e.auth.id });
     for (const v of veiculos) {
       if (doCliente.some((x) => x.getString("veiculo") === v.id)) {
         throw new BadRequestError("O carro " + (v.getString("modelo") || "…" + v.getString("final_placa")) + " já está na fila.");
       }
     }
-    if (doCliente.length + veiculos.length > MAX_CARROS) throw new BadRequestError("No máximo " + MAX_CARROS + " carros na fila ao mesmo tempo.");
 
     const temApp = lib.tiposVeiculo(empresa).some((t) => t.vale === "app");
     const appTipo = lib.tiposVeiculo(empresa).find((t) => t.vale === "app");

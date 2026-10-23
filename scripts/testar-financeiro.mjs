@@ -212,10 +212,12 @@ async function main() {
     const v3 = await criar("veiculos", { cliente: c1.id, final_placa: "U03", modelo: "Gol", cor: "Branco", porte: "pequeno", ativo: true });
     const v4 = await criar("veiculos", { cliente: c1.id, final_placa: "U04", modelo: "Gol", cor: "Azul", porte: "pequeno", ativo: true });
     r = await api("POST", "/api/lr/fila/entrar", { token: c1.token, body: { slug: A.slug, servico: servico.id, veiculos: [v3.id, v4.id] } });
-    checar("no máximo 3 carros do mesmo cliente ao mesmo tempo", r.status === 400 && /3 carros/.test(r.data?.message || ""), r.data);
+    checar("sem limite de carros: o mesmo cliente fica com 4 carros na fila", r.status === 201 && r.data.ids?.length === 2, r.data);
+    const extras = r.data?.ids || [];
     checar("carro de outro cliente não entra", (await api("POST", "/api/lr/fila/entrar", { token: c2.token, body: { slug: A.slug, servico: servico.id, veiculos: [v3.id] } })).status === 400);
     await sair(ea);
     await sair(eb);
+    for (const id of extras) await sair({ id });
     checar("busca do carro: empresa que não oferece não recebe pedido de busca", (await (async () => { await sair(e1); e1 = await entrar({ quer_busca: true }); return !e1.quer_busca; })()));
     await sair(e1);
     await api("PATCH", `/api/collections/empresas/records/${A.id}`, { token: patrao.token, body: { oferece_busca: true } });

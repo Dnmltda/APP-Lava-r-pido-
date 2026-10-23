@@ -9,7 +9,7 @@ import { useEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
 import { diaHora, duracao, reais } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
-import { textoPorte, tipoDoCarro } from "../lib/porteVeiculo";
+import { porteDoCarro, textoPorte, tipoDoCarro, useModelos } from "../lib/porteVeiculo";
 import type { Agendamento, Orcamento, Servico } from "../lib/tipos";
 
 // Agendamento pelo cliente: ele PEDE o dia e o horário. A equipe confirma no horário, sugere outro,
@@ -82,6 +82,7 @@ export function Agendar() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+  const modelos = useModelos();
 
   if (!usuario) return <Navigate to={`/${empresa.slug}/entrar`} replace />;
   if (vinculo?.papel !== "cliente") return <Navigate to={`/${empresa.slug}`} replace />;
@@ -91,7 +92,7 @@ export function Agendar() {
   const carros = escolhidos
     .map((id) => veiculos?.find((v) => v.id === id))
     .filter((v): v is NonNullable<typeof v> => !!v)
-    .map((v) => ({ v, ...tipoDoCarro(tipos, vinculo, v) }));
+    .map((v) => ({ v, ...tipoDoCarro(tipos, vinculo, v, modelos) }));
   const lista = (servicos || []).filter((s) => !s.sob_orcamento || s.id === orcamento?.servico);
   const servicoEscolhido = servicos?.find((s) => s.id === servico);
   const precoDo = (s: Servico, tipoId?: string) => (orcamento && s.id === orcamento.servico ? orcamento.valor : precoPara(s, tipoId));
@@ -100,7 +101,6 @@ export function Agendar() {
     if (orcamento) return;
     setErro("");
     if (escolhidos.includes(id)) return setMarcados(escolhidos.filter((x) => x !== id));
-    if (escolhidos.length >= 3) return setErro("No máximo 3 carros por vez.");
     setMarcados([...escolhidos, id]);
   }
   function conferir() {
@@ -192,7 +192,7 @@ export function Agendar() {
           {carros.map(({ v, tipo }) => (
             <div key={v.id} className="rounded-2xl border-2 border-linha bg-white p-4">
               <p className="text-lg font-extrabold text-tinta">{descricaoVeiculo(v)}</p>
-              <p className="text-sm text-tinta-suave">{tipo ? tipo.nome : v.porte ? textoPorte(v.porte) : "Tamanho: o lava rápido confere"}</p>
+              <p className="text-sm text-tinta-suave">{tipo ? tipo.nome : porteDoCarro(modelos, v) ? textoPorte(porteDoCarro(modelos, v)) : "Tamanho: o lava rápido confere"}</p>
               <p className="mt-2 flex items-baseline justify-between gap-3 text-base text-tinta">
                 <span>{servicoEscolhido.nome}</span>
                 <strong className="text-xl">{reais(precoDo(servicoEscolhido, tipo?.id))}</strong>
@@ -219,7 +219,7 @@ export function Agendar() {
             </p>
           )}
           <fieldset>
-            <legend className="mb-2 text-base font-bold text-tinta">Carro (até 3)</legend>
+            <legend className="mb-2 text-base font-bold text-tinta">Carro (pode marcar mais de um)</legend>
             <div className="flex flex-col gap-2">
               {veiculos?.map((v) => (
                 <button

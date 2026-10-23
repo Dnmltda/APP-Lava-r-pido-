@@ -101,6 +101,10 @@ jobs:
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
         run: node scripts/testar-fidelizacao.mjs
 
+      - name: Sem limite de carros e tabela de tamanhos de cada lava rápido
+        env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456 }
+        run: node scripts/testar-tamanhos.mjs
+
       - name: Navegador (Etapa 8 — fluxo completo com um celular por perfil)
         env: { PB_ADMIN_EMAIL: ci@teste.local, PB_ADMIN_PASSWORD: SenhaCI-123456, APP_URL: "http://127.0.0.1:8090" }
         run: |

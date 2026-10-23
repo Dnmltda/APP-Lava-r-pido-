@@ -4,6 +4,7 @@ import { EmpresaProvider } from "./contexto/Empresa";
 import { SessaoProvider } from "./contexto/Sessao";
 import { Cadastro, Entrar } from "./paginas/Acesso";
 import { Configuracoes } from "./paginas/Configuracoes";
+import { Tamanhos } from "./paginas/Tamanhos";
 import { Conta } from "./paginas/Conta";
 import { Equipe } from "./paginas/Equipe";
 import { Inicio } from "./paginas/Inicio";
@@ -92,6 +93,7 @@ export default function App() {
             <Route path="reativar" element={<Reativar />} />
             <Route path="privacidade" element={<Privacidade />} />
             <Route path="configuracoes" element={<Configuracoes />} />
+            <Route path="tamanhos" element={<Tamanhos />} />
             <Route path="servicos" element={<Servicos />} />
             <Route path="fila" element={<FilaEquipe />} />
             <Route path="produtos" element={<Produtos />} />

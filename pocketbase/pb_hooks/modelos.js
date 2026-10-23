@@ -36,12 +36,12 @@ function junto(t) {
   return normal(t).replace(/ /g, "");
 }
 // Acha o modelo digitado ("hb20 1.0", "Hb 20", "corolla xei"); o nome mais longo ganha.
-function acharModelo(modelo) {
+function acharModelo(modelo, lista) {
   const m = normal(modelo);
   const mj = junto(modelo);
   if (mj.length < 2) return null;
   let melhor = null;
-  for (const x of LISTA) {
+  for (const x of lista || LISTA) {
     const nj = junto(x.nome);
     const casa = m.indexOf(normal(x.nome)) >= 0 || (nj.length >= 3 && mj.indexOf(nj) === 0);
     if (casa && (!melhor || nj.length > junto(melhor.nome).length)) melhor = x;
@@ -49,4 +49,67 @@ function acharModelo(modelo) {
   return melhor;
 }
 
-module.exports = { LISTA, acharModelo };
+const PORTES = ["pequeno", "medio", "grande", "moto"];
+
+// Ajustes do lava rápido (empresas.tamanhos_modelos): { "Strada": "medio" }.
+function ajustesDaEmpresa(empresa) {
+  let obj = {};
+  try {
+    obj = JSON.parse((empresa && empresa.getString("tamanhos_modelos")) || "{}") || {};
+  } catch (_) {
+    obj = {};
+  }
+  const out = {};
+  if (typeof obj !== "object" || Array.isArray(obj)) return out;
+  for (const k of Object.keys(obj)) if (PORTES.indexOf(obj[k]) >= 0) out[k] = obj[k];
+  return out;
+}
+
+// Lista do lava rápido: a lista padrão com os ajustes dele por cima (e modelos novos que ele incluiu).
+function listaDaEmpresa(empresa) {
+  const ajustes = ajustesDaEmpresa(empresa);
+  const nomes = Object.keys(ajustes);
+  if (!nomes.length) return LISTA;
+  const porJunto = {};
+  for (const n of nomes) porJunto[junto(n)] = n;
+  const out = [];
+  for (const x of LISTA) {
+    const n = porJunto[junto(x.nome)];
+    out.push(n ? { nome: x.nome, porte: ajustes[n], ajustado: true, padrao: x.porte } : x);
+    if (n) delete porJunto[junto(x.nome)];
+  }
+  for (const j of Object.keys(porJunto)) out.push({ nome: porJunto[j], porte: ajustes[porJunto[j]], ajustado: true, padrao: "" });
+  return out;
+}
+
+// Valida o que o dono mandou: { modelo: porte }, nomes curtos, no máximo 300 ajustes.
+function limparAjustes(valor) {
+  let obj = valor;
+  // O corpo do pedido chega como mapa do servidor: vira objeto comum antes de conferir.
+  try {
+    if (obj && typeof obj !== "string") obj = JSON.parse(JSON.stringify(obj));
+  } catch (_) {
+    return null;
+  }
+  if (typeof obj === "string") {
+    try {
+      obj = JSON.parse(obj || "{}");
+    } catch (_) {
+      return null;
+    }
+  }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
+  const out = {};
+  const vistos = {};
+  for (const k of Object.keys(obj)) {
+    const nome = String(k).replace(/\s+/g, " ").trim();
+    if (nome.length < 2 || nome.length > 40 || PORTES.indexOf(obj[k]) < 0) return null;
+    if (vistos[junto(nome)]) continue;
+    vistos[junto(nome)] = true;
+    out[nome] = obj[k];
+  }
+  if (Object.keys(out).length > 300) return null;
+  return out;
+}
+
+module.exports = { LISTA, PORTES, acharModelo, listaDaEmpresa, ajustesDaEmpresa, limparAjustes };

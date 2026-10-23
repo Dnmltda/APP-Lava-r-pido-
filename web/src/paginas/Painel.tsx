@@ -1,31 +1,6 @@
 import { Bolhas, CenaLavagem } from "../componentes/Marca";
 import { useContagem } from "../lib/animacao";
-import {
-  Car,
-  Cctv,
-  ChartColumn,
-  ChevronRight,
-  CircleUserRound,
-  Contact,
-  Gauge,
-  History,
-  ListOrdered,
-  Package,
-  QrCode,
-  Settings,
-  ShoppingBag,
-  Sparkles,
-  Star,
-  UserRound,
-  Users,
-  Wallet,
-  Receipt,
-  Tv,
-  Gift,
-  FileText,
-  HeartHandshake,
-  type LucideIcon,
-} from "lucide-react";
+import { Car, CarFront, Cctv, ChartColumn, ChevronRight, CircleUserRound, Contact, FileText, Gauge, Gift, HeartHandshake, History, ListOrdered, Package, QrCode, Receipt, Settings, ShoppingBag, Sparkles, Star, Tv, UserRound, Users, Wallet, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
@@ -113,6 +88,7 @@ export function Painel() {
             <Grupo titulo="Cadastros e conta">
               {pode(vinculo, "gerenciar_equipe") && <Atalho para={`/${s}/equipe`} icone={Users} titulo="Equipe" texto="Pessoas, permissões, senhas" />}
               {pode(vinculo, "catalogo") && <Atalho para={`/${s}/servicos`} icone={Sparkles} titulo="Serviços" texto="Preço e tempo médio" />}
+              {patrao && <Atalho para={`/${s}/tamanhos`} icone={CarFront} titulo="Tamanho dos carros" texto="Qual modelo é pequeno, médio ou grande" />}
               {pode(vinculo, "catalogo") && <Atalho para={`/${s}/produtos`} icone={Package} titulo="Produtos" texto="Preço, estoque, comissão" />}
               {pode(vinculo, "cameras") && <Atalho para={`/${s}/cameras`} icone={Cctv} titulo="Câmeras" texto="Boxes ao vivo e sensor" />}
               {patrao && <Atalho para={`/${s}/cartaz`} icone={QrCode} titulo="Cartaz do balcão" texto="QR Code para os clientes" />}

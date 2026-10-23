@@ -36,9 +36,8 @@ Cada uma diz o que precisa, quanto custa e o tamanho do trabalho (P = dias, M = 
   grátis.
 
 ## 5. Outras ideias que apareceram no caminho
-- **Picapes pequenas** (Strada, Saveiro, Montana, Oroch): decidir se entram como carro pequeno ou médio na lista de
-  modelos (hoje a equipe confere na 1ª lavagem).
-- **Limite de carros na fila por cliente:** hoje 3. Avaliar exceção para frotas (Uber com vários carros, empresas).
+- **Picapes pequenas e limite de carros:** resolvidos em 23/10/2026. Não há mais limite de carros por cliente,
+  e cada dono ajusta o tamanho de qualquer modelo na tela **Tamanho dos carros** (ex.: Strada como médio).
 - **Preço de moto:** a tabela de referência não tem (sem fonte confiável); cada lava rápido cadastra o seu.
 
 ## 6. Para a versão de venda (decidido pelo Diego em 21/10/2026)

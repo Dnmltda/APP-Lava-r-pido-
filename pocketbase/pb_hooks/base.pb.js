@@ -104,9 +104,20 @@ routerAdd("POST", "/api/lr/cadastro", (e) => {
 
 // ------------------------------------------------- tamanho do carro pelo modelo
 // GET /api/lr/modelos: lista de modelos e tamanhos (o app mostra enquanto o cliente digita).
+// Com ?empresa=<id>, já vem com os ajustes de tamanho daquele lava rápido.
 routerAdd("GET", "/api/lr/modelos", (e) => {
-  e.response.header().set("Cache-Control", "public, max-age=3600");
-  return e.json(200, require(`${__hooks}/modelos.js`).LISTA);
+  const modelos = require(`${__hooks}/modelos.js`);
+  const id = String(e.request.url.query().get("empresa") || "");
+  if (!id) {
+    e.response.header().set("Cache-Control", "public, max-age=3600");
+    return e.json(200, modelos.LISTA);
+  }
+  let empresa = null;
+  try {
+    empresa = e.app.findRecordById("empresas", id);
+  } catch (_) {}
+  e.response.header().set("Cache-Control", "no-cache");
+  return e.json(200, empresa ? modelos.listaDaEmpresa(empresa) : modelos.LISTA);
 });
 // O tamanho do carro é sempre o do modelo: o cliente não escolhe nem muda (só o administrador
 // do sistema). Como cobrar um carro diferente do tamanho é com o dono/gerente ("cobrar como").
@@ -297,11 +308,25 @@ onRecordUpdateRequest((e) => {
   });
 }, "vinculos");
 
+// Tabela de tamanhos do lava rápido: só nomes válidos e tamanhos conhecidos.
+onRecordUpdateRequest((e) => {
+  const body = e.requestInfo().body || {};
+  if (body.tamanhos_modelos !== undefined) {
+    let valor = body.tamanhos_modelos;
+    // Campo JSON chega como bytes no corpo do pedido: vira texto antes de conferir.
+    if (Array.isArray(valor) && valor.every((n) => typeof n === "number")) valor = toString(valor);
+    const limpo = require(`${__hooks}/modelos.js`).limparAjustes(valor);
+    if (!limpo) throw new BadRequestError("Tabela de tamanhos inválida.");
+    e.record.set("tamanhos_modelos", limpo);
+  }
+  e.next();
+}, "empresas");
+
 // Alterações nas configurações da empresa.
 onRecordUpdateRequest((e) => {
   const lib = require(`${__hooks}/lib.js`);
   const campos = ["nome", "cor_principal", "whatsapp", "endereco", "capacidade_simultanea",
-    "tolerancia_min", "aviso_min", "textos_aviso", "horario_funcionamento", "logo", "comissao_ativa"];
+    "tolerancia_min", "aviso_min", "textos_aviso", "horario_funcionamento", "logo", "comissao_ativa", "tamanhos_modelos"];
   const original = e.record.original();
   const antes = {};
   for (const c of campos) antes[c] = original.get(c);

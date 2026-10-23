@@ -33,6 +33,8 @@ export interface Empresa extends Base {
   fidelidade_ativa?: boolean;
   fidelidade_meta?: number;
   fidelidade_premio?: string;
+  /** Tabela de tamanhos do lava rápido (ajustes do dono por cima da lista geral). */
+  tamanhos_modelos?: Record<string, Porte> | null;
 }
 
 // Tipos de veículo criados por cada lava rápido (ex.: Pequeno, Grande/SUV, Moto, Motorista de app).

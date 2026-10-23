@@ -59,10 +59,10 @@ async function api(method, p, { token, body } = {}, tentativa = 0) {
   return { status: res.status, data };
 }
 
-const MENU = ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Minha área", "Clientes", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"];
+const MENU = ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Minha área", "Clientes", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras", "Tamanho dos carros"];
 // O que cada perfil deve ver no menu (tabela 1.3)
 const VE = {
-  patrao: ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Clientes", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras"],
+  patrao: ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Clientes", "Equipe", "Serviços", "Produtos", "Cartaz", "Configurações", "Câmeras", "Tamanho dos carros"],
   gerente: ["Fila", "Vendas", "Dashboard", "Painel do dia", "Caixa", "Avaliações", "Minha área"],
   funcionario: ["Fila", "Vendas", "Avaliações", "Minha área"],
   responsavel: ["Fila", "Vendas", "Avaliações", "Minha área"],
@@ -70,7 +70,7 @@ const VE = {
 };
 const ROTA = {
   Fila: "fila", Vendas: "vendas", Dashboard: "dashboard", "Painel do dia": "painel", Caixa: "caixa", Avaliações: "avaliacoes", "Minha área": "minha-area", Clientes: "clientes",
-  Equipe: "equipe", Serviços: "servicos", Produtos: "produtos", Cartaz: "cartaz", Configurações: "configuracoes", Câmeras: "cameras",
+  Equipe: "equipe", Serviços: "servicos", Produtos: "produtos", Cartaz: "cartaz", Configurações: "configuracoes", Câmeras: "cameras", "Tamanho dos carros": "tamanhos",
 };
 
 async function main() {
@@ -181,7 +181,7 @@ async function main() {
     }
 
     console.log("\nLink direto para tela proibida volta para o início");
-    const proibidas = { gerente: ["equipe", "cameras", "configuracoes", "servicos", "planos"], funcionario: ["painel", "caixa", "fechamento", "cameras", "equipe", "planos", "orcamentos", "reativar"], cliente: ["fila", "vendas", "painel", "cameras", "avaliacoes"] };
+    const proibidas = { gerente: ["equipe", "cameras", "configuracoes", "servicos", "planos", "tamanhos"], funcionario: ["painel", "caixa", "fechamento", "cameras", "equipe", "planos", "orcamentos", "reativar", "tamanhos"], cliente: ["fila", "vendas", "painel", "cameras", "avaliacoes", "tamanhos"] };
     for (const [p, rotas] of Object.entries(proibidas)) {
       for (const r of rotas) {
         await paginas[p].goto(`${APP}/${A.slug}/${r}`);

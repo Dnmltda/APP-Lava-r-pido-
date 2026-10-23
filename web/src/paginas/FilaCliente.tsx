@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { AtivarAvisos } from "../componentes/Avisos";
 import { Quantidade } from "../componentes/Quantidade";
 import { precoPara, tiposDaEmpresa } from "../componentes/TipoVeiculo";
-import { textoPorte, tipoDoCarro } from "../lib/porteVeiculo";
+import { porteDoCarro, textoPorte, tipoDoCarro, useModelos } from "../lib/porteVeiculo";
 import { FotosEntrada, useFotosDasEntradas } from "../componentes/Vistoria";
 import { ListaFilaPublica, IconeBusca } from "../componentes/fila";
 import { descricaoVeiculo, detalheVeiculo, NovoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
@@ -384,6 +384,7 @@ function EntrarNaFila({
   const [conferindo, setConferindo] = useState(false);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const modelos = useModelos();
 
   useEffect(() => {
     pb.collection("servicos")
@@ -396,21 +397,19 @@ function EntrarNaFila({
   const livres = (veiculos || []).filter((v) => !naFila.includes(v.id));
   // Sem escolha ainda: com um carro só, ele já vem marcado.
   const escolhidos = marcados ?? (livres.length === 1 ? [livres[0].id] : []);
-  const maxNovos = Math.max(0, 3 - naFila.length);
   const tipos = tiposDaEmpresa(empresa);
   const usaPorte = tipos.some((t) => t.vale && t.vale !== "app");
   // Cada carro tem o seu preço (tamanho pelo modelo, ou o que o lava rápido definiu). Nunca somamos.
   const carros = escolhidos
     .map((id) => veiculos?.find((v) => v.id === id))
     .filter((v): v is NonNullable<typeof v> => !!v)
-    .map((v) => ({ v, ...tipoDoCarro(tipos, vinculo, v) }));
+    .map((v) => ({ v, ...tipoDoCarro(tipos, vinculo, v, modelos) }));
   const servicoEscolhido = servicos?.find((s) => s.id === servico);
 
   function alternarCarro(id: string) {
     setErro("");
     const atual = escolhidos;
     if (atual.includes(id)) return setMarcados(atual.filter((x) => x !== id));
-    if (atual.length >= maxNovos) return setErro(`No máximo 3 carros na fila ao mesmo tempo.`);
     setMarcados([...atual, id]);
   }
 
@@ -444,7 +443,7 @@ function EntrarNaFila({
         onFechar={() => setNovoVeiculo(false)}
         onSalvo={(v) => {
           setNovoVeiculo(false);
-          setMarcados([...escolhidos, v.id].slice(0, maxNovos));
+          setMarcados([...escolhidos, v.id]);
           recarregar();
         }}
       />
@@ -463,7 +462,7 @@ function EntrarNaFila({
           {carros.map(({ v, tipo, appPendente }) => (
             <div key={v.id} className="rounded-2xl border-2 border-linha bg-white p-4">
               <p className="text-lg font-extrabold text-tinta">{nomeCarro(v)}</p>
-              <p className="text-sm text-tinta-suave">{tipo ? tipo.nome : v.porte ? textoPorte(v.porte) : usaPorte ? "Tamanho: o lava rápido confere" : ""}</p>
+              <p className="text-sm text-tinta-suave">{tipo ? tipo.nome : porteDoCarro(modelos, v) ? textoPorte(porteDoCarro(modelos, v)) : usaPorte ? "Tamanho: o lava rápido confere" : ""}</p>
               <p className="mt-2 flex items-baseline justify-between gap-3 text-base text-tinta">
                 <span>{servicoEscolhido.nome}</span>
                 <strong className="text-xl">{reais(precoPara(servicoEscolhido, tipo?.id))}</strong>
@@ -506,7 +505,7 @@ function EntrarNaFila({
       <div className="flex flex-col gap-5">
         <fieldset>
           <legend className="mb-1 text-base font-bold text-tinta">Veículo</legend>
-          <p className="mb-2 text-sm text-tinta-suave">Vai trazer mais de um? Marque os carros (até 3). Cada um entra com a sua vez e o seu valor.</p>
+          <p className="mb-2 text-sm text-tinta-suave">Vai trazer mais de um? Marque todos os carros. Cada um entra com a sua vez e o seu valor.</p>
           <div className="flex flex-col gap-2">
             {veiculos?.map((v) => {
               const jaEsta = naFila.includes(v.id);
@@ -524,7 +523,7 @@ function EntrarNaFila({
                     {escolhidos.includes(v.id) ? "✓ " : ""}
                     {descricaoVeiculo(v)}
                   </span>
-                  <span className="block text-sm text-tinta-suave">{jaEsta ? "Já está na fila" : usaPorte ? detalheVeiculo(v) : ""}</span>
+                  <span className="block text-sm text-tinta-suave">{jaEsta ? "Já está na fila" : usaPorte ? detalheVeiculo(v, modelos) : ""}</span>
                 </button>
               );
             })}
