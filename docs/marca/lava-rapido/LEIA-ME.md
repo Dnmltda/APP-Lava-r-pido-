@@ -1,7 +1,8 @@
 # Logo do app DNM&LTDA Lava Rápido
 
 Logo exclusivo do app, com a DNM&LTDA como referência (azul-marinho, azul royal, dourado, creme,
-coroa e assinatura "by DNM&LTDA"). Criado em 23/10/2026.
+coroa e assinatura "by DNM&LTDA"). Criado em 23/10/2026 e **aprovado pelo Diego: não alterar**.
+É o modelo de padrão para os logos dos outros apps da DNM&LTDA.
 
 | Arquivo | Uso |
 |---|---|
