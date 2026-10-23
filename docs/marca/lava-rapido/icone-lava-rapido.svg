@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512"><defs>
+<linearGradient id="gota" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f56cf"/><stop offset=".55" stop-color="#1E40AF"/><stop offset="1" stop-color="#0A1F4D"/></linearGradient>
+<linearGradient id="ouro" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6DA86"/><stop offset=".45" stop-color="#E5B339"/><stop offset="1" stop-color="#B8862B"/></linearGradient>
+<linearGradient id="vidro" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e4ecff"/><stop offset="1" stop-color="#7d96d6"/></linearGradient>
+<clipPath id="corte"><path d="M120 44 C150 88 205 122 205 177 A85 85 0 0 1 35 177 C35 122 90 88 120 44 Z"/></clipPath>
+</defs><rect width="512" height="512" rx="112" fill="#0A1F4D"/><rect x="22" y="22" width="468" height="468" rx="96" fill="none" stroke="url(#ouro)" stroke-width="6"/><g transform="translate(256 262) scale(1.42) translate(-120 -140)"><g>
+<path d="M120 44 C150 88 205 122 205 177 A85 85 0 0 1 35 177 C35 122 90 88 120 44 Z" fill="url(#gota)"/>
+<g clip-path="url(#corte)">
+ <path d="M30 228 Q60 216 90 228 T150 228 T210 228 V270 H30 Z" fill="#3b63d9" opacity=".55"/>
+ <path d="M30 240 Q60 230 90 240 T150 240 T210 240 V270 H30 Z" fill="#0A1F4D" opacity=".5"/>
+ <ellipse cx="120" cy="92" rx="70" ry="22" fill="#ffffff" opacity=".07"/>
+</g>
+<g transform="translate(51 150) scale(0.86)">
+ <path d="M14 58 C14 48 20 44 32 42 L50 40 L64 26 C68 22 74 20 82 20 L104 20 C112 20 117 23 122 28 L134 40 L144 43 C150 45 152 49 152 54 L152 60 C152 63 150 65 147 65 L18 65 C15 65 14 62 14 58 Z" fill="#F7EFDC"/>
+ <path d="M58 40 L69 28 C72 25 76 24 81 24 L92 24 L92 40 Z" fill="url(#vidro)"/>
+ <path d="M97 24 L104 24 C110 24 114 26 118 30 L127 40 L97 40 Z" fill="url(#vidro)"/>
+ <path d="M24 47 C40 44 110 43 146 47" stroke="#E5B339" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+ <circle cx="44" cy="65" r="12" fill="#0A1F4D"/><circle cx="44" cy="65" r="6.5" fill="url(#ouro)"/>
+ <circle cx="122" cy="65" r="12" fill="#0A1F4D"/><circle cx="122" cy="65" r="6.5" fill="url(#ouro)"/>
+</g>
+<path d="M163 118 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z" fill="url(#ouro)"/>
+<path d="M80 128 l2 4.5 4.5 2 -4.5 2 -2 4.5 -2 -4.5 -4.5 -2 4.5 -2z" fill="#F6DA86"/>
+<path d="M120 44 C150 88 205 122 205 177 A85 85 0 0 1 35 177 C35 122 90 88 120 44 Z" fill="none" stroke="url(#ouro)" stroke-width="5"/>
+<g>
+ <path d="M84 36 L78 10 L101 23 L120 4 L139 23 L162 10 L156 36 Z" fill="url(#ouro)" stroke="#B8862B" stroke-width="1.5" stroke-linejoin="round"/>
+ <rect x="83" y="34" width="74" height="9" rx="3" fill="url(#ouro)" stroke="#B8862B" stroke-width="1.5"/>
+ <circle cx="78" cy="9" r="5" fill="url(#ouro)" stroke="#B8862B" stroke-width="1"/>
+ <circle cx="120" cy="4" r="6" fill="url(#ouro)" stroke="#B8862B" stroke-width="1"/>
+ <circle cx="162" cy="9" r="5" fill="url(#ouro)" stroke="#B8862B" stroke-width="1"/>
+ <circle cx="120" cy="25" r="3.2" fill="#0A1F4D"/>
+</g>
+</g></g></svg>
