@@ -7,7 +7,7 @@ import { duracao, reais } from "../lib/formato";
 import { mensagemDeErro, pb } from "../lib/pb";
 import { pode } from "../lib/permissoes";
 import { tiposDaEmpresa } from "../componentes/TipoVeiculo";
-import { SERVICOS_PADRAO, TIPOS_PADRAO } from "../lib/tabelaPadrao";
+import { precoInicial, SERVICOS_PADRAO, TIPOS_AJUSTAR, TIPOS_PADRAO } from "../lib/tabelaPadrao";
 import type { Empresa } from "../lib/tipos";
 import type { Servico, TipoVeiculo, ValeTipo } from "../lib/tipos";
 
@@ -83,7 +83,9 @@ export function Servicos() {
             {pode(vinculo, "configurar_empresa") && <TabelaPadrao onPronto={carregar} />}
           </>
         ) : (
-          lista.map((s) => (
+          <>
+          {pode(vinculo, "configurar_empresa") && <AcrescentarTipos servicos={lista} onPronto={carregar} />}
+          {lista.map((s) => (
             <div key={s.id} className={`flex items-stretch gap-2 rounded-2xl border border-linha bg-white shadow-sm ${s.ativo ? "" : "bg-fundo"}`}>
               <button onClick={() => setEditando(s)} className="flex min-h-16 min-w-0 flex-1 items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left hover:bg-fundo">
                 <span className="min-w-0">
@@ -106,7 +108,8 @@ export function Servicos() {
                 {s.ativo ? "Pausar" : "Ativar"}
               </button>
             </div>
-          ))
+          ))}
+          </>
         )}
       </div>
       {editando && (
@@ -126,6 +129,55 @@ export function Servicos() {
   );
 }
 
+// Lava rápido que já tem serviços e ainda não tem Moto, Caminhão ou Van/ônibus: acrescenta os tipos que
+// faltam com o valor que o app já cobraria (moto = preço padrão; caminhão e van/ônibus = carro grande).
+function AcrescentarTipos({ servicos, onPronto }: { servicos: Servico[]; onPronto: () => void }) {
+  const { empresa, recarregarEmpresa } = useEmpresa();
+  const [erro, setErro] = useState("");
+  const [criando, setCriando] = useState(false);
+  const atuais = tiposDaEmpresa(empresa);
+  const faltam = TIPOS_AJUSTAR.filter((t) => !atuais.some((a) => a.vale === t.vale));
+  if (!faltam.length) return null;
+
+  async function acrescentar() {
+    setErro("");
+    setCriando(true);
+    try {
+      const salva = await pb.collection("empresas").update<Empresa>(empresa.id, {
+        tipos_veiculo: [...atuais, ...faltam.map(({ base: _base, ...t }) => ({ id: "", ...t }))],
+      });
+      const tipos = tiposDaEmpresa(salva);
+      const idGrande = tipos.find((t) => t.vale === "grande")?.id || "";
+      const novos = faltam.map((t) => ({ id: tipos.find((x) => x.vale === t.vale)?.id || "", base: t.base }));
+      for (const sv of servicos) {
+        const precos = { ...(sv.precos_tipo || {}) };
+        for (const t of novos) if (t.id) precos[t.id] = precoInicial(sv, idGrande, t.base);
+        await pb.collection("servicos").update(sv.id, { precos_tipo: precos });
+      }
+      await recarregarEmpresa();
+      onPronto();
+    } catch (err) {
+      setErro(mensagemDeErro(err));
+    } finally {
+      setCriando(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-dourado bg-white p-4">
+      <p className="text-lg font-extrabold text-tinta">Moto, caminhão e van / ônibus</p>
+      <p className="mt-1 text-base text-tinta">
+        Acrescente {faltam.map((t) => t.nome).join(", ")} nos seus serviços. Eles começam com o valor que o app já cobra hoje (moto pelo preço padrão;
+        caminhão e van/ônibus como carro grande). Depois toque em cada serviço e coloque os seus valores.
+      </p>
+      {erro && <Aviso>{erro}</Aviso>}
+      <Botao variante="secundario" largo className="mt-3" carregando={criando} onClick={acrescentar}>
+        Acrescentar {faltam.length === 1 ? faltam[0].nome : "estes tipos"}
+      </Botao>
+    </div>
+  );
+}
+
 // Começa com a tabela de referência: 7 serviços com preço por porte. O dono ajusta depois.
 function TabelaPadrao({ onPronto }: { onPronto: () => void }) {
   const { empresa, recarregarEmpresa } = useEmpresa();
@@ -137,10 +189,14 @@ function TabelaPadrao({ onPronto }: { onPronto: () => void }) {
     setCriando(true);
     try {
       const atuais = tiposDaEmpresa(empresa);
-      const novos = TIPOS_PADRAO.filter((t) => !atuais.some((a) => a.nome === t.nome)).map((t) => ({ id: "", ...t }));
+      const novos = [
+        ...TIPOS_PADRAO.filter((t) => !atuais.some((a) => a.nome === t.nome)).map((t) => ({ id: "", ...t })),
+        ...TIPOS_AJUSTAR.filter((t) => !atuais.some((a) => a.vale === t.vale)).map(({ base: _base, ...t }) => ({ id: "", ...t })),
+      ];
       const salva = novos.length ? await pb.collection("empresas").update<Empresa>(empresa.id, { tipos_veiculo: [...atuais, ...novos] }) : empresa;
       const tipos = tiposDaEmpresa(salva);
       const ids = TIPOS_PADRAO.map((t) => tipos.find((x) => x.nome === t.nome)?.id || "");
+      const ajustar = TIPOS_AJUSTAR.map((t) => ({ id: tipos.find((x) => x.vale === t.vale)?.id || "", base: t.base }));
       for (const [i, sv] of SERVICOS_PADRAO.entries()) {
         await pb.collection("servicos").create({
           empresa: empresa.id,
@@ -150,7 +206,9 @@ function TabelaPadrao({ onPronto }: { onPronto: () => void }) {
           duracao_media_min: sv.minutos,
           ordem_exibicao: i + 1,
           ativo: true,
-          precos_tipo: Object.fromEntries(ids.map((id, j) => [id, sv.precos[j]]).filter(([id]) => id)),
+          precos_tipo: Object.fromEntries(
+            [...ids.map((id, j) => [id, sv.precos[j]] as const), ...ajustar.map((t) => [t.id, t.base === "grande" ? sv.precos[2] : sv.precos[0]] as const)].filter(([id]) => id),
+          ),
         });
       }
       await recarregarEmpresa();
@@ -169,6 +227,10 @@ function TabelaPadrao({ onPronto }: { onPronto: () => void }) {
         {SERVICOS_PADRAO.length} serviços comuns em lava rápido ({SERVICOS_PADRAO.map((s) => s.nome).join(", ")}) com preço para carro pequeno, sedan/SUV e caminhonete/van.
       </p>
       <p className="mt-1 text-sm text-tinta-suave">Preços médios de 2026 no Brasil. Depois é só tocar em cada serviço e ajustar para a sua cidade.</p>
+      <p className="mt-1 text-sm text-tinta-suave">
+        Também vêm os tipos <strong>Moto</strong>, <strong>Caminhão</strong> e <strong>Van / ônibus</strong>, com o valor inicial que o app já cobraria (moto pelo
+        preço padrão; caminhão e van/ônibus como caminhonete). Coloque os seus valores em cada serviço.
+      </p>
       {erro && <Aviso>{erro}</Aviso>}
       <Botao largo className="mt-3" carregando={criando} onClick={criar}>
         Usar a tabela de referência

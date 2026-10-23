@@ -3,13 +3,28 @@
 // https://lavagemdeouro.com/tabela-de-precos-lava-car-2026/ (arredondado para múltiplos de 5).
 // Tempos: mesma fonte e https://www.carpass.in/blog/tabela-de-precos-para-lava-rapido;
 // onde as fontes não trazem tempo, é estimativa e vem marcada no fim da linha.
-// Moto fica de fora: nenhuma fonte confiável de preço.
+// Moto, caminhão e transporte (van, ônibus): sem fonte confiável de preço. Entram com o valor que o app
+// já cobraria (moto = preço padrão do serviço; caminhão e transporte = carro grande) e cada dono ajusta
+// os valores dele (decisão do Diego, 23/10/2026).
 
 export const TIPOS_PADRAO = [
   { nome: "Carro pequeno (hatch)", restrito: false, vale: "pequeno" },
   { nome: "Sedan / SUV", restrito: false, vale: "medio" },
   { nome: "Caminhonete / Van", restrito: false, vale: "grande" },
 ] as const;
+
+// Tipos que o dono precisa ajustar o valor. "base" = de onde sai o valor inicial.
+export const TIPOS_AJUSTAR = [
+  { nome: "Moto", restrito: false, vale: "moto", base: "padrao" },
+  { nome: "Caminhão", restrito: false, vale: "caminhao", base: "grande" },
+  { nome: "Van / ônibus (transporte)", restrito: false, vale: "transporte", base: "grande" },
+] as const;
+
+// Valor inicial de um tipo "a ajustar" num serviço: o mesmo que o app já cobraria hoje.
+export function precoInicial(servico: { preco: number; precos_tipo?: Record<string, number> | null }, idGrande: string, base: "padrao" | "grande") {
+  const grande = idGrande ? servico.precos_tipo?.[idGrande] : undefined;
+  return base === "grande" && typeof grande === "number" ? grande : servico.preco;
+}
 
 // precos = [pequeno, sedan/SUV, caminhonete/van]; o preço padrão do serviço é o do carro pequeno.
 export const SERVICOS_PADRAO: { nome: string; descricao: string; minutos: number; precos: [number, number, number] }[] = [

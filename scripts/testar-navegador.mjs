@@ -570,9 +570,38 @@ async function main() {
       const emp = (await api("GET", `/api/collections/empresas/records/${B.id}`, { token: ADM })).data;
       const suv = (emp.tipos_veiculo || []).find((t) => t.nome === "Sedan / SUV");
       const completa = svs.find((x) => x.nome === "Lavagem completa");
-      checar("dono cria 7 serviços e 3 portes com um toque", svs.length === 7 && (emp.tipos_veiculo || []).length === 3, [svs.length, emp.tipos_veiculo]);
+      checar("dono cria 7 serviços e 6 tipos (3 portes + moto, caminhão, van/ônibus) com um toque", svs.length === 7 && (emp.tipos_veiculo || []).length === 6, [svs.length, emp.tipos_veiculo]);
       checar("cada serviço já vem com preço por porte", completa?.preco === 75 && completa?.precos_tipo?.[suv?.id] === 100, completa && completa.precos_tipo);
+      const idDe = (vale) => (emp.tipos_veiculo || []).find((t) => t.vale === vale)?.id;
+      checar(
+        "moto, caminhão e van/ônibus começam com o valor de hoje (moto 75 = padrão; caminhão e van 125 = caminhonete)",
+        completa?.precos_tipo?.[idDe("moto")] === 75 && completa?.precos_tipo?.[idDe("caminhao")] === 125 && completa?.precos_tipo?.[idDe("transporte")] === 125,
+        completa && completa.precos_tipo,
+      );
       checar("o botão some quando já há serviços", (await p.getByRole("button", { name: "Usar a tabela de referência" }).count()) === 0);
+      checar("com os tipos completos, não oferece acrescentar", (await p.getByRole("button", { name: /Acrescentar/ }).count()) === 0);
+
+      // Lava rápido antigo (só pequeno/médio/grande): acrescenta moto, caminhão e van/ônibus num toque.
+      const C = await criar("empresas", {
+        nome: "Lava Teste Antigo", slug: "teste-ant-" + sufixo, ativo: true, capacidade_simultanea: 2, horario_funcionamento: HORARIO,
+        tipos_veiculo: [{ nome: "Pequeno", vale: "pequeno" }, { nome: "Grande", vale: "grande" }],
+      });
+      await criar("vinculos", { usuario: dono.id, empresa: C.id, papel: "patrao", ativo: true });
+      const tiposC = (await api("GET", `/api/collections/empresas/records/${C.id}`, { token: ADM })).data.tipos_veiculo;
+      const gC = tiposC.find((t) => t.vale === "grande").id;
+      const svC = await criar("servicos", { empresa: C.id, nome: "Lavagem", preco: 50, duracao_media_min: 30, ativo: true, precos_tipo: { [gC]: 90 } });
+      await p.goto(`${APP}/${C.slug}/servicos`);
+      await p.getByRole("button", { name: "Acrescentar estes tipos" }).click();
+      await p.getByRole("button", { name: "Acrescentar estes tipos" }).waitFor({ state: "detached", timeout: 30000 }).catch(() => {});
+      const empC = (await api("GET", `/api/collections/empresas/records/${C.id}`, { token: ADM })).data;
+      const svC2 = (await api("GET", `/api/collections/servicos/records/${svC.id}`, { token: ADM })).data;
+      const idC = (vale) => (empC.tipos_veiculo || []).find((t) => t.vale === vale)?.id;
+      checar("lava rápido antigo ganha moto, caminhão e van/ônibus", (empC.tipos_veiculo || []).length === 5 && idC("moto") && idC("caminhao") && idC("transporte"), empC.tipos_veiculo);
+      checar(
+        "valores iniciais: moto 50 (padrão), caminhão e van 90 (carro grande); os de antes não mudam",
+        svC2.precos_tipo?.[idC("moto")] === 50 && svC2.precos_tipo?.[idC("caminhao")] === 90 && svC2.precos_tipo?.[idC("transporte")] === 90 && svC2.precos_tipo?.[gC] === 90 && svC2.preco === 50,
+        svC2.precos_tipo,
+      );
       await ctx.close();
     }
 
