@@ -9,7 +9,11 @@ export const PORTES: { id: Porte; nome: string; exemplos: string }[] = [
   { id: "medio", nome: "Médio", exemplos: "sedan e SUV: Corolla, Compass, Creta" },
   { id: "grande", nome: "Grande", exemplos: "caminhonete e van: Hilux, S10, Ranger" },
   { id: "moto", nome: "Moto", exemplos: "" },
+  { id: "caminhao", nome: "Caminhão", exemplos: "Accelo, Atego, Cargo, Constellation" },
+  { id: "transporte", nome: "Transporte", exemplos: "van, micro-ônibus e ônibus: Sprinter, Master, Volare" },
 ];
+// Caminhão ou transporte sem preço próprio no lava rápido: cobrado como carro grande (igual ao servidor).
+const PORTE_RESERVA: Partial<Record<Porte, Porte>> = { caminhao: "grande", transporte: "grande" };
 export const nomePorte = (p?: string) => PORTES.find((x) => x.id === p)?.nome || "";
 
 // Lista de modelos e tamanhos: vem do servidor (fonte única, pb_hooks/modelos.js). O cliente não
@@ -73,7 +77,10 @@ export function acharModelo(lista: ModeloConhecido[], modelo: string): ModeloCon
 
 export function textoPorte(p?: string) {
   if (!p) return "";
-  return p === "moto" ? "Moto" : `Carro ${nomePorte(p).toLowerCase()}`;
+  if (p === "moto") return "Moto";
+  if (p === "caminhao") return "Caminhão";
+  if (p === "transporte") return "Veículo de transporte (van, ônibus)";
+  return `Carro ${nomePorte(p).toLowerCase()}`;
 }
 
 // Mesma regra do servidor (lib.tipoDoCarro): o que a equipe/dono definiu > tamanho do cadastro.
@@ -91,7 +98,8 @@ export function tipoDoCarro(
   const appPendente = !!veiculo.app_motorista && !!app && idEquipe !== app.id && idEquipe !== "recusado";
   if (daEquipe) return { tipo: daEquipe, motivo: daEquipe.vale === "app" ? "motorista de app aprovado" : "definido pelo lava rápido", appPendente };
   const tamanho = porteDoCarro(modelos, veiculo);
-  const porte = tamanho && tipos.find((t) => t.vale === tamanho);
+  const reserva = tamanho ? PORTE_RESERVA[tamanho] : undefined;
+  const porte = (tamanho && tipos.find((t) => t.vale === tamanho)) || (reserva && tipos.find((t) => t.vale === reserva));
   if (porte) return { tipo: porte, motivo: "pelo tamanho do carro", appPendente };
   return { motivo: "", appPendente };
 }

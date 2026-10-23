@@ -169,6 +169,40 @@ async function main() {
     checar("Hilux volta a ser cobrada como grande (80)", JSON.stringify(await precos(ids)) === "[80]", await precos(ids));
     await sairTodos(ids);
 
+    console.log("\nCaminhão e transporte (van, micro-ônibus, ônibus)");
+    const atego = await carro("Atego 2426", "T08");
+    const sprinter = await carro("Sprinter 415", "T09");
+    const onibus = await carro("Volare W9", "T10");
+    checar("tamanho pelo modelo: Atego caminhão, Sprinter e Volare transporte", atego.porte === "caminhao" && sprinter.porte === "transporte" && onibus.porte === "transporte", [atego.porte, sprinter.porte, onibus.porte]);
+    r = await entrar(A, a.servico, [atego, sprinter]);
+    ids = r.data?.ids || [];
+    checar("sem preço próprio: caminhão e van cobrados como carro grande (80 e 80)", JSON.stringify(await precos(ids)) === "[80,80]", await precos(ids));
+    await sairTodos(ids);
+    const emp = await ler("empresas", A.id);
+    r = await api("PATCH", `/api/collections/empresas/records/${A.id}`, {
+      token: patrao.token,
+      body: { tipos_veiculo: [...emp.tipos_veiculo, { nome: "Caminhão", vale: "caminhao" }, { nome: "Van / ônibus", vale: "transporte" }] },
+    });
+    const tc = r.data?.tipos_veiculo?.find((t) => t.vale === "caminhao");
+    const tt = r.data?.tipos_veiculo?.find((t) => t.vale === "transporte");
+    checar("dono cria os tipos Caminhão e Transporte", r.status === 200 && tc && tt, r.data);
+    await api("PATCH", `/api/collections/servicos/records/${a.servico.id}`, { token: patrao.token, body: { precos_tipo: { [a.tipos.pequeno]: 40, [a.tipos.medio]: 60, [a.tipos.grande]: 80, [tc.id]: 200, [tt.id]: 120 } } });
+    r = await entrar(A, a.servico, [atego, sprinter, onibus]);
+    ids = r.data?.ids || [];
+    checar("com preço próprio: caminhão 200, van 120, micro-ônibus 120", JSON.stringify(await precos(ids)) === "[200,120,120]", await precos(ids));
+    await sairTodos(ids);
+    r = await api("PATCH", `/api/collections/empresas/records/${A.id}`, { token: patrao.token, body: { tamanhos_modelos: { Strada: "medio", Daily: "caminhao" } } });
+    checar("dono pode marcar um modelo como caminhão (Daily chassi)", r.status === 200 && r.data.tamanhos_modelos?.Daily === "caminhao", r.data);
+    const daily = await carro("Daily 35-150", "T11");
+    r = await entrar(A, a.servico, [daily]);
+    ids = r.data?.ids || [];
+    checar("a Daily deste lava rápido é cobrada como caminhão (200)", JSON.stringify(await precos(ids)) === "[200]", await precos(ids));
+    await sairTodos(ids);
+    r = await entrar(B, b.servico, [daily, atego]);
+    ids = r.data?.ids || [];
+    checar("no outro lava rápido (sem tipos novos): Daily e Atego como carro grande (80 e 80)", JSON.stringify(await precos(ids)) === "[80,80]", await precos(ids));
+    await sairTodos(ids);
+
     console.log("\nAgendamento com vários carros");
     const amanha = new Date(Date.now() + 26 * 3600000);
     r = await api("POST", "/api/lr/agendar", { token: c1.token, body: { slug: A.slug, servico: a.servico.id, veiculos: [hb20.id, hilux.id, strada.id, corolla.id], horario: amanha.toISOString() } });

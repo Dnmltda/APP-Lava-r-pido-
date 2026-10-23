@@ -182,6 +182,8 @@ const VALES: { id: ValeTipo; nome: string }[] = [
   { id: "medio", nome: "Carro médio" },
   { id: "grande", nome: "Carro grande" },
   { id: "moto", nome: "Moto" },
+  { id: "caminhao", nome: "Caminhão" },
+  { id: "transporte", nome: "Transporte (van, ônibus)" },
   { id: "app", nome: "Motorista de app" },
   { id: "", nome: "Só a equipe marca" },
 ];

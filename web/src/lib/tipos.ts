@@ -39,7 +39,7 @@ export interface Empresa extends Base {
 
 // Tipos de veículo criados por cada lava rápido (ex.: Pequeno, Grande/SUV, Moto, Motorista de app).
 // "restrito": só a equipe escolhe (o cliente não pode se colocar como Uber/convênio).
-export type Porte = "pequeno" | "medio" | "grande" | "moto";
+export type Porte = "pequeno" | "medio" | "grande" | "moto" | "caminhao" | "transporte";
 /** Para qual carro o tipo entra sozinho na fila: porte do cadastro ou motorista de app. */
 export type ValeTipo = "" | Porte | "app";
 

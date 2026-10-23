@@ -7,7 +7,7 @@ import { mensagemDeErro, pb } from "../lib/pb";
 import { acharModelo, esquecerModelos, PORTES, type ModeloConhecido } from "../lib/porteVeiculo";
 import type { Porte } from "../lib/tipos";
 
-// Tabela de tamanhos do lava rápido: o dono decide se cada modelo é pequeno, médio, grande ou moto
+// Tabela de tamanhos do lava rápido: o dono decide se cada modelo é pequeno, médio, grande, moto, caminhão ou transporte
 // (ex.: "Strada é médio aqui"). Vale para todos os clientes deste lava rápido; para um cliente
 // específico continua o "Cobrar como" na tela de Clientes.
 
@@ -81,6 +81,14 @@ export function Tamanhos() {
       <p className="text-base text-tinta-suave">
         O preço de cada carro sai pelo tamanho do modelo. Aqui você decide o tamanho de cada modelo <strong>no seu lava rápido</strong>. Vale para todos os
         clientes, nas próximas entradas na fila.
+      </p>
+      <p className="mt-2 text-sm text-tinta-suave">
+        <strong>Caminhão</strong> e <strong>transporte</strong> (vans, micro-ônibus e ônibus) que ainda não têm preço próprio são cobrados como carro
+        grande. Para dar preço próprio, crie o tipo em{" "}
+        <Link to={`/${empresa.slug}/servicos`} className="font-bold text-marca-forte underline">
+          Serviços → Tipos de veículo
+        </Link>{" "}
+        e escolha “entra sozinho para: Caminhão” ou “Transporte”.
       </p>
       <p className="mt-2 text-sm text-tinta-suave">
         Quer um preço especial só para um cliente (ex.: carro grande cobrado como médio)? Use <strong>Cobrar como</strong> no carro dele, em{" "}
@@ -158,7 +166,7 @@ export function Tamanhos() {
             return (
               <div key={p.id} className="mt-4">
                 <h3 className="mb-2 text-sm font-extrabold uppercase tracking-wide text-tinta-suave">
-                  {p.id === "moto" ? "Motos" : `Carros ${p.nome.toLowerCase()}s`} ({doTamanho.length})
+                  {TITULO_GRUPO[p.id]} ({doTamanho.length})
                 </h3>
                 <ul className="flex flex-col gap-2">
                   {doTamanho.map((m) => (
@@ -186,6 +194,15 @@ export function Tamanhos() {
   );
 }
 
+const TITULO_GRUPO: Record<Porte, string> = {
+  pequeno: "Carros pequenos",
+  medio: "Carros médios",
+  grande: "Carros grandes",
+  moto: "Motos",
+  caminhao: "Caminhões",
+  transporte: "Transporte (vans e ônibus)",
+};
+
 function nomeTamanho(p: Porte | "") {
   return PORTES.find((x) => x.id === p)?.nome || "";
 }
@@ -204,7 +221,7 @@ function EscolherTamanho({
   desabilitado?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label={rotulo} className={`grid grid-cols-4 gap-1.5 ${compacto ? "mt-1.5" : ""}`}>
+    <div role="radiogroup" aria-label={rotulo} className={`grid grid-cols-3 gap-1.5 ${compacto ? "mt-1.5" : ""}`}>
       {PORTES.map((p) => (
         <button
           key={p.id}

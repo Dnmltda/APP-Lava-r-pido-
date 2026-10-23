@@ -77,15 +77,16 @@ Tudo do gerente, mais:
 - **Vendas**: **Corrigir venda** fechada (pede o motivo; fica no histórico).
 - **Serviços** e **Produtos**: preço, tempo médio, estoque, estoque mínimo e comissão.
   Em **Serviços → Tipos de veículo e convênios** crie os tipos e diga para qual carro cada um **entra sozinho**
-  (carro pequeno, médio, grande, moto ou motorista de app). Convênio/empresa parceira: “Só a equipe marca”.
+  (carro pequeno, médio, grande, moto, caminhão, transporte — van e ônibus — ou motorista de app). Convênio/empresa parceira: “Só a equipe marca”.
   Depois, em cada serviço, coloque o preço de cada tipo (em branco = preço padrão).
   Botão **Pausar** em cada serviço: some da tela do cliente sem apagar nada; **Ativar** traz de volta.
 - **Produtos**: sugestões prontas (cheirinho, pretinho, flanela, água…). Toque, coloque o seu preço e o estoque.
 - **Configurações → Buscamos o carro do cliente**: liga a opção de busca (o app avisa que tem taxa adicional).
-- **Tamanho dos carros** (só o dono): a tabela que diz se cada modelo é pequeno, médio, grande ou moto **no seu
+- **Tamanho dos carros** (só o dono): a tabela que diz se cada modelo é pequeno, médio, grande, moto, caminhão ou transporte (van, ônibus) **no seu
   lava rápido**. Toque no tamanho certo ao lado do modelo, ou inclua um modelo que não está na lista (ex.: Strada
   como médio). Vale para todos os clientes nas próximas entradas na fila; **Voltar ao padrão** desfaz. Não muda
-  nada nos outros lava rápidos nem o cadastro do carro do cliente.
+  nada nos outros lava rápidos nem o cadastro do carro do cliente. Caminhão e transporte sem preço próprio são
+  cobrados como carro grande; para ter preço próprio, crie o tipo em **Serviços → Tipos de veículo**.
 - **Cobrar como** (privilégio do cliente, vale por cima da tabela): em **Clientes**, em cada carro, o dono (ou o gerente) escolhe como cobrar
   aquele carro — ex.: um carro grande cobrado como médio para um cliente fiel. Vale sozinho nas próximas vezes;
   “Pelo tamanho” volta ao normal. Fica registrado quem mudou.

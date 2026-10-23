@@ -16,8 +16,18 @@ const MODELOS = {
   ],
   grande: [
     "Hilux", "SW4", "S10", "Trailblazer", "Ranger", "Amarok", "L200", "Triton", "Frontier", "Toro", "Maverick", "Rampage", "Ram 1500", "Ram 2500",
-    "Pajero", "Tiggo 8", "Master", "Sprinter", "Ducato", "Daily", "Jumper", "Boxer", "Transit", "Expert", "Partner", "Doblò", "Kangoo", "Kombi",
-    "F-250", "Titano", "Hoggar",
+    "Pajero", "Tiggo 8", "Expert", "Partner", "Doblò", "Kangoo", "F-250", "Titano", "Hoggar",
+  ],
+  // Caminhões (leves, médios e pesados). Sem preço próprio no lava rápido, são cobrados como carro grande.
+  caminhao: [
+    "Caminhão", "Accelo", "Atego", "Axor", "Actros", "Arocs", "Cargo", "F-4000", "F-350", "Constellation", "Delivery", "Worker", "Meteor",
+    "e-Delivery", "Scania", "Volvo FH", "Volvo FM", "Volvo VM", "Volvo FMX", "Tector", "Stralis", "Hi-Way", "S-Way", "DAF XF", "DAF CF",
+    "HR", "Bongo", "Agrale", "Foton", "JAC V260",
+  ],
+  // Veículos de transporte de pessoas e cargas: vans, micro-ônibus e ônibus (sem preço próprio: como carro grande).
+  transporte: [
+    "Van", "Sprinter", "Master", "Ducato", "Daily", "Jumper", "Boxer", "Transit", "Kombi", "Trafic", "Vito", "H100", "Besta", "Topic",
+    "Micro-ônibus", "Ônibus", "Volare", "Marcopolo", "Caio", "Comil", "Neobus", "Busscar", "Mascarello",
   ],
   moto: [
     "CG 160", "CG 150", "CG 125", "Fan", "Titan", "Start", "Biz", "Pop 110", "Bros", "XRE 300", "XRE 190", "CB 300", "CB 500", "Twister",
@@ -49,7 +59,9 @@ function acharModelo(modelo, lista) {
   return melhor;
 }
 
-const PORTES = ["pequeno", "medio", "grande", "moto"];
+const PORTES = ["pequeno", "medio", "grande", "moto", "caminhao", "transporte"];
+// Tamanho que vale quando o lava rápido ainda não tem preço próprio para caminhão ou transporte.
+const PORTE_RESERVA = { caminhao: "grande", transporte: "grande" };
 
 // Ajustes do lava rápido (empresas.tamanhos_modelos): { "Strada": "medio" }.
 function ajustesDaEmpresa(empresa) {
@@ -112,4 +124,4 @@ function limparAjustes(valor) {
   return out;
 }
 
-module.exports = { LISTA, PORTES, acharModelo, listaDaEmpresa, ajustesDaEmpresa, limparAjustes };
+module.exports = { LISTA, PORTES, PORTE_RESERVA, acharModelo, listaDaEmpresa, ajustesDaEmpresa, limparAjustes };

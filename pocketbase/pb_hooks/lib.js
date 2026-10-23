@@ -1315,7 +1315,7 @@ function precoDoServico(servico, tipoId) {
   }
   return servico.getFloat("preco");
 }
-const VALES_TIPO = ["pequeno", "medio", "grande", "moto", "app"];
+const VALES_TIPO = ["pequeno", "medio", "grande", "moto", "caminhao", "transporte", "app"];
 // Tipo do carro do cliente nesta empresa, sem o cliente escolher nada:
 //  1. o que a equipe/dono já definiu para este carro;  2. o porte do cadastro do carro.
 // Motorista de app NÃO entra sozinho (segurança, pedido do Diego): a 1ª lavagem de cada carro sai
@@ -1330,6 +1330,9 @@ function tipoDoCarro(empresa, vinculo, veiculo) {
   const porVale = (v) => tipos.find((t) => t.vale === v);
   const porte = porteNaEmpresa(empresa, veiculo);
   if (porte && porVale(porte)) return porVale(porte).id;
+  // Caminhão ou transporte sem preço próprio neste lava rápido: cobra como carro grande.
+  const reserva = require(`${__hooks}/modelos.js`).PORTE_RESERVA[porte];
+  if (reserva && porVale(reserva)) return porVale(reserva).id;
   return "";
 }
 // Tamanho do carro neste lava rápido: a tabela dele (ajustes do dono) > tamanho do cadastro.

@@ -88,7 +88,7 @@ export function Painel() {
             <Grupo titulo="Cadastros e conta">
               {pode(vinculo, "gerenciar_equipe") && <Atalho para={`/${s}/equipe`} icone={Users} titulo="Equipe" texto="Pessoas, permissões, senhas" />}
               {pode(vinculo, "catalogo") && <Atalho para={`/${s}/servicos`} icone={Sparkles} titulo="Serviços" texto="Preço e tempo médio" />}
-              {patrao && <Atalho para={`/${s}/tamanhos`} icone={CarFront} titulo="Tamanho dos carros" texto="Qual modelo é pequeno, médio ou grande" />}
+              {patrao && <Atalho para={`/${s}/tamanhos`} icone={CarFront} titulo="Tamanho dos carros" texto="Carro, moto, caminhão ou transporte" />}
               {pode(vinculo, "catalogo") && <Atalho para={`/${s}/produtos`} icone={Package} titulo="Produtos" texto="Preço, estoque, comissão" />}
               {pode(vinculo, "cameras") && <Atalho para={`/${s}/cameras`} icone={Cctv} titulo="Câmeras" texto="Boxes ao vivo e sensor" />}
               {patrao && <Atalho para={`/${s}/cartaz`} icone={QrCode} titulo="Cartaz do balcão" texto="QR Code para os clientes" />}
