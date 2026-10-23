@@ -1,3 +1,5 @@
+import { RodapeDNM } from "../componentes/Marca";
+import { useFlip } from "../lib/animacao";
 import QRCode from "qrcode";
 import { Maximize } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -71,10 +73,11 @@ export function ModoTV() {
 
   const proximos = publica?.fila.slice(0, MAX_FILA) || [];
   const resto = (publica?.fila.length || 0) - proximos.length;
+  const refTV = useFlip<HTMLElement>(publica ? [...publica.lavando, ...proximos, ...publica.prontos].map((i) => `${i.id}:${i.status}`).join(",") : "");
 
   return (
     <div className="flex min-h-dvh flex-col bg-fundo text-tinta [font-size:clamp(16px,1.6vw,34px)]">
-      <header className="flex items-center gap-4 bg-marca px-[3vw] py-[1.5vh] text-sobre-marca">
+      <header className="cabecalho-dnm flex items-center gap-4 px-[3vw] py-[1.5vh]">
         {logo && <img src={logo} alt="" className="h-[2.6em] w-[2.6em] rounded-xl bg-white object-contain p-1" />}
         <h1 className="min-w-0 flex-1 truncate text-[1.6em] font-black">{empresa.nome}</h1>
         <span className="flex items-center gap-2 text-[0.8em] font-semibold opacity-90">
@@ -95,7 +98,7 @@ export function ModoTV() {
       {!publica ? (
         <p className="m-auto text-[1.4em] font-bold text-tinta-suave">{erro || "Carregando a fila…"}</p>
       ) : (
-        <main className="grid flex-1 gap-[2vw] p-[2vw] lg:grid-cols-[1fr_1.4fr_1fr]">
+        <main ref={refTV} className="grid flex-1 gap-[2vw] p-[2vw] lg:grid-cols-[1fr_1.4fr_1fr]">
           <section aria-labelledby="tv-lavando" className="flex flex-col gap-[1vh]">
             <h2 id="tv-lavando" className="text-[0.9em] font-extrabold uppercase tracking-wide text-tinta-suave">
               Lavando agora
@@ -104,7 +107,7 @@ export function ModoTV() {
               <p className="text-[1em] text-tinta-suave">Nenhum carro no box.</p>
             ) : (
               publica.lavando.map((i) => (
-                <div key={i.id} className="rounded-2xl border-2 border-marca/30 bg-white px-[1em] py-[0.6em] shadow-sm">
+                <div key={i.id} data-flip={i.id} className="rounded-2xl border-2 border-marca/30 bg-white px-[1em] py-[0.6em] shadow-sm">
                   <p className="flex items-baseline justify-between gap-3 text-[1.3em]">
                     <Nome item={i} />
                   </p>
@@ -129,7 +132,7 @@ export function ModoTV() {
             ) : (
               <ol className="flex flex-col gap-[0.8vh]">
                 {proximos.map((i) => (
-                  <li key={i.id} className={`flex items-center gap-[0.8em] rounded-2xl bg-white px-[1em] py-[0.5em] shadow-sm ${i.posicao === 1 ? "ring-4 ring-marca" : ""}`}>
+                  <li key={i.id} data-flip={i.id} className={`flex items-center gap-[0.8em] rounded-2xl bg-white px-[1em] py-[0.5em] shadow-sm ${i.posicao === 1 ? "ring-4 ring-marca" : ""}`}>
                     <span className="w-[1.8em] shrink-0 text-[1.5em] font-black text-marca-forte tabular-nums">{i.posicao}º</span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="text-[1.15em]">
@@ -158,7 +161,7 @@ export function ModoTV() {
               <p className="text-[1em] text-tinta-suave">Nenhum carro esperando retirada.</p>
             ) : (
               publica.prontos.map((i) => (
-                <div key={i.id} className="rounded-2xl bg-green-700 px-[1em] py-[0.6em] text-white shadow-sm">
+                <div key={i.id} data-flip={i.id} className="brilho-pronto rounded-2xl bg-green-700 px-[1em] py-[0.6em] text-white shadow-sm">
                   <p className="text-[1.3em]">
                     <Nome item={i} />
                   </p>
@@ -177,6 +180,9 @@ export function ModoTV() {
           </section>
         </main>
       )}
+      <footer className="px-[3vw] pb-[1vh] text-right text-tinta-suave">
+        <RodapeDNM discreto />
+      </footer>
     </div>
   );
 }

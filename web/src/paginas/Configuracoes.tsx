@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { Moldura } from "../componentes/Moldura";
 import { Aviso, Botao, Campo, Interruptor } from "../componentes/ui";
@@ -6,7 +6,6 @@ import { useEmpresa } from "../contexto/Empresa";
 import { DIAS_SEMANA, mascaraCelular, somenteDigitos } from "../lib/formato";
 import { mensagemDeErro, pb, urlArquivo } from "../lib/pb";
 import { pode } from "../lib/permissoes";
-import { aplicarTema } from "../lib/tema";
 import type { DiaFuncionamento } from "../lib/tipos";
 
 const HORARIO_PADRAO: DiaFuncionamento[] = DIAS_SEMANA.map((_, i) => ({
@@ -36,7 +35,6 @@ const TEXTO_AVISO_PADRAO =
 export function Configuracoes() {
   const { empresa, vinculo, recarregarEmpresa } = useEmpresa();
   const [nome, setNome] = useState(empresa.nome);
-  const [cor, setCor] = useState(empresa.cor_principal || "#0E7490");
   const [whatsapp, setWhatsapp] = useState(mascaraCelular(empresa.whatsapp?.replace(/^55(?=\d{10,11}$)/, "") || ""));
   const [endereco, setEndereco] = useState(empresa.endereco || "");
   const [capacidade, setCapacidade] = useState(String(empresa.capacidade_simultanea || 2));
@@ -61,15 +59,6 @@ export function Configuracoes() {
   const [ok, setOk] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
-  // Prévia da cor ao vivo; ao sair sem salvar, volta a cor da empresa.
-  useEffect(() => {
-    if (/^#[0-9a-fA-F]{6}$/.test(cor)) aplicarTema(cor);
-  }, [cor]);
-  const corSalva = useRef(empresa.cor_principal);
-  useEffect(() => {
-    corSalva.current = empresa.cor_principal;
-  }, [empresa.cor_principal]);
-  useEffect(() => () => aplicarTema(corSalva.current), []);
 
   if (!pode(vinculo, "configurar_empresa")) return <Navigate to={`/${empresa.slug}`} replace />;
 
@@ -89,7 +78,6 @@ export function Configuracoes() {
     }
     const dados = new FormData();
     dados.append("nome", nome.trim());
-    dados.append("cor_principal", cor);
     dados.append("whatsapp", zap ? "55" + zap : "");
     dados.append("endereco", endereco.trim());
     dados.append("capacidade_simultanea", capacidade);
@@ -146,18 +134,7 @@ export function Configuracoes() {
               />
             </label>
           </div>
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
-              <Campo rotulo="Cor principal" value={cor} onChange={(e) => setCor(e.target.value)} maxLength={7} />
-            </div>
-            <input
-              type="color"
-              aria-label="Escolher cor"
-              value={/^#[0-9a-fA-F]{6}$/.test(cor) ? cor : "#0E7490"}
-              onChange={(e) => setCor(e.target.value)}
-              className="h-12 w-16 cursor-pointer rounded-xl border-2 border-linha bg-white p-1"
-            />
-          </div>
+          <p className="text-sm text-tinta-suave">As cores do app seguem o padrão DNM&amp;LTDA (azul-marinho e dourado) para todos os lava rápidos.</p>
         </Secao>
 
         <Secao titulo="Contato">

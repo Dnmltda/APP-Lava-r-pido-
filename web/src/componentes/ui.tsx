@@ -119,7 +119,10 @@ export function Cartao({ children, className = "" }: { children: ReactNode; clas
 export function Carregando({ texto = "Carregando…" }: { texto?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-tinta-suave" role="status">
-      <Girador className="h-8 w-8 text-marca" />
+      {/* Coroa do logo DNM&LTDA girando em 3D (parada com "reduzir movimento"). */}
+      <span className="palco-3d" aria-hidden="true">
+        <img src="/coroa-dnm.webp" alt="" width={72} height={62} className="coroa-3d block h-[62px] w-[72px]" />
+      </span>
       <p className="text-base">{texto}</p>
     </div>
   );

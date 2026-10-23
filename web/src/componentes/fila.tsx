@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useFlip } from "../lib/animacao";
 import { emQuanto, hora, NOME_STATUS, type FilaPublica, type ItemPublico } from "../lib/fila";
 import type { StatusFila } from "../lib/tipos";
 
@@ -38,7 +39,8 @@ export function IconeBusca({ className = "" }: { className?: string }) {
 function Linha({ item, agora, children }: { item: ItemPublico; agora: string; children?: ReactNode }) {
   return (
     <li
-      className={`flex items-center gap-3 rounded-2xl border bg-white px-3 py-3 ${item.minha ? "border-2 border-marca shadow-md" : "border-linha"} ${item.reservado && !item.minha ? "border-dashed" : ""}`}
+      data-flip={item.id}
+      className={`flex items-center gap-3 rounded-2xl border bg-white px-3 py-3 ${item.status === "pronto" ? "brilho-pronto" : ""} ${item.minha ? "border-2 border-marca shadow-md" : "border-linha"} ${item.reservado && !item.minha ? "border-dashed" : ""}`}
     >
       <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-black ${item.minha ? "bg-marca text-sobre-marca" : "bg-fundo text-tinta"}`}>
         {item.posicao ?? "•"}
@@ -66,8 +68,11 @@ function Linha({ item, agora, children }: { item: ItemPublico; agora: string; ch
 
 // Fila pública: o que qualquer pessoa vê (primeiro nome + final da placa).
 export function ListaFilaPublica({ fila }: { fila: FilaPublica }) {
+  // Quando um carro avança (ou muda de seção), os cartões deslizam até o lugar novo.
+  const ordem = [...fila.lavando, ...fila.fila, ...fila.prontos].map((i) => `${i.id}:${i.status}`).join(",");
+  const ref = useFlip<HTMLDivElement>(ordem);
   return (
-    <div className="flex flex-col gap-5">
+    <div ref={ref} className="flex flex-col gap-5">
       {fila.lavando.length > 0 && (
         <section>
           <h3 className="mb-2 text-sm font-extrabold uppercase tracking-wide text-tinta-suave">Lavando agora</h3>

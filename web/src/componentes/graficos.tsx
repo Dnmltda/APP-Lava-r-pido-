@@ -105,10 +105,10 @@ export function Colunas({
                   className="group flex h-full min-w-0 flex-1 items-end justify-center px-[1px] focus:outline-none"
                 >
                   <span
-                    className={`block w-full max-w-6 rounded-t-[4px] transition-opacity ${pt.valor > 0 ? "bg-marca" : ""} ${
+                    className={`crescer-y block w-full max-w-6 rounded-t-[4px] transition-opacity ${pt.valor > 0 ? "bg-marca" : ""} ${
                       ativo === null || ativo === i ? "opacity-100" : "opacity-45"
                     } group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-tinta`}
-                    style={{ height: pt.valor > 0 ? Math.max(3, h) : 0 }}
+                    style={{ height: pt.valor > 0 ? Math.max(3, h) : 0, animationDelay: `${Math.min(i, 30) * 25}ms` }}
                   />
                 </button>
               );
@@ -162,7 +162,7 @@ export function Barras({
   const max = Math.max(...itens.map((i) => i.valor));
   return (
     <ul className="flex flex-col gap-3">
-      {itens.map((it) => (
+      {itens.map((it, n) => (
         <li key={it.chave} title={`${it.rotulo}: ${formatar(it.valor)}`}>
           <div className="flex items-baseline justify-between gap-3">
             <span className="min-w-0 truncate text-base font-semibold text-tinta">{it.rotulo}</span>
@@ -172,7 +172,7 @@ export function Barras({
             </span>
           </div>
           <div className="mt-1 h-2.5 rounded-full bg-marca-suave" aria-hidden="true">
-            <div className="h-full rounded-full bg-marca" style={{ width: `${max > 0 ? Math.max(2, (it.valor / max) * 100) : 0}%` }} />
+            <div className="crescer-x h-full rounded-full bg-marca" style={{ width: `${max > 0 ? Math.max(2, (it.valor / max) * 100) : 0}%`, animationDelay: `${n * 60}ms` }} />
           </div>
         </li>
       ))}

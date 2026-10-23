@@ -1,3 +1,5 @@
+import { Bolhas, CenaLavagem } from "../componentes/Marca";
+import { useContagem } from "../lib/animacao";
 import {
   Car,
   Cctv,
@@ -114,12 +116,13 @@ export function Painel() {
               {pode(vinculo, "catalogo") && <Atalho para={`/${s}/produtos`} icone={Package} titulo="Produtos" texto="Preço, estoque, comissão" />}
               {pode(vinculo, "cameras") && <Atalho para={`/${s}/cameras`} icone={Cctv} titulo="Câmeras" texto="Boxes ao vivo e sensor" />}
               {patrao && <Atalho para={`/${s}/cartaz`} icone={QrCode} titulo="Cartaz do balcão" texto="QR Code para os clientes" />}
-              {patrao && <Atalho para={`/${s}/configuracoes`} icone={Settings} titulo="Configurações" texto="Logo, cor, fila, horários" />}
+              {patrao && <Atalho para={`/${s}/configuracoes`} icone={Settings} titulo="Configurações" texto="Logo, fila, horários" />}
               <Atalho para={`/${s}/conta`} icone={CircleUserRound} titulo="Minha conta" texto="Nome, senha, sair" />
             </Grupo>
           </>
         ) : (
           <>
+            <CenaLavagem titulo={empresa.nome} texto="Entre na fila, reserve horário e acompanhe o seu carro." />
             <FilaCliente />
             <ResumoCliente />
             <InfoEmpresa empresa={empresa} />
@@ -185,10 +188,11 @@ function FilaAgora() {
   return (
     <Link
       to={`/${empresa.slug}/fila`}
-      className="block rounded-3xl bg-marca p-5 text-sobre-marca shadow-lg transition-transform active:scale-[0.99]"
+      className="cabecalho-dnm relative block overflow-hidden rounded-3xl p-5 shadow-lg transition-transform active:scale-[0.99]"
       aria-label="Abrir a fila"
     >
-      <div className="flex items-center justify-between gap-3">
+      <Bolhas />
+      <div className="relative flex items-center justify-between gap-3">
         <span className="flex items-center gap-2 text-lg font-extrabold">
           <ListOrdered className="h-6 w-6" aria-hidden="true" /> Fila agora
         </span>
@@ -197,9 +201,9 @@ function FilaAgora() {
         </span>
       </div>
       {!publica ? (
-        <p className="mt-4 text-base opacity-90">{erro || "Carregando…"}</p>
+        <p className="relative mt-4 text-base opacity-90">{erro || "Carregando…"}</p>
       ) : (
-        <>
+        <div className="relative">
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">
             <Numero valor={pendentes} rotulo="a confirmar" alerta={gestao && pendentes > 0} />
             <Numero valor={naFila} rotulo="na fila" />
@@ -218,19 +222,20 @@ function FilaAgora() {
               )}
             </span>
           </p>
-          <span className="mt-4 flex min-h-12 items-center justify-center gap-1 rounded-xl bg-white text-base font-extrabold text-marca-forte">
+          <span className="mt-4 flex min-h-12 items-center justify-center gap-1 rounded-xl bg-dourado text-base font-extrabold text-marinho">
             Abrir a fila <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </span>
-        </>
+        </div>
       )}
     </Link>
   );
 }
 
 function Numero({ valor, rotulo, alerta }: { valor: number; rotulo: string; alerta?: boolean }) {
+  const contado = Math.round(useContagem(valor));
   return (
-    <div className={`rounded-2xl px-1 py-2 ${alerta ? "bg-white text-tinta" : "bg-black/10"}`}>
-      <p className="text-3xl font-black leading-none">{valor}</p>
+    <div className={`rounded-2xl px-1 py-2 ${alerta ? "bg-white text-tinta" : "bg-white/10"}`}>
+      <p className="text-3xl font-black leading-none">{contado}</p>
       <p className="mt-1 text-xs font-semibold leading-tight opacity-90">{rotulo}</p>
     </div>
   );
@@ -255,6 +260,8 @@ function HojeResumo() {
     };
   }, [empresa.id]);
   const metaDia = dados?.metas.dia || 0;
+  const faturamento = useContagem(dados?.faturamento.total || 0);
+  const lavados = Math.round(useContagem(dados?.carros_lavados || 0));
   return (
     <Link to={`/${empresa.slug}/dashboard`} className="block rounded-3xl border border-linha bg-white p-4 shadow-sm hover:border-marca">
       <div className="flex items-center justify-between">
@@ -266,17 +273,17 @@ function HojeResumo() {
       <div className="mt-2 grid grid-cols-2 gap-3">
         <div>
           <p className="text-sm text-tinta-suave">Faturamento</p>
-          <p className="text-2xl font-extrabold text-tinta">{dados ? reais(dados.faturamento.total) : "—"}</p>
+          <p className="text-2xl font-extrabold text-tinta">{dados ? reais(faturamento) : "—"}</p>
         </div>
         <div>
           <p className="text-sm text-tinta-suave">Carros lavados</p>
-          <p className="text-2xl font-extrabold text-tinta">{dados ? dados.carros_lavados : "—"}</p>
+          <p className="text-2xl font-extrabold text-tinta">{dados ? lavados : "—"}</p>
         </div>
       </div>
       {dados && metaDia > 0 && (
         <div className="mt-3">
           <div className="h-2 overflow-hidden rounded-full bg-marca-suave" role="progressbar" aria-label="Meta do dia" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round((dados.metas.realizado_dia / metaDia) * 100))}>
-            <div className="h-full rounded-full bg-marca" style={{ width: `${Math.min(100, (dados.metas.realizado_dia / metaDia) * 100)}%` }} />
+            <div className="crescer-x h-full rounded-full bg-linear-to-r from-dourado-escuro to-dourado" style={{ width: `${Math.min(100, (dados.metas.realizado_dia / metaDia) * 100)}%` }} />
           </div>
           <p className="mt-1 text-sm text-tinta-suave">
             {Math.round((dados.metas.realizado_dia / metaDia) * 100)}% da meta do dia ({reais(metaDia)})

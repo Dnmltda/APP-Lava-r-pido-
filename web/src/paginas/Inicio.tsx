@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { InstalarApp } from "../componentes/Avisos";
+import { CenaLavagem, RodapeDNM } from "../componentes/Marca";
 import { Botao, Carregando } from "../componentes/ui";
 import { lerUltimaEmpresa } from "../contexto/Empresa";
 import { useSessao } from "../contexto/Sessao";
@@ -39,13 +40,22 @@ export function Inicio() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-fundo">
-      <header className="bg-marca px-4 py-8 text-sobre-marca">
+      <header className="cabecalho-dnm px-4 pb-6 pt-6">
         <div className="mx-auto max-w-2xl">
-          <p className="text-sm font-bold uppercase tracking-widest opacity-85">DNM<span className="font-[system-ui]">&amp;</span>LTDA</p>
-          <h1 className="text-3xl font-black">Lava Rápido</h1>
-          <p className="mt-2 text-base opacity-90">Fila, reservas e equipe do seu lava rápido no celular.</p>
+          <img
+            src="/logo-dnm-marca.webp"
+            alt="DNM&LTDA"
+            width={220}
+            height={116}
+            className="mx-auto h-auto w-[200px] rounded-2xl shadow-lg ring-2 ring-dourado"
+          />
+          <h1 className="mt-4 text-center text-3xl font-black">Lava Rápido</h1>
+          <p className="mt-1 text-center text-base text-white/85">Fila, reservas e equipe do seu lava rápido no celular.</p>
         </div>
       </header>
+      <div className="mx-auto -mb-2 w-full max-w-2xl px-4 pt-5">
+        <CenaLavagem titulo="Seu carro brilhando, sem fila parada" texto="Acompanhe a vez, reserve horário e receba o aviso quando ficar pronto." />
+      </div>
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
         {!usuario ? (
           <>
@@ -98,6 +108,7 @@ export function Inicio() {
           </a>
         </p>
       </main>
+      <RodapeDNM />
     </div>
   );
 }

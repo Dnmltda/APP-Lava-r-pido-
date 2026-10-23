@@ -109,7 +109,7 @@ export function FilaCliente() {
     const produtosOk = (meusItens || []).filter((i) => i.status !== "em_falta");
     return (
       <div key={minha.id}>
-        <div className="rounded-3xl bg-marca p-5 text-sobre-marca shadow-lg">
+        <div className={`cabecalho-dnm rounded-3xl p-5 shadow-lg ${minha.status === "pronto" ? "brilho-pronto" : ""}`}>
               <p className="text-sm font-bold uppercase tracking-wide opacity-85">
                 Sua vez{minhas.length > 1 ? ` · ${[minha.modelo, `…${minha.final_placa}`].filter(Boolean).join(" ")}` : ""}
               </p>

@@ -1,3 +1,4 @@
+import { useFlip } from "../lib/animacao";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ChipStatus, IconeBusca } from "../componentes/fila";
@@ -242,6 +243,8 @@ export function FilaEquipe() {
   const naFila = entradas?.filter((e) => STATUS_ESPERA.includes(e.status) && e.status !== "pendente") || [];
   const lavando = entradas?.filter((e) => e.status === "lavando") || [];
   const prontos = entradas?.filter((e) => e.status === "pronto") || [];
+  const ordemFila = [...pendentes, ...naFila, ...lavando, ...prontos].map((e) => `${e.id}:${e.status}`).join(",");
+  const refFila = useFlip<HTMLDivElement>(ordemFila);
 
   const btn = (entrada: EntradaFila, acao: string, rotulo: string, variante: "primario" | "secundario" | "perigo" | "fantasma" = "secundario", onClick?: () => void) => (
     <Botao variante={variante} carregando={ocupado === entrada.id + acao} disabled={!!ocupado} onClick={onClick || (() => executar(entrada, acao))}>
@@ -290,7 +293,7 @@ export function FilaEquipe() {
           <EstadoVazio titulo="Fila vazia" texto="Quando um cliente entrar pelo app ou no balcão, aparece aqui na hora." />
         </div>
       ) : (
-        <div className="mt-5 flex flex-col gap-7">
+        <div ref={refFila} className="mt-5 flex flex-col gap-7">
           {pendentes.length > 0 && (
             <Secao titulo={`Aguardando confirmação (${pendentes.length})`}>
               {pendentes.map((e) => (
@@ -502,7 +505,7 @@ function CartaoEntrada({
 }) {
   const servico = e.expand?.servico;
   return (
-    <article className={`rounded-2xl border bg-white p-4 shadow-sm ${atrasoMin ? "border-2 border-red-400" : e.origem === "reserva" ? "border-2 border-dashed border-tinta-suave" : "border-linha"}`}>
+    <article data-flip={e.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${e.status === "pronto" ? "brilho-pronto" : ""} ${atrasoMin ? "border-2 border-red-400" : e.origem === "reserva" ? "border-2 border-dashed border-tinta-suave" : "border-linha"}`}>
       <div className="flex items-start gap-3">
         {posicao !== undefined && (
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-fundo text-lg font-black text-tinta">{posicao}</span>

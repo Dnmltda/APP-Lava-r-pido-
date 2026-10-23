@@ -2,9 +2,10 @@
 
 /* Cores da marca do lava rápido (white-label) vêm de src/lib/tema.ts. */
 :root {
-  --marca: rgb(14 116 144);
-  --marca-forte: rgb(11 87 108);
-  --marca-suave: rgb(226 239 243);
+  /* Identidade DNM&LTDA (fixa para todos os lava rápidos). */
+  --marca: #1e40af;
+  --marca-forte: #0a1f4d;
+  --marca-suave: #e7ecf8;
   --sobre-marca: #ffffff;
   color-scheme: light;
 }
@@ -14,17 +15,27 @@
   --color-marca-forte: var(--marca-forte);
   --color-marca-suave: var(--marca-suave);
   --color-sobre-marca: var(--sobre-marca);
-  --color-fundo: #f4f5f2;
-  --color-tinta: #14181f;
-  --color-tinta-suave: #4b5563;
-  --color-linha: #d6d9d2;
+  /* Paleta do logo */
+  --color-marinho: #0a1f4d;
+  --color-royal: #1e40af;
+  --color-dourado: #e5b339;
+  --color-dourado-escuro: #b8862b;
+  --color-creme: #f7efdc;
+  --color-alerta: #b91c1c;
+  /* "Branco" dos cartões, campos e janelas vira o creme do logo. */
+  --color-white: #f7efdc;
+  --color-fundo: #eceef4;
+  --color-tinta: #0a1f4d;
+  --color-tinta-suave: #46526e;
+  --color-linha: #d9c8a0;
   /* Status da fila (fixos, iguais para todas as empresas) */
   --color-status-pendente: #b45309;
   --color-status-confirmado: #1d4ed8;
   --color-status-lavando: #7e22ce;
   --color-status-pronto: #15803d;
   --color-status-cancelado: #6b7280;
-  --font-sans: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-titulo: "Playfair Display", Georgia, "Times New Roman", serif;
 }
 
 html {
@@ -40,6 +51,14 @@ body {
   font-size: 16px;
 }
 
+h1,
+h2,
+h3,
+.titulo-dnm {
+  font-family: var(--font-titulo);
+  letter-spacing: 0.005em;
+}
+
 :focus-visible {
   outline: 3px solid var(--marca);
   outline-offset: 2px;
@@ -48,4 +67,109 @@ body {
 /* fieldset cresce até o tamanho do conteúdo por padrão; aqui segue a tela. */
 fieldset {
   min-width: 0;
+}
+
+/* ---------- Identidade DNM&LTDA ---------- */
+.cabecalho-dnm {
+  background: linear-gradient(115deg, #0a1f4d 0%, #132f73 55%, #1e40af 100%);
+  border-bottom: 3px solid #e5b339;
+  color: #fff;
+}
+.filete-dourado {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #e5b339 20%, #b8862b 50%, #e5b339 80%, transparent);
+}
+
+/* ---------- Animações (todas desligam com "reduzir movimento") ---------- */
+@keyframes coroa-girar {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+.palco-3d { perspective: 700px; }
+.coroa-3d {
+  animation: coroa-girar 2.4s linear infinite;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 6px 8px rgb(10 31 77 / 0.25));
+}
+
+@keyframes carro-flutuar {
+  0%, 100% { transform: rotateY(-16deg) rotateX(6deg) translateY(0); }
+  50% { transform: rotateY(16deg) rotateX(2deg) translateY(-6px); }
+}
+.carro-3d {
+  animation: carro-flutuar 6s ease-in-out infinite;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 10px 10px rgb(0 0 0 / 0.28));
+}
+
+@keyframes bolha-subir {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  12% { opacity: 0.9; }
+  100% { transform: translate(var(--x, 0px), calc(-1 * var(--altura, 180px))) scale(1.05); opacity: 0; }
+}
+.bolha {
+  position: absolute;
+  bottom: -12px;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: radial-gradient(circle at 32% 30%, rgb(255 255 255 / 0.95) 0 14%, rgb(229 179 57 / 0.55) 45%, rgb(184 134 43 / 0.18) 72%, transparent 74%);
+  box-shadow: inset 0 0 0 1px rgb(229 179 57 / 0.45);
+  animation: bolha-subir var(--dur, 7s) linear infinite;
+  animation-delay: var(--atraso, 0s);
+}
+
+@keyframes brilho-passar {
+  0% { transform: translateX(-130%); }
+  35%, 100% { transform: translateX(130%); }
+}
+.brilho-pronto { position: relative; overflow: hidden; isolation: isolate; }
+.brilho-pronto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgb(229 179 57 / 0.45) 46%, rgb(255 255 255 / 0.75) 50%, rgb(229 179 57 / 0.45) 54%, transparent 70%);
+  animation: brilho-passar 3.6s ease-in-out infinite;
+}
+
+@keyframes pulo {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); }
+  65% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+.pulo { animation: pulo 0.45s ease-out; }
+
+.inclinar-3d {
+  transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 0.18s ease-out, box-shadow 0.18s ease-out;
+  will-change: transform;
+}
+.inclinar-3d[data-ativo="1"] { box-shadow: 0 14px 28px rgb(10 31 77 / 0.18); }
+
+@keyframes crescer-y {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes crescer-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.crescer-y { transform-origin: bottom; animation: crescer-y 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.crescer-x { transform-origin: left; animation: crescer-x 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .bolha,
+  .brilho-pronto::after {
+    display: none;
+  }
+  .inclinar-3d { transform: none !important; }
 }

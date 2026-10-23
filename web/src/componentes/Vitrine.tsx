@@ -1,3 +1,4 @@
+import { pular, useInclinar } from "../lib/animacao";
 import { useEffect, useState } from "react";
 import { reais } from "../lib/formato";
 import { mensagemDeErro, pb, urlArquivo } from "../lib/pb";
@@ -61,6 +62,13 @@ export function Vitrine({
   onReservado?: () => void;
 }) {
   const [escolhido, setEscolhido] = useState<ProdutoCatalogo | null>(null);
+  const inclinar = useInclinar();
+  // Produto adicionado: o cartão "pula" e o resumo do pedido pisca.
+  const comemorar = (id: string) =>
+    window.setTimeout(() => {
+      pular(document.querySelector(`[data-produto="${id}"]`));
+      pular(document.getElementById("resumo-carrinho"));
+    }, 60);
   if (catalogo.length === 0)
     return (
       <section aria-labelledby="titulo-produtos" className="rounded-2xl border-2 border-dashed border-linha px-4 py-4">
@@ -95,7 +103,9 @@ export function Vitrine({
           <div
             key={p.id}
             role="listitem"
-            className={`flex w-40 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-linha bg-white shadow-sm ${p.disponivel ? "" : "opacity-60"}`}
+            data-produto={p.id}
+            {...inclinar}
+            className={`inclinar-3d flex w-40 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-linha bg-white shadow-sm ${p.disponivel ? "" : "opacity-60"}`}
           >
             {p.foto ? (
               <img src={urlArquivo(p, p.foto, "200x200")} alt="" className="aspect-square w-full object-cover" loading="lazy" />
@@ -121,7 +131,7 @@ export function Vitrine({
         ))}
       </div>
       {!entradaId && qtdCarrinho > 0 && (
-        <div className="mt-2 flex items-center justify-between gap-3 rounded-2xl border-2 border-marca bg-marca-suave px-4 py-3">
+        <div id="resumo-carrinho" className="mt-2 flex items-center justify-between gap-3 rounded-2xl border-2 border-marca bg-marca-suave px-4 py-3">
           <span className="text-base text-tinta">
             <strong>
               {qtdCarrinho} {qtdCarrinho === 1 ? "produto" : "produtos"}
@@ -141,9 +151,11 @@ export function Vitrine({
           onFechar={() => setEscolhido(null)}
           onCarrinho={(q) => {
             onCarrinho({ ...carrinho, [escolhido.id]: q });
+            if (q > 0) comemorar(escolhido.id);
             setEscolhido(null);
           }}
           onReservado={() => {
+            comemorar(escolhido.id);
             setEscolhido(null);
             onReservado?.();
           }}

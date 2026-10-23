@@ -1,4 +1,23 @@
 import type { ReactNode } from "react";
+import { useContagem } from "../lib/animacao";
+
+// Número que "conta" até o valor ao abrir o painel. Recebe o texto já formatado
+// ("R$ 1.234,50", "12", "85%") e anima só a parte numérica, mantendo o formato.
+export function NumeroAnimado({ texto }: { texto: string }) {
+  const m = /-?\d{1,3}(?:\.\d{3})*(?:,\d+)?|-?\d+(?:,\d+)?/.exec(texto);
+  const numero = m ? Number(m[0].replace(/\./g, "").replace(",", ".")) : NaN;
+  const casas = m && m[0].includes(",") ? m[0].split(",")[1].length : 0;
+  const atual = useContagem(Number.isFinite(numero) ? numero : 0);
+  if (!m || !Number.isFinite(numero)) return <>{texto}</>;
+  const formatado = atual.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
+  return (
+    <>
+      {texto.slice(0, m.index)}
+      {formatado}
+      {texto.slice(m.index + m[0].length)}
+    </>
+  );
+}
 
 // Peças do painel. Números sempre em texto (cor de tinta); a cor da marca só
 // aparece nas barras. Barras: um tom só (a marca) sobre um trilho mais claro.
@@ -7,7 +26,9 @@ export function NumeroPrincipal({ rotulo, valor, detalhe }: { rotulo: string; va
   return (
     <div className="rounded-3xl border border-linha bg-white p-5 shadow-sm">
       <p className="text-base font-semibold text-tinta-suave">{rotulo}</p>
-      <p className="mt-1 text-5xl font-black leading-none tracking-tight text-tinta">{valor}</p>
+      <p className="mt-1 text-5xl font-black leading-none tracking-tight text-tinta tabular-nums">
+        <NumeroAnimado texto={valor} />
+      </p>
       {detalhe && <div className="mt-3 text-base text-tinta-suave">{detalhe}</div>}
     </div>
   );
@@ -17,7 +38,9 @@ export function Indicador({ rotulo, valor, detalhe, alerta }: { rotulo: string; 
   return (
     <div className={`rounded-2xl border bg-white p-4 shadow-sm ${alerta ? "border-red-300" : "border-linha"}`}>
       <p className="text-sm font-semibold text-tinta-suave">{rotulo}</p>
-      <p className={`mt-1 text-2xl font-extrabold leading-tight ${alerta ? "text-red-700" : "text-tinta"}`}>{valor}</p>
+      <p className={`mt-1 text-2xl font-extrabold leading-tight tabular-nums ${alerta ? "text-red-700" : "text-tinta"}`}>
+        <NumeroAnimado texto={valor} />
+      </p>
       {detalhe && <p className="mt-0.5 text-sm text-tinta-suave">{detalhe}</p>}
     </div>
   );
@@ -43,7 +66,7 @@ export function BarraMeta({ rotulo, realizado, meta, formatar }: { rotulo: strin
         aria-valuemax={100}
         aria-valuenow={pct}
       >
-        <div className="h-full rounded-full bg-marca transition-[width]" style={{ width: `${pct}%` }} />
+        <div className="crescer-x h-full rounded-full bg-marca transition-[width]" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -72,7 +95,7 @@ export function ListaComBarras({
             <span className="shrink-0 text-base font-bold text-tinta tabular-nums">{i.texto}</span>
           </div>
           <div className="mt-1.5 h-2 rounded bg-marca-suave">
-            <div className="h-2 rounded bg-marca" style={{ width: `${Math.max(2, (i.valor / max) * 100)}%` }} />
+            <div className="crescer-x h-2 rounded bg-marca" style={{ width: `${Math.max(2, (i.valor / max) * 100)}%`, animationDelay: `${n * 60}ms` }} />
           </div>
         </li>
       ))}

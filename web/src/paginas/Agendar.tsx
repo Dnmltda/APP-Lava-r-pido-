@@ -1,3 +1,4 @@
+import { CenaLavagem } from "../componentes/Marca";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { descricaoVeiculo, useMeusVeiculos } from "../componentes/MeusVeiculos";
@@ -146,6 +147,9 @@ export function Agendar() {
 
   return (
     <Moldura voltarPara={`/${empresa.slug}`} titulo="Agendar horário">
+      <div className="mb-5">
+        <CenaLavagem titulo="Reserve o seu horário" texto="Escolha o dia e a hora. O lava rápido confirma pelo app." />
+      </div>
       {msg && <Aviso tipo="sucesso">{msg}</Aviso>}
       {pedidos && pedidos.length > 0 && (
         <section className="mb-5" aria-labelledby="titulo-pedidos">
