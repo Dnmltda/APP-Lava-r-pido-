@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { InstalarApp } from "../componentes/Avisos";
 import { CamposVeiculo, corpoVeiculo, validarVeiculo, VEICULO_VAZIO } from "../componentes/CamposVeiculo";
 import { Moldura } from "../componentes/Moldura";
 import { Aviso, Botao, Campo, Interruptor } from "../componentes/ui";
@@ -34,18 +35,15 @@ async function oferecerSalvarSenha(id: string, password: string) {
   }
 }
 
-export function Entrar() {
-  const { empresa } = useEmpresa();
-  const { usuario, entrar } = useSessao();
-  const navegar = useNavigate();
+// Formulário de login (celular + senha). Usado na tela do lava rápido e na página inicial.
+export function FormEntrar({ onEntrou }: { onEntrou: () => void }) {
+  const { entrar } = useSessao();
   // Lembra o último celular usado neste aparelho (só o número, nunca a senha).
   const [celular, setCelular] = useState(() => mascaraCelular(lerUltimoCelular()));
   const [senha, setSenha] = useState("");
   const [verSenha, setVerSenha] = useState(false);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
-
-  if (usuario) return <Navigate to={`/${empresa.slug}`} replace />;
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -57,7 +55,7 @@ export function Entrar() {
       await entrar(celular, senha);
       guardarUltimoCelular(somenteDigitos(celular));
       await oferecerSalvarSenha(somenteDigitos(celular), senha);
-      navegar(`/${empresa.slug}`, { replace: true });
+      onEntrou();
     } catch (err) {
       const status = (err as { status?: number })?.status;
       setErro(status === 400 ? "Celular ou senha incorretos." : mensagemDeErro(err));
@@ -67,45 +65,57 @@ export function Entrar() {
   }
 
   return (
+    <form onSubmit={enviar} className="mt-6 flex flex-col gap-4" noValidate>
+      <Campo
+        rotulo="Celular"
+        type="tel"
+        name="username"
+        inputMode="numeric"
+        autoComplete="username"
+        placeholder="(11) 98765-4321"
+        value={celular}
+        onChange={(e) => setCelular(mascaraCelular(e.target.value))}
+      />
+      <div className="relative">
+        <Campo
+          rotulo="Senha"
+          type={verSenha ? "text" : "password"}
+          name="password"
+          autoComplete="current-password"
+          value={senha}
+          onChange={(e) => setSenha(e.target.value)}
+          className="pr-24"
+        />
+        <button
+          type="button"
+          onClick={() => setVerSenha((v) => !v)}
+          className="absolute right-1 bottom-1 flex min-h-10 items-center rounded-lg px-3 text-sm font-bold text-marca-forte hover:bg-marca-suave"
+          aria-pressed={verSenha}
+        >
+          {verSenha ? "Esconder" : "Mostrar"}
+        </button>
+      </div>
+      <p className="-mt-2 text-sm text-tinta-suave">O app fica conectado neste celular. O celular também oferece salvar a senha.</p>
+      {erro && <Aviso>{erro}</Aviso>}
+      <Botao type="submit" largo carregando={enviando}>
+        Entrar
+      </Botao>
+    </form>
+  );
+}
+
+export function Entrar() {
+  const { empresa } = useEmpresa();
+  const { usuario } = useSessao();
+  const navegar = useNavigate();
+
+  if (usuario) return <Navigate to={`/${empresa.slug}`} replace />;
+
+  return (
     <Moldura>
       <h1 className="text-2xl font-extrabold text-tinta">Entrar</h1>
       <p className="mt-1 text-base text-tinta-suave">Use o celular e a senha do seu cadastro.</p>
-      <form onSubmit={enviar} className="mt-6 flex flex-col gap-4" noValidate>
-        <Campo
-          rotulo="Celular"
-          type="tel"
-          name="username"
-          inputMode="numeric"
-          autoComplete="username"
-          placeholder="(11) 98765-4321"
-          value={celular}
-          onChange={(e) => setCelular(mascaraCelular(e.target.value))}
-        />
-        <div className="relative">
-          <Campo
-            rotulo="Senha"
-            type={verSenha ? "text" : "password"}
-            name="password"
-            autoComplete="current-password"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            className="pr-24"
-          />
-          <button
-            type="button"
-            onClick={() => setVerSenha((v) => !v)}
-            className="absolute right-1 bottom-1 flex min-h-10 items-center rounded-lg px-3 text-sm font-bold text-marca-forte hover:bg-marca-suave"
-            aria-pressed={verSenha}
-          >
-            {verSenha ? "Esconder" : "Mostrar"}
-          </button>
-        </div>
-        <p className="-mt-2 text-sm text-tinta-suave">O app fica conectado neste celular. O celular também oferece salvar a senha.</p>
-        {erro && <Aviso>{erro}</Aviso>}
-        <Botao type="submit" largo carregando={enviando}>
-          Entrar
-        </Botao>
-      </form>
+      <FormEntrar onEntrou={() => navegar(`/${empresa.slug}`, { replace: true })} />
       <div className="mt-8 border-t border-linha pt-6 text-center">
         <p className="text-base text-tinta-suave">Primeira vez aqui?</p>
         <Link
@@ -117,6 +127,9 @@ export function Entrar() {
         <p className="mt-4 text-sm text-tinta-suave">
           Esqueceu a senha? Fale com o {empresa.nome}.
         </p>
+      </div>
+      <div className="mt-6">
+        <InstalarApp />
       </div>
     </Moldura>
   );

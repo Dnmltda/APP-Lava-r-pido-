@@ -44,7 +44,7 @@ function RotasDaEmpresa() {
         <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-fundo px-6 text-center">
           <p className="text-xl font-extrabold text-tinta">Lava rápido não encontrado</p>
           <p className="text-base text-tinta-suave">Confira o link ou leia de novo o QR Code do balcão.</p>
-          <Link to="/" className="mt-2 inline-flex min-h-12 items-center rounded-xl px-5 font-bold text-marca-forte">
+          <Link to="/" state={{ ficar: true }} className="mt-2 inline-flex min-h-12 items-center rounded-xl px-5 font-bold text-marca-forte">
             Ir para o início
           </Link>
         </div>

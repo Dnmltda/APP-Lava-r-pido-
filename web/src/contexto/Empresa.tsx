@@ -20,6 +20,24 @@ type Estado =
   | { tipo: "erro"; mensagem: string }
   | { tipo: "pronto"; empresa: Empresa };
 
+// Último lava rápido aberto neste aparelho: o app instalado abre direto nele.
+const CHAVE_EMPRESA = "lr_ultima_empresa";
+export function lerUltimaEmpresa() {
+  try {
+    return localStorage.getItem(CHAVE_EMPRESA) || "";
+  } catch {
+    return "";
+  }
+}
+export function guardarUltimaEmpresa(slug: string) {
+  try {
+    if (slug) localStorage.setItem(CHAVE_EMPRESA, slug);
+    else localStorage.removeItem(CHAVE_EMPRESA);
+  } catch {
+    // modo privado: só não lembra
+  }
+}
+
 export function EmpresaProvider({
   slug,
   children,
@@ -47,8 +65,12 @@ export function EmpresaProvider({
       aplicarTema(empresa.cor_principal);
       document.title = `${empresa.nome} · DNM&LTDA Lava Rápido`;
       setEstado({ tipo: "pronto", empresa });
+      guardarUltimaEmpresa(empresa.slug);
     } catch (err: unknown) {
-      if ((err as { status?: number })?.status === 404) setEstado({ tipo: "nao_encontrada" });
+      if ((err as { status?: number })?.status === 404) {
+        if (lerUltimaEmpresa() === slug) guardarUltimaEmpresa("");
+        setEstado({ tipo: "nao_encontrada" });
+      }
       else setEstado({ tipo: "erro", mensagem: mensagemDeErro(err) });
     }
   }, [slug]);
