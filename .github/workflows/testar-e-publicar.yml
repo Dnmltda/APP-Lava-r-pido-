@@ -35,6 +35,8 @@ jobs:
         run: |
           npm ci
           npm run build
+          # Regras dos hooks do React (auditoria 24/10/2026): hook depois de "return" quebra a tela.
+          npx --yes oxlint@1.89.0 -A all -D react-hooks/rules-of-hooks src
 
       - uses: actions/setup-go@v5
         with:

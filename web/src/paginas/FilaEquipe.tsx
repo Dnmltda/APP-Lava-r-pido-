@@ -188,6 +188,14 @@ export function FilaEquipe() {
     );
   };
 
+  // Hooks sempre antes de qualquer return (auditoria 24/10/2026): a animação da fila vem aqui.
+  const pendentes = entradas?.filter((e) => e.status === "pendente") || [];
+  const naFila = entradas?.filter((e) => STATUS_ESPERA.includes(e.status) && e.status !== "pendente") || [];
+  const lavando = entradas?.filter((e) => e.status === "lavando") || [];
+  const prontos = entradas?.filter((e) => e.status === "pronto") || [];
+  const ordemFila = [...pendentes, ...naFila, ...lavando, ...prontos].map((e) => `${e.id}:${e.status}`).join(",");
+  const refFila = useFlip<HTMLDivElement>(ordemFila);
+
   if (!pode(vinculo, "ver_fila_completa")) return <Navigate to={`/${empresa.slug}`} replace />;
 
   const previsao = (id: string) => publica?.fila.find((f) => f.id === id);
@@ -240,13 +248,6 @@ export function FilaEquipe() {
     window.open(linkWhatsApp(cel, mensagemAviso(empresa, nomeDaEntrada(entrada))), "_blank", "noopener");
     if (entrada.status === "confirmado") executar(entrada, "avisar");
   }
-
-  const pendentes = entradas?.filter((e) => e.status === "pendente") || [];
-  const naFila = entradas?.filter((e) => STATUS_ESPERA.includes(e.status) && e.status !== "pendente") || [];
-  const lavando = entradas?.filter((e) => e.status === "lavando") || [];
-  const prontos = entradas?.filter((e) => e.status === "pronto") || [];
-  const ordemFila = [...pendentes, ...naFila, ...lavando, ...prontos].map((e) => `${e.id}:${e.status}`).join(",");
-  const refFila = useFlip<HTMLDivElement>(ordemFila);
 
   const btn = (entrada: EntradaFila, acao: string, rotulo: string, variante: "primario" | "secundario" | "perigo" | "fantasma" = "secundario", onClick?: () => void) => (
     <Botao variante={variante} carregando={ocupado === entrada.id + acao} disabled={!!ocupado} onClick={onClick || (() => executar(entrada, acao))}>
