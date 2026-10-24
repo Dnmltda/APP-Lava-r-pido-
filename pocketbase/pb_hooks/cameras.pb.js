@@ -72,12 +72,28 @@ onRecordEnrich((e) => {
   e.next();
 }, "cameras");
 
-// Nem filtrando dá para adivinhar o token.
+// Nem filtrando dá para adivinhar o token, a chave do sensor ou o endereço do gateway (auditoria 24/10/2026,
+// S3): vale para a lista de câmeras, para o histórico do sensor (camera.chave_sensor…) e para o tempo real.
 onRecordsListRequest((e) => {
   const q = e.requestInfo().query || {};
-  if ((String(q.filter || "") + " " + String(q.sort || "")).indexOf("gateway_token") >= 0) throw new BadRequestError("Filtro inválido.");
+  const texto = (String(q.filter || "") + " " + String(q.sort || "") + " " + String(q.expand || "")).toLowerCase();
+  if (["gateway_token", "chave_sensor", "endereco_stream", "caminho"].some((c) => texto.indexOf(c) >= 0)) throw new BadRequestError("Filtro inválido.");
   e.next();
-}, "cameras");
+}, "cameras", "camera_eventos");
+
+onRealtimeSubscribeRequest((e) => {
+  for (const s of e.subscriptions || []) {
+    let t = String(s);
+    try {
+      t = decodeURIComponent(t);
+    } catch (_) {}
+    t = t.toLowerCase();
+    if ((t.indexOf("cameras") === 0 || t.indexOf("camera_eventos") === 0) && ["gateway_token", "chave_sensor", "endereco_stream", "caminho"].some((c) => t.indexOf(c) >= 0)) {
+      throw new BadRequestError("Filtro inválido.");
+    }
+  }
+  e.next();
+});
 
 // ---------------------------------------------------------------- passe
 // POST /api/lr/cameras/{id}/acesso → { tipo, url } ou { tipo, link } (app do fabricante)
