@@ -165,7 +165,9 @@ async function main() {
       console.log("\n" + rotulo);
       r = await api("GET", `/api/collections/usuarios/records?perPage=500`, { token: p.token });
       const vistos = ids(r);
-      checar("vê pessoas da empresa A (equipe e clientes)", vistos.includes(patraoA.usuario.id) && vistos.includes(clienteA.usuario.id), vistos);
+      // Auditoria 24/10/2026 (S1): sem "Lista de clientes", a equipe vê a equipe, mas não cliente fora de atendimento.
+      checar("vê a equipe da empresa A", vistos.includes(patraoA.usuario.id), vistos);
+      checar("não vê cliente da A fora de atendimento (sem 'Lista de clientes')", !vistos.includes(clienteA.usuario.id), vistos);
       checar("não vê ninguém só da empresa B", !vistos.includes(patraoB.usuario.id) && !vistos.includes(funcB.usuario.id) && !vistos.includes(clienteB.usuario.id), vistos);
       r = await api("GET", `/api/collections/vinculos/records?perPage=500`, { token: p.token });
       const vv = r.data.items;

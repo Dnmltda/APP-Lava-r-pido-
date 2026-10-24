@@ -124,7 +124,10 @@ async function main() {
     r = await api("GET", "/api/collections/veiculos/records", { token: c2.token });
     checar("cliente vê só os próprios veículos", r.data.items.every((v) => v.cliente === c2.usuario.id), r.data.items.length);
     r = await api("GET", `/api/collections/veiculos/records/${v1.id}`, { token: funcA.token });
-    checar("equipe A vê veículo de cliente da A", r.status === 200, r.status);
+    // Auditoria 24/10/2026 (S2): fora de atendimento, só o dono ou quem tem "Lista de clientes" vê o carro.
+    checar("equipe A sem 'Lista de clientes' não vê carro de cliente fora de atendimento", r.status === 404, r.status);
+    r = await api("GET", `/api/collections/veiculos/records/${v1.id}`, { token: patraoA.token });
+    checar("dono da A vê o carro do cliente da A", r.status === 200, r.status);
     r = await api("GET", `/api/collections/veiculos/records/${v1.id}`, { token: funcB.token });
     checar("equipe B não vê veículo de cliente só da A", r.status === 404, r.status);
 

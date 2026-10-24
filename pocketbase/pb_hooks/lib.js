@@ -1622,11 +1622,45 @@ function limparPrecosTipo(e) {
   e.record.set("precos_tipo", limpo);
 }
 
+// Privacidade (auditoria 24/10/2026, S1/S2): até quando a equipe pode ler este cliente e os carros dele
+// sem a permissão "Lista de clientes". Atendimento aberto (fila ativa, pedido de horário, orçamento aberto,
+// plano pedido/ativo) = sem prazo; senão, 24 h depois da última mexida na fila; senão, vazio.
+// A mesma conta está na migração 1794000000 (para quem já existia).
+const SEM_PRAZO_ATENDIMENTO = "2100-01-01 00:00:00.000Z";
+function recalcularAtendimento(app, clienteId, empresaId) {
+  if (!clienteId || !empresaId) return;
+  const v = acharVinculo(app, clienteId, empresaId);
+  if (!v || v.getString("papel") !== "cliente") return;
+  const p = { c: clienteId, e: empresaId };
+  const ativos = STATUS_ATIVOS.map((s) => "status = '" + s + "'").join(" || ");
+  const tem = (col, filtro) => app.findRecordsByFilter(col, "cliente = {:c} && empresa = {:e} && (" + filtro + ")", "", 1, 0, p).length > 0;
+  let ate = "";
+  if (
+    tem("fila_entradas", ativos) ||
+    tem("agendamentos", "status = 'pedido'") ||
+    tem("orcamentos", "status = 'pedido' || status = 'respondido' || status = 'aceito'") ||
+    tem("assinaturas", "status = 'pedido' || status = 'ativa'")
+  ) {
+    ate = SEM_PRAZO_ATENDIMENTO;
+  } else {
+    const ultima = app.findRecordsByFilter("fila_entradas", "cliente = {:c} && empresa = {:e}", "-updated", 1, 0, p)[0];
+    if (ultima) {
+      const t = Date.parse(ultima.getString("updated").replace(" ", "T")) + 24 * 3600000;
+      if (t > Date.now()) ate = new Date(t).toISOString().replace("T", " ");
+    }
+  }
+  const antes = v.getString("atendimento_ate");
+  if ((antes || "") === ate || (antes && ate && Date.parse(antes.replace(" ", "T")) === Date.parse(ate.replace(" ", "T")))) return;
+  v.set("atendimento_ate", ate);
+  app.unsafeWithoutHooks().save(v);
+}
+
 // O cliente pode ter quantos carros quiser na fila; isto é só uma trava técnica por pedido.
 const MAX_CARROS_POR_PEDIDO = 30;
 
 module.exports = {
   MAX_CARROS_POR_PEDIDO,
+  recalcularAtendimento,
   porteNaEmpresa,
   limparPrecosTipo,
   competenciaSP,
